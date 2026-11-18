@@ -17,6 +17,7 @@ struct SubMenuView: View {
   @Binding var showMenu: Bool
   @Binding var gameState: Int
   @Binding var allLogs: [GameLogEntry]
+  @AppStorage(hideTeamColorsKey) private var hideTeamColors: Bool = false
   
   func selectCharacters(team: Int) -> [Character] {
     var teamName: String
@@ -72,6 +73,20 @@ struct SubMenuView: View {
       HStack{
         VStack{
           Spacer()
+          Button(action: {
+            withAnimation(.easeInOut(duration: 0.3)) {
+              hideTeamColors.toggle()
+            }
+          }){
+            Text(hideTeamColors ? "显示颜色" : "隐藏颜色")
+              .font(.system(size: 20,  design: .rounded))
+              .fontWeight(.bold)
+              .foregroundColor(.white)
+              .padding(.horizontal, 15)
+              .padding(.vertical, 10)
+              .background(Color.neutralTeam)
+              .cornerRadius(10)
+          }
           Button(action: {
             if (playerCount < 20){
               aliveCount += 1

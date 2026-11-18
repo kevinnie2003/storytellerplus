@@ -24,8 +24,15 @@ struct PlayerCard: View {
   @Binding var playersHasDeathVote: [Bool]
   @Binding var aliveCount: Int
   @Binding var allLogs: [GameLogEntry]
+  @AppStorage(hideTeamColorsKey) private var hideTeamColors: Bool = false
+  func tagColor(_ team: Int) -> Color {
+    return hideTeamColors ? Color.neutralTeam : teamid2Color(team)
+  }
   var teamColorMain: Color {
     let character = playersAssignedCharacters[index]
+    if hideTeamColors && isPlayerTeam(character.team) {
+      return Color.neutralTeam
+    }
     if character.team == "minion"{
       return Color.minion
     }else if character.team == "demon"{
@@ -103,7 +110,15 @@ struct PlayerCard: View {
               .padding(.horizontal, 5)
               .lineLimit(1)
               .frame(maxWidth: .infinity, alignment: .leading)
+            if hideTeamColors && isPlayerTeam(character.team) {
+              Text(teamShortName(character.team))
+                .font(.system(size: 15, design: .rounded))
+                .fontWeight(.bold)
+                .foregroundColor(teamColorSecondary.opacity(0.45))
+                .frame(width: 18)
+            }
             CachedImageView(urlString: character.imageURL)
+              .grayscale(hideTeamColors ? 1 : 0)
               .frame(width: 50, height: 50)
               .background(Circle()
                 .fill(teamColorSecondary)
@@ -143,13 +158,14 @@ struct PlayerCard: View {
                   Text("\(reminder.playerId + 1)")
                     .font(.system(size: 18, design: .rounded))
                     .fontWeight(.black)
-                    .foregroundColor(teamid2Color(reminder.team))
+                    .foregroundColor(tagColor(reminder.team))
                     .frame(minWidth: 24)
                     .frame(height: 36)
 //                      .background(Circle().fill(Color.goodTextBg).frame(width: 45, height: 45))
                 }
                 if !imageURL.isEmpty {
                   CachedImageView(urlString: imageURL)
+                    .grayscale(hideTeamColors ? 1 : 0)
                     .frame(width: 35, height: 35)
                     .background(Circle().fill(Color.goodTextBg))
                   
@@ -171,7 +187,7 @@ struct PlayerCard: View {
             .frame(height: 42)
             .padding(.horizontal, 3)
             .background(RoundedRectangle(cornerRadius: 20)
-              .fill(teamid2Color(reminder.team)))
+              .fill(tagColor(reminder.team)))
             .rotationEffect(reminder.isReversed ? .degrees(180) : .degrees(0))
             .onTapGesture(count: 2){
               // remove this reminder

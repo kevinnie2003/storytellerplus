@@ -196,6 +196,35 @@ func loadGameData(
 }
 
 
+// 隐藏阵营颜色：开启后主界面上所有按阵营着色的地方都使用同一种中性色
+let hideTeamColorsKey = "hideTeamColors"
+
+extension Color {
+  static let neutralTeam = Color(red: 0.30, green: 0.30, blue: 0.32)
+}
+
+func isPlayerTeam(_ team: String) -> Bool {
+  return ["townsfolk", "outsider", "minion", "demon", "traveler"].contains(team)
+}
+
+// 隐藏颜色时卡片上显示的阵营小字，所有阵营大小、颜色、位置都一样，远看分辨不出来
+func teamShortName(_ team: String) -> String {
+  switch team {
+  case "townsfolk":
+    return "民"
+  case "outsider":
+    return "外"
+  case "minion":
+    return "爪"
+  case "demon":
+    return "恶"
+  case "traveler":
+    return "旅"
+  default:
+    return ""
+  }
+}
+
 func team2Int(_ team: String) -> Int {
   switch team {
   case "townsfolk":
