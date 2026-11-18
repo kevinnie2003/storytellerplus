@@ -97,6 +97,7 @@ struct StoryTellerView: View {
   @State private var showAIPostDraw: Bool = false
   @State private var aiChat: [AIChatMessage] = []
   @State private var aiSetupNotes: String = ""
+  @State private var openAISetupOnAppear: Bool = false
   
   private func makeAIContext() -> AIGameContext {
     AIGameContext(
@@ -174,7 +175,7 @@ struct StoryTellerView: View {
       }
       
       if showSetup{
-        SetupView(playableCharacters: $playableCharacters, playersAssignedCharacters: $playersAssignedCharacters, playerCount: $playerCount, showSetup: $showSetup, aiSetupNotes: $aiSetupNotes)
+        SetupView(playableCharacters: $playableCharacters, playersAssignedCharacters: $playersAssignedCharacters, playerCount: $playerCount, showSetup: $showSetup, aiSetupNotes: $aiSetupNotes, openAISetupOnAppear: $openAISetupOnAppear)
           .zIndex(17)
       }
         
@@ -227,6 +228,25 @@ struct StoryTellerView: View {
                   .contentShape(RoundedRectangle(cornerRadius: 30))
               }
               .padding(.top, 30)
+              Button(action: {
+                openAISetupOnAppear = true
+                showSetup = true
+              }){
+                Text("AI配版")
+                  .font(.system(size: 20,  design: .rounded))
+                  .fontWeight(.bold)
+                  .padding()
+                  .foregroundColor(.black)
+                  .padding(.horizontal, 10)
+                  .padding(.vertical, 3)
+                  .frame(width: 130)
+                  .background(.mainbg)
+                  .cornerRadius(30)
+                  .overlay(RoundedRectangle(cornerRadius: 30).stroke(Color.black, lineWidth: 3))
+                  .contentShape(RoundedRectangle(cornerRadius: 30))
+              }
+              .padding(.top, 30)
+              .padding(.leading, 20)
               Button(action: {showAIPostDraw = true}){
                 Text("AI补完配版")
                   .font(.system(size: 20,  design: .rounded))
@@ -353,6 +373,15 @@ struct StoryTellerView: View {
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .alert(isPresented: $showAlert) {
       Alert(title: Text("错误"), message: Text(alertMessage), dismissButton: .default(Text("确定")))
+    }
+    .onChange(of: showSetup) { _, isShowing in
+      // 用 AI 配的版，玩家抽完卡回到主界面时，直接接上“AI补完配版”
+      let everyoneHasCharacter = !playersAssignedCharacters.isEmpty && !playersAssignedCharacters.contains(where: { $0.name.isEmpty })
+      if !isShowing && gameState == 0 && !aiSetupNotes.isEmpty && everyoneHasCharacter {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+          showAIPostDraw = true
+        }
+      }
     }
     .sheet(isPresented: $showAIAdvisor) {
       AIAdvisorView(chat: $aiChat, makeContext: makeAIContext)

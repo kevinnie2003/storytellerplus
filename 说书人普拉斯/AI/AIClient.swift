@@ -78,7 +78,7 @@ enum AIClient {
   }
   
   /// 发送一次对话，返回模型的文字回复。图片会附在第一条用户消息上。
-  static func send(system: String, messages: [AIChatMessage], imageJPEG: Data? = nil, maxTokens: Int = 16000, config: AIConfig? = nil) async throws -> String {
+  static func send(system: String, messages: [AIChatMessage], imageJPEG: Data? = nil, maxTokens: Int = 16000, thorough: Bool = false, config: AIConfig? = nil) async throws -> String {
     let cfg = config ?? AISettings.shared.config
     guard !cfg.apiKey.isEmpty, !cfg.model.isEmpty else {
       throw AIError.notConfigured
@@ -86,7 +86,7 @@ enum AIClient {
     do {
       switch cfg.provider.style {
       case .anthropic:
-        return try await sendAnthropic(cfg, system: system, messages: messages, imageJPEG: imageJPEG, maxTokens: maxTokens)
+        return try await sendAnthropic(cfg, system: system, messages: messages, imageJPEG: imageJPEG, maxTokens: maxTokens, thorough: thorough)
       case .openAI:
         return try await sendOpenAI(cfg, system: system, messages: messages, imageJPEG: imageJPEG, maxTokens: maxTokens)
       }
@@ -95,7 +95,7 @@ enum AIClient {
     }
   }
   
-  private static func sendAnthropic(_ cfg: AIConfig, system: String, messages: [AIChatMessage], imageJPEG: Data?, maxTokens: Int) async throws -> String {
+  private static func sendAnthropic(_ cfg: AIConfig, system: String, messages: [AIChatMessage], imageJPEG: Data?, maxTokens: Int, thorough: Bool) async throws -> String {
     guard let url = URL(string: trimmedBase(cfg.baseURL) + "/v1/messages") else {
       throw AIError.badURL
     }
@@ -119,6 +119,10 @@ enum AIClient {
     var body: [String: Any] = ["model": cfg.model, "max_tokens": maxTokens, "messages": msgs]
     if !system.isEmpty {
       body["system"] = system
+    }
+    // 配版这类要反复权衡的任务，让 Claude 用更高的思考强度。只对官方接口发这个参数，第三方的 Claude 兼容接口不一定认识它。
+    if thorough && (url.host ?? "").hasSuffix("anthropic.com") {
+      body["output_config"] = ["effort": "high"]
     }
     req.httpBody = try JSONSerialization.data(withJSONObject: body)
     

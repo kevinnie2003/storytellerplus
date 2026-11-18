@@ -15,6 +15,7 @@ struct SetupView: View {
   
   @Binding var showSetup: Bool
   @Binding var aiSetupNotes: String
+  @Binding var openAISetupOnAppear: Bool // 从主界面点“AI 配版”进来时，直接弹出 AI 配版
   @State private var showAISetup: Bool = false
   let startDate = Date() // for the animation effect
   @State private var selectionState: Int = 0 // 0 for choosing number of demon, 1 for letting user choose demon, 2 for show demon, 3 for selecting number of minions, 4 for letting user choose minions, 5 for show minions, 6 for selecting number of outsiders, 7 for letting user choose outsiders, 8 for show outsiders, 9 for selecting number of townsfolk, 10 for letting user choose townsfolk, 11 for show townsfolk, then 12 for letting user pick the actual characters 1 by 1
@@ -106,6 +107,12 @@ struct SetupView: View {
       }
       for _ in 0..<playerCount {
         playerChoices.append(-1) // initialize the player choices
+      }
+      if openAISetupOnAppear {
+        openAISetupOnAppear = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+          showAISetup = true
+        }
       }
     }
     .animation(.easeInOut(duration: 0.5), value: selectionState)

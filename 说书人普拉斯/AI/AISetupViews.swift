@@ -57,7 +57,8 @@ struct AISetupSheet: View {
     Task {
       do {
         let reply = try await AIClient.send(system: AIPrompts.setupSystem,
-                                            messages: [AIChatMessage(role: "user", text: AIPrompts.setupUser(characters: candidates, playerCount: playerCount, wish: wish))])
+                                            messages: [AIChatMessage(role: "user", text: AIPrompts.setupUser(characters: candidates, playerCount: playerCount, wish: wish))],
+                                            thorough: true)
         guard let object = aiExtractJSON(reply) as? [String: Any] else {
           throw AIError.badFormat("不是 JSON")
         }
@@ -203,7 +204,8 @@ struct AIPostDrawSheet: View {
     Task {
       do {
         let reply = try await AIClient.send(system: AIPrompts.postDrawSystem,
-                                            messages: [AIChatMessage(role: "user", text: AIPrompts.postDrawUser(ctx, wish: wish))])
+                                            messages: [AIChatMessage(role: "user", text: AIPrompts.postDrawUser(ctx, wish: wish))],
+                                            thorough: true)
         guard let object = aiExtractJSON(reply) as? [String: Any] else {
           throw AIError.badFormat("不是 JSON")
         }
