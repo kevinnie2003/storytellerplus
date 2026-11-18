@@ -14,6 +14,8 @@ struct SetupView: View {
   @Binding var playerCount: Int
   
   @Binding var showSetup: Bool
+  @Binding var aiSetupNotes: String
+  @State private var showAISetup: Bool = false
   let startDate = Date() // for the animation effect
   @State private var selectionState: Int = 0 // 0 for choosing number of demon, 1 for letting user choose demon, 2 for show demon, 3 for selecting number of minions, 4 for letting user choose minions, 5 for show minions, 6 for selecting number of outsiders, 7 for letting user choose outsiders, 8 for show outsiders, 9 for selecting number of townsfolk, 10 for letting user choose townsfolk, 11 for show townsfolk, then 12 for letting user pick the actual characters 1 by 1
   @State private var selectedCharacters: [Character] = []
@@ -74,6 +76,29 @@ struct SetupView: View {
       }
       
     }
+    .overlay(alignment: .topLeading) {
+      if selectionState < 12 {
+        Button(action: { showAISetup = true }) {
+          HStack(spacing: 6) {
+            Image(systemName: "sparkles")
+            Text("AI 配版")
+          }
+          .font(.system(size: 20, weight: .bold, design: .rounded))
+          .foregroundColor(.black)
+          .padding(.horizontal, 18)
+          .padding(.vertical, 12)
+          .background(Color.goodTextBg)
+          .cornerRadius(30)
+          .overlay(RoundedRectangle(cornerRadius: 30).stroke(Color.black, lineWidth: 3))
+        }
+        .padding(20)
+      }
+    }
+    .sheet(isPresented: $showAISetup) {
+      AISetupSheet(playableCharacters: playableCharacters, playerCount: playerCount) { bag, notes in
+        applyAIBag(bag, notes: notes)
+      }
+    }
     .onAppear{
       playableCharactersShuffled = playableCharacters.shuffled()
       for _ in 0..<playableCharactersShuffled.count {
@@ -85,5 +110,26 @@ struct SetupView: View {
     }
     .animation(.easeInOut(duration: 0.5), value: selectionState)
     .animation(.easeInOut(duration: 0.5), value: showSetup)
+  }
+  
+  // 把 AI 给的抽卡堆填进配版，然后跳到检查页让说书人确认
+  private func applyAIBag(_ bag: [Character], notes: String) {
+    for i in cardSelected.indices {
+      cardSelected[i] = false
+    }
+    extraRepeatedCharacters = []
+    extraRepeatedCardSelected = []
+    for character in bag {
+      if let index = playableCharactersShuffled.indices.first(where: { playableCharactersShuffled[$0] == character && !cardSelected[$0] }) {
+        cardSelected[index] = true
+      } else {
+        // 同一个角色出现多次，走“重复角色”
+        extraRepeatedCharacters.append(character)
+        extraRepeatedCardSelected.append(true)
+      }
+    }
+    selectedTeamCounts = teamNameEnglish.map { team in bag.filter({ $0.team == team }).count }
+    aiSetupNotes = notes
+    selectionState = 11
   }
 }

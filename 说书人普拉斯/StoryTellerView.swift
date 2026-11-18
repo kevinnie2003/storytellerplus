@@ -92,6 +92,47 @@ struct StoryTellerView: View {
   @State private var showFabledCharactersSelection: Bool = false
   @State private var selectedFabledCharacters: [Character] = []
   
+  // FOR AI
+  @State private var showAIAdvisor: Bool = false
+  @State private var showAIPostDraw: Bool = false
+  @State private var aiChat: [AIChatMessage] = []
+  @State private var aiSetupNotes: String = ""
+  
+  private func makeAIContext() -> AIGameContext {
+    AIGameContext(
+      playName: playName,
+      gameState: gameState,
+      playableCharacters: playableCharacters,
+      players: playersAssignedCharacters,
+      alive: playersIsAlive,
+      deathVote: playersHasDeathVote,
+      playerTags: playersStates,
+      globalTags: globalStates,
+      bluffs: notPresentedGoodCharacters,
+      fabled: selectedFabledCharacters,
+      jinxes: jinxList,
+      logs: allLogs,
+      allReminders: allReminders,
+      setupNotes: aiSetupNotes
+    )
+  }
+  
+  // 把 AI 建议的开局标记和恶魔伪装写进魔典
+  private func applyAIPostDraw(tags: [AIPostDrawTag], bluffs: [Character]) {
+    for tag in tags where tag.playerIndex >= 0 && tag.playerIndex < playersStates.count {
+      let template = allReminders.first(where: { $0.from == tag.from && $0.effect == tag.effect })
+      let sourceTeam = characters.first(where: { $0.name == tag.from })?.team ?? ""
+      let sourcePlayer = playersAssignedCharacters.firstIndex(where: { $0.name == tag.from }) ?? -1
+      let reminder = Reminder(from: tag.from, effect: tag.effect, team: template?.team ?? team2Int(sourceTeam), isGlobal: template?.isGlobal ?? false, playerId: sourcePlayer)
+      if !playersStates[tag.playerIndex].contains(where: { $0.from == reminder.from && $0.effect == reminder.effect }) {
+        playersStates[tag.playerIndex].append(reminder)
+      }
+    }
+    if bluffs.count == 3 {
+      notPresentedGoodCharacters = bluffs
+    }
+  }
+  
   // FOR TIMER
   
   
@@ -133,14 +174,14 @@ struct StoryTellerView: View {
       }
       
       if showSetup{
-        SetupView(playableCharacters: $playableCharacters, playersAssignedCharacters: $playersAssignedCharacters, playerCount: $playerCount, showSetup: $showSetup)
+        SetupView(playableCharacters: $playableCharacters, playersAssignedCharacters: $playersAssignedCharacters, playerCount: $playerCount, showSetup: $showSetup, aiSetupNotes: $aiSetupNotes)
           .zIndex(17)
       }
         
       
       HStack{
         // we do a menu bar here
-        MenuView(firstNightOrder: $firstNightOrder, showMenu: $showMenu, showNotepad: $showNotepad, showConversation: $showConversation, showAllCharacterInfos: $showAllCharacterInfos, showExitConfirmation: $showExitConfirmation, currentView: $currentView, gameState: $gameState, allLogs: $allLogs, votingPhase: $votingPhase, nominationPhase: $nominationPhase, playersAssignedCharacters: $playersAssignedCharacters)
+        MenuView(firstNightOrder: $firstNightOrder, showMenu: $showMenu, showNotepad: $showNotepad, showConversation: $showConversation, showAllCharacterInfos: $showAllCharacterInfos, showAIAdvisor: $showAIAdvisor, showExitConfirmation: $showExitConfirmation, currentView: $currentView, gameState: $gameState, allLogs: $allLogs, votingPhase: $votingPhase, nominationPhase: $nominationPhase, playersAssignedCharacters: $playersAssignedCharacters)
           .alert("确定离开当前城镇吗？", isPresented: $showExitConfirmation) {
             Button("取消", role: .cancel) { }
             Button("确定", role: .destructive) {
@@ -186,6 +227,22 @@ struct StoryTellerView: View {
                   .contentShape(RoundedRectangle(cornerRadius: 30))
               }
               .padding(.top, 30)
+              Button(action: {showAIPostDraw = true}){
+                Text("AI补完配版")
+                  .font(.system(size: 20,  design: .rounded))
+                  .fontWeight(.bold)
+                  .padding()
+                  .foregroundColor(.black)
+                  .padding(.horizontal, 10)
+                  .padding(.vertical, 3)
+                  .frame(width: 170)
+                  .background(.mainbg)
+                  .cornerRadius(30)
+                  .overlay(RoundedRectangle(cornerRadius: 30).stroke(Color.black, lineWidth: 3))
+                  .contentShape(RoundedRectangle(cornerRadius: 30))
+              }
+              .padding(.top, 30)
+              .padding(.leading, 20)
             }
             .frame(maxWidth: .infinity)
           }
@@ -296,6 +353,14 @@ struct StoryTellerView: View {
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .alert(isPresented: $showAlert) {
       Alert(title: Text("错误"), message: Text(alertMessage), dismissButton: .default(Text("确定")))
+    }
+    .sheet(isPresented: $showAIAdvisor) {
+      AIAdvisorView(chat: $aiChat, makeContext: makeAIContext)
+    }
+    .sheet(isPresented: $showAIPostDraw) {
+      AIPostDrawSheet(makeContext: makeAIContext) { tags, bluffs in
+        applyAIPostDraw(tags: tags, bluffs: bluffs)
+      }
     }
     .onAppear(){
       if !loadLast{
