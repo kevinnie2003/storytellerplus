@@ -15,6 +15,8 @@ struct ContentView: View {
   @State private var loadLast = false
   @State private var isFileImporterPresented = false
   @State private var jsonArray: [[String: Any]] = []
+  @State private var showAIImport = false
+  @State private var showAISettings = false
   let startDate = Date() // for the animation effect
   var body: some View {
     
@@ -78,6 +80,48 @@ struct ContentView: View {
                 
               }
               .padding(.top, 20)
+              Button(action: {
+                showAIImport = true
+              }){
+                Text("图片生成剧本")
+                  .font(.system(size: 20,  design: .rounded))
+                  .fontWeight(.bold)
+                  .padding()
+                  .foregroundColor(.black)
+                  .padding(.horizontal, 10)
+                  .padding(.vertical, 3)
+                  .frame(width: 190)
+                  .background(.goodTextBg)
+                  .cornerRadius(30)
+                  .overlay(RoundedRectangle(cornerRadius: 30).stroke(Color.black, lineWidth: 3))
+              }
+              .padding(.top, 20)
+              .sheet(isPresented: $showAIImport) {
+                AIScriptImportView { items in
+                  jsonArray = items
+                  loadLast = false
+                  viewNumber = 1
+                }
+              }
+              Button(action: {
+                showAISettings = true
+              }){
+                Text("AI 设置")
+                  .font(.system(size: 20,  design: .rounded))
+                  .fontWeight(.bold)
+                  .padding()
+                  .foregroundColor(.black)
+                  .padding(.horizontal, 10)
+                  .padding(.vertical, 3)
+                  .frame(width: 150)
+                  .background(.goodTextBg)
+                  .cornerRadius(30)
+                  .overlay(RoundedRectangle(cornerRadius: 30).stroke(Color.black, lineWidth: 3))
+              }
+              .padding(.top, 20)
+              .sheet(isPresented: $showAISettings) {
+                AISettingsView()
+              }
               Spacer()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)

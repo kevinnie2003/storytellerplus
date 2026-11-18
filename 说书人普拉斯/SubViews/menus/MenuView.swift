@@ -13,6 +13,7 @@ struct MenuView: View {
   @Binding var showNotepad: Bool
   @Binding var showConversation: Bool
   @Binding var showAllCharacterInfos: Bool
+  @Binding var showAIAdvisor: Bool
   @Binding var showExitConfirmation: Bool
   @Binding var currentView: Int
   @Binding var gameState: Int
@@ -60,6 +61,17 @@ struct MenuView: View {
         exportGameLog(width: 1000, playersAssignedCharacters: playersAssignedCharacters, allLogs: allLogs)
       }){
         Image(systemName: "square.and.arrow.down")
+          .resizable()
+          .scaledToFit()
+          .frame(width: 30, height: 30)
+          .foregroundColor(.black)
+      }
+      .padding(.bottom, 35)
+      .padding(.horizontal, 20)
+      Button(action: {
+        showAIAdvisor = true
+      }){
+        Image(systemName: "sparkles")
           .resizable()
           .scaledToFit()
           .frame(width: 30, height: 30)

@@ -34,6 +34,10 @@ struct PlayersView: View {
   @Binding var globalStates: [Reminder]
   
   let numCols: Int
+  @AppStorage(hideTeamColorsKey) private var hideTeamColors: Bool = false
+  func tagColor(_ team: Int) -> Color {
+    return hideTeamColors ? Color.neutralTeam : teamid2Color(team)
+  }
   
   
   var body: some View {
@@ -63,13 +67,14 @@ struct PlayersView: View {
                   Text("\(reminder.playerId + 1)")
                     .font(.system(size: 25, design: .rounded))
                     .fontWeight(.black)
-                    .foregroundColor(teamid2Color(reminder.team))
+                    .foregroundColor(tagColor(reminder.team))
                     .frame(minWidth: 25)
                     .frame(height: 50)
 //                      .background(Circle().fill(Color.goodTextBg).frame(width: 45, height: 45))
                 }
                 if !imageURL.isEmpty {
                   CachedImageView(urlString: imageURL)
+                    .grayscale(hideTeamColors ? 1 : 0)
                     .frame(width: 48, height: 48)
                     .background(Circle().fill(Color.goodTextBg))
                   
@@ -91,7 +96,7 @@ struct PlayersView: View {
             .frame(height: 54)
             .padding(.horizontal, 3)
             .background(RoundedRectangle(cornerRadius: 27)
-              .fill(teamid2Color(reminder.team)))
+              .fill(tagColor(reminder.team)))
             .rotationEffect(reminder.isReversed ? .degrees(180) : .degrees(0))
             .onTapGesture(count: 2){
               // remove this reminder

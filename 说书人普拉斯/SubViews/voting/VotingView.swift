@@ -27,7 +27,12 @@ struct VotingView: View{
   @Binding var votingPhase: Int
   @Binding var nominationPhase: Int
   
+  @AppStorage(hideTeamColorsKey) private var hideTeamColors: Bool = false
+  
   func getBgColorBasedOnTeam(team: String) -> Color {
+    if hideTeamColors && isPlayerTeam(team) {
+      return Color.neutralTeam
+    }
     switch team {
     case "townsfolk":
       return Color.townsfolk

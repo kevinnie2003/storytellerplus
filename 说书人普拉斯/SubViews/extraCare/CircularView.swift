@@ -10,7 +10,11 @@ import SwiftUI
 struct CircularView: View{
   @Binding var playersAssignedCharacters: [Character]
   @Binding var playersIsAlive: [Bool]
+  @AppStorage(hideTeamColorsKey) private var hideTeamColors: Bool = false
   func backgroundColor(for team: String) -> Color {
+    if hideTeamColors && isPlayerTeam(team) {
+      return .neutralTeam
+    }
     switch team {
     case "townsfolk": return .townsfolk
     case "outsider": return .outsider
@@ -49,6 +53,7 @@ struct CircularView: View{
             .opacity(playersIsAlive[index] ? 1.0 : 0.3) // adjust opacity based on player status
           
           CachedImageView(urlString: playersAssignedCharacters[index].imageURL)
+            .grayscale(hideTeamColors ? 1 : 0)
             .frame(width: 45, height: 45)
             .scaleEffect(1.0 - Double(playersAssignedCharacters.count) * 0.0125) // scale down the view based on the number of characters
             .position(x: x, y: y)
