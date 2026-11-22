@@ -27,6 +27,7 @@ struct AIPostDrawTag: Identifiable {
 struct AIPostDrawPlan {
   var tags: [AIPostDrawTag] = []
   var bluffs: [Character] = []
+  var bluffsReason: String = ""
   var notes: String = ""
 }
 
@@ -38,6 +39,8 @@ struct AISetupSheet: View {
   @Environment(\.dismiss) private var dismiss
   @State private var wish: String = ""
   @State private var busy: Bool = false
+  @State private var startedAt: Date = Date()
+  @State private var progress: String = ""
   @State private var errorText: String = ""
   @State private var plan: AIBagPlan? = nil
   @State private var showSettings: Bool = false
@@ -51,14 +54,25 @@ struct AISetupSheet: View {
   
   private func generate() {
     busy = true
+    startedAt = Date()
+    progress = "正在思考…"
     errorText = ""
     plan = nil
     let candidates = playableCharacters.filter({ teams.contains($0.team) })
     Task {
       do {
-        let reply = try await AIClient.send(system: AIPrompts.setupSystem,
-                                            messages: [AIChatMessage(role: "user", text: AIPrompts.setupUser(characters: candidates, playerCount: playerCount, wish: wish))],
-                                            thorough: true)
+        let reply = try await AIClient.sendStreaming(
+          system: AIPrompts.setupSystem,
+          messages: [AIChatMessage(role: "user", text: AIPrompts.setupUser(characters: candidates, playerCount: playerCount, wish: wish))],
+          maxTokens: 16000, effort: "high",
+          onThinking: { thought in
+            progress = aiThinkingTail(thought)
+          }
+        ) { partial in
+          if !partial.isEmpty {
+            progress = "正在写出配版…"
+          }
+        }
         guard let object = aiExtractJSON(reply) as? [String: Any] else {
           throw AIError.badFormat("不是 JSON")
         }
@@ -108,7 +122,7 @@ struct AISetupSheet: View {
         }
         .disabled(busy || playerCount < 5)
         if busy {
-          ProgressView()
+          AIProgressLine(since: startedAt, text: progress)
         }
         if playerCount < 5 {
           Text("至少需要 5 名玩家")
@@ -187,6 +201,8 @@ struct AIPostDrawSheet: View {
   @Environment(\.dismiss) private var dismiss
   @State private var wish: String = ""
   @State private var busy: Bool = false
+  @State private var startedAt: Date = Date()
+  @State private var progress: String = ""
   @State private var errorText: String = ""
   @State private var plan: AIPostDrawPlan? = nil
   @State private var applyBluffs: Bool = true
@@ -199,13 +215,24 @@ struct AIPostDrawSheet: View {
       return
     }
     busy = true
+    startedAt = Date()
+    progress = "正在思考…"
     errorText = ""
     plan = nil
     Task {
       do {
-        let reply = try await AIClient.send(system: AIPrompts.postDrawSystem,
-                                            messages: [AIChatMessage(role: "user", text: AIPrompts.postDrawUser(ctx, wish: wish))],
-                                            thorough: true)
+        let reply = try await AIClient.sendStreaming(
+          system: AIPrompts.postDrawSystem,
+          messages: [AIChatMessage(role: "user", text: AIPrompts.postDrawUser(ctx, wish: wish))],
+          maxTokens: 16000, effort: "high",
+          onThinking: { thought in
+            progress = aiThinkingTail(thought)
+          }
+        ) { partial in
+          if !partial.isEmpty {
+            progress = "正在写出结果…"
+          }
+        }
         guard let object = aiExtractJSON(reply) as? [String: Any] else {
           throw AIError.badFormat("不是 JSON")
         }
@@ -224,6 +251,7 @@ struct AIPostDrawSheet: View {
             result.bluffs.append(character)
           }
         }
+        result.bluffsReason = object["bluffs_reason"] as? String ?? ""
         result.notes = object["notes"] as? String ?? ""
         plan = result
       } catch {
@@ -237,7 +265,7 @@ struct AIPostDrawSheet: View {
     let ctx = makeContext()
     VStack(alignment: .leading, spacing: 12) {
       AIPanelHeader(title: "AI 补完配版", showSettings: $showSettings, onClose: { dismiss() })
-      Text("玩家抽完卡之后，让 AI 决定谁是酒鬼、提线木偶、疯子这类角色，挂上开局标记，并选三个恶魔伪装。结果要你确认后才会应用。")
+      Text("玩家抽完卡之后，让 AI 定下首夜之前必须决定的事：谁是酒鬼、提线木偶、疯子，占卜师的干扰项，首夜信息指向谁，以及三个恶魔伪装。之后才触发的能力不会提前打标记。结果要你确认后才会应用。")
         .font(.system(size: 16, design: .rounded))
       if !ctx.setupNotes.isEmpty {
         Text("配版时留下的待办：\n\(ctx.setupNotes)")
@@ -257,7 +285,7 @@ struct AIPostDrawSheet: View {
         }
         .disabled(busy)
         if busy {
-          ProgressView()
+          AIProgressLine(since: startedAt, text: progress)
         }
       }
       if !errorText.isEmpty {
@@ -290,8 +318,15 @@ struct AIPostDrawSheet: View {
             }
             if plan!.bluffs.count == 3 {
               Toggle(isOn: $applyBluffs) {
-                Text("恶魔伪装：\(plan!.bluffs.map({ $0.name }).joined(separator: "、"))")
-                  .font(.system(size: 17, weight: .bold, design: .rounded))
+                VStack(alignment: .leading, spacing: 2) {
+                  Text("恶魔伪装：\(plan!.bluffs.map({ $0.name }).joined(separator: "、"))")
+                    .font(.system(size: 17, weight: .bold, design: .rounded))
+                  if !plan!.bluffsReason.isEmpty {
+                    Text(plan!.bluffsReason)
+                      .font(.system(size: 15, design: .rounded))
+                      .foregroundColor(.secondary)
+                  }
+                }
               }
               .tint(.black)
             }

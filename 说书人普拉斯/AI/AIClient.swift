@@ -195,6 +195,163 @@ enum AIClient {
     return text
   }
   
+  // MARK: 流式请求
+  
+  private static func messagesPayload(_ messages: [AIChatMessage], imageJPEG: Data?, anthropic: Bool) -> [[String: Any]] {
+    var msgs: [[String: Any]] = []
+    for (i, m) in messages.enumerated() {
+      if i == 0, let img = imageJPEG {
+        let b64 = img.base64EncodedString()
+        if anthropic {
+          msgs.append(["role": m.role, "content": [
+            ["type": "image", "source": ["type": "base64", "media_type": "image/jpeg", "data": b64]],
+            ["type": "text", "text": m.text]
+          ]])
+        } else {
+          msgs.append(["role": m.role, "content": [
+            ["type": "text", "text": m.text],
+            ["type": "image_url", "image_url": ["url": "data:image/jpeg;base64,\(b64)"]]
+          ]])
+        }
+      } else {
+        msgs.append(["role": m.role, "content": m.text])
+      }
+    }
+    return msgs
+  }
+  
+  /// 流式发送，边生成边通过 onProgress 回报目前已经写出的全部文字，结束后返回完整回复。
+  /// effort 只对 Claude 官方接口生效，可以是 "low"、"medium"、"high"。
+  static func sendStreaming(system: String, messages: [AIChatMessage], imageJPEG: Data? = nil, maxTokens: Int = 32000, effort: String? = nil, config: AIConfig? = nil, onThinking: (@MainActor (String) -> Void)? = nil, onProgress: @escaping @MainActor (String) -> Void) async throws -> String {
+    let cfg = config ?? AISettings.shared.config
+    guard !cfg.apiKey.isEmpty, !cfg.model.isEmpty else {
+      throw AIError.notConfigured
+    }
+    let isAnthropic = cfg.provider.style == .anthropic
+    guard !cfg.baseURL.isEmpty, let url = URL(string: trimmedBase(cfg.baseURL) + (isAnthropic ? "/v1/messages" : "/chat/completions")) else {
+      throw AIError.badURL
+    }
+    var req = URLRequest(url: url)
+    req.httpMethod = "POST"
+    req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    var body: [String: Any] = ["model": cfg.model, "stream": true]
+    if isAnthropic {
+      req.setValue(cfg.apiKey, forHTTPHeaderField: "x-api-key")
+      req.setValue("2026-10-21", forHTTPHeaderField: "anthropic-version")
+      body["max_tokens"] = maxTokens
+      body["messages"] = messagesPayload(messages, imageJPEG: imageJPEG, anthropic: true)
+      if !system.isEmpty {
+        body["system"] = system
+      }
+      let official = (url.host ?? "").hasSuffix("anthropic.com")
+      if let effort = effort, official {
+        body["output_config"] = ["effort": effort]
+      }
+      // 让 Claude 把思考过程的摘要也流式发回来，用来显示进度。旧型号不支持这种写法，跳过。
+      let model = cfg.model.lowercased()
+      let oldModel = model.contains("haiku-4") || model.contains("-4-5") || model.contains("-4-1") || model.contains("-3-")
+      if onThinking != nil && official && !oldModel {
+        body["thinking"] = ["type": "adaptive", "display": "summarized"]
+      }
+    } else {
+      req.setValue("Bearer \(cfg.apiKey)", forHTTPHeaderField: "Authorization")
+      var msgs: [[String: Any]] = []
+      if !system.isEmpty {
+        msgs.append(["role": "system", "content": system])
+      }
+      msgs.append(contentsOf: messagesPayload(messages, imageJPEG: imageJPEG, anthropic: false))
+      body["messages"] = msgs
+      body[cfg.provider.usesMaxCompletionTokens ? "max_completion_tokens" : "max_tokens"] = maxTokens
+    }
+    req.httpBody = try JSONSerialization.data(withJSONObject: body)
+    
+    let (bytes, resp) = try await session.bytes(for: req)
+    let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
+    if code != 200 {
+      var data = Data()
+      for try await byte in bytes {
+        data.append(byte)
+        if data.count > 20000 {
+          break
+        }
+      }
+      let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+      var message = errorMessage(json, data)
+      if imageJPEG != nil && code == 400 {
+        message += "（这个模型可能不支持图片输入，请换一个支持图片的模型）"
+      }
+      throw AIError.http(code, message)
+    }
+    
+    var text = ""
+    var thinking = ""
+    var stop = ""
+    var lastReport = Date.distantPast
+    for try await line in bytes.lines {
+      guard line.hasPrefix("data:") else {
+        continue
+      }
+      let payload = line.dropFirst(5).trimmingCharacters(in: .whitespaces)
+      if payload == "[DONE]" {
+        break
+      }
+      guard let event = (try? JSONSerialization.jsonObject(with: Data(payload.utf8))) as? [String: Any] else {
+        continue
+      }
+      if isAnthropic {
+        let type = event["type"] as? String ?? ""
+        if type == "content_block_delta", let delta = event["delta"] as? [String: Any], (delta["type"] as? String) == "text_delta" {
+          text += delta["text"] as? String ?? ""
+        } else if type == "content_block_delta", let delta = event["delta"] as? [String: Any], (delta["type"] as? String) == "thinking_delta" {
+          thinking += delta["thinking"] as? String ?? ""
+        } else if type == "message_delta", let delta = event["delta"] as? [String: Any] {
+          stop = delta["stop_reason"] as? String ?? stop
+        } else if type == "error" {
+          throw AIError.http(0, errorMessage(event, Data(payload.utf8)))
+        }
+      } else {
+        if event["error"] != nil {
+          throw AIError.http(0, errorMessage(event, Data(payload.utf8)))
+        }
+        if let choice = (event["choices"] as? [[String: Any]])?.first {
+          if let delta = choice["delta"] as? [String: Any] {
+            if let piece = delta["content"] as? String {
+              text += piece
+            }
+            if let piece = delta["reasoning_content"] as? String {
+              thinking += piece
+            }
+          }
+          if let finish = choice["finish_reason"] as? String {
+            stop = finish
+          }
+        }
+      }
+      if Date().timeIntervalSince(lastReport) > 0.25 {
+        lastReport = Date()
+        let snapshot = text
+        if snapshot.isEmpty, let onThinking = onThinking, !thinking.isEmpty {
+          let thought = thinking
+          await onThinking(thought)
+        } else {
+          await onProgress(snapshot)
+        }
+      }
+    }
+    if stop == "refusal" {
+      throw AIError.refusal
+    }
+    if stop == "max_tokens" || stop == "length" {
+      throw AIError.truncated
+    }
+    if text.isEmpty {
+      throw AIError.empty
+    }
+    let final = text
+    await onProgress(final)
+    return final
+  }
+  
   /// 向提供商查询可用的模型 ID
   static func listModels(_ cfg: AIConfig) async throws -> [String] {
     let path = cfg.provider.style == .anthropic ? "/v1/models?limit=100" : "/models"

@@ -20,6 +20,9 @@ struct AIAdvisorView: View {
   @Environment(\.dismiss) private var dismiss
   @State private var input: String = ""
   @State private var busy: Bool = false
+  @State private var startedAt: Date = Date()
+  @State private var progress: String = ""
+  @State private var streamingText: String = ""
   @State private var errorText: String = ""
   @State private var showSettings: Bool = false
   
@@ -41,16 +44,25 @@ struct AIAdvisorView: View {
     input = ""
     errorText = ""
     busy = true
+    startedAt = Date()
+    progress = "正在思考…"
+    streamingText = ""
     let history = chat
     let system = AIPrompts.advisorSystem(makeContext())
     Task {
       do {
-        let reply = try await AIClient.send(system: system, messages: history, maxTokens: 8000)
+        let reply = try await AIClient.sendStreaming(system: system, messages: history, maxTokens: 8000, onThinking: { thought in
+          progress = aiThinkingTail(thought)
+        }) { partial in
+          streamingText = partial
+        }
+        streamingText = ""
         chat.append(AIChatMessage(role: "assistant", text: reply.trimmingCharacters(in: .whitespacesAndNewlines)))
       } catch {
         errorText = error.localizedDescription
       }
       busy = false
+      streamingText = ""
     }
   }
   
@@ -85,13 +97,22 @@ struct AIAdvisorView: View {
               .id(message.id)
             }
             if busy {
-              HStack {
-                ProgressView()
-                Text("思考中…")
-                  .font(.system(size: 15, design: .rounded))
-                  .foregroundColor(.secondary)
+              if streamingText.isEmpty {
+                AIProgressLine(since: startedAt, text: progress)
+                  .id("busy")
+              } else {
+                HStack {
+                  Text(aiMarkdown(streamingText))
+                    .font(.system(size: 17, weight: .medium, design: .rounded))
+                    .foregroundColor(.black)
+                    .padding(12)
+                    .background(Color.goodTextBg)
+                    .cornerRadius(14)
+                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.black, lineWidth: 2))
+                  Spacer(minLength: 60)
+                }
+                .id("busy")
               }
-              .id("busy")
             }
             if !errorText.isEmpty {
               Text(errorText)
@@ -101,6 +122,9 @@ struct AIAdvisorView: View {
           }
           .frame(maxWidth: .infinity, alignment: .leading)
           .padding(.vertical, 5)
+        }
+        .onChange(of: streamingText) { _, _ in
+          proxy.scrollTo("busy", anchor: .bottom)
         }
         .onChange(of: chat.count) { _, _ in
           if let last = chat.last {
