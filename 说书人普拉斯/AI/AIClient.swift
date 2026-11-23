@@ -11,6 +11,7 @@ struct AIChatMessage: Identifiable, Hashable {
   let id = UUID()
   var role: String // "user" 或 "assistant"
   var text: String
+  var display: String? = nil // 界面上显示的文字；不填就显示 text（预设问题的提示词很长，只显示它的标题）
 }
 
 enum AIError: LocalizedError {

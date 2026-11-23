@@ -35,12 +35,12 @@ struct AIAdvisorView: View {
     "今晚恶魔的刀怎么处理比较有戏？"
   ]
   
-  private func send(_ text: String) {
+  private func send(_ text: String, display: String? = nil, effort: String? = nil) {
     let question = text.trimmingCharacters(in: .whitespacesAndNewlines)
     if question.isEmpty || busy {
       return
     }
-    chat.append(AIChatMessage(role: "user", text: question))
+    chat.append(AIChatMessage(role: "user", text: question, display: display))
     input = ""
     errorText = ""
     busy = true
@@ -51,7 +51,7 @@ struct AIAdvisorView: View {
     let system = AIPrompts.advisorSystem(makeContext())
     Task {
       do {
-        let reply = try await AIClient.sendStreaming(system: system, messages: history, maxTokens: 8000, onThinking: { thought in
+        let reply = try await AIClient.sendStreaming(system: system, messages: history, maxTokens: 32000, effort: effort, onThinking: { thought in
           progress = aiThinkingTail(thought)
         }) { partial in
           streamingText = partial
@@ -82,7 +82,7 @@ struct AIAdvisorView: View {
                 if message.role == "user" {
                   Spacer(minLength: 60)
                 }
-                Text(aiMarkdown(message.text))
+                Text(aiMarkdown(message.display ?? message.text))
                   .font(.system(size: 17, weight: .medium, design: .rounded))
                   .foregroundColor(message.role == "user" ? Color.goodTextBg : .black)
                   .padding(12)
@@ -135,6 +135,9 @@ struct AIAdvisorView: View {
         }
       }
       HFlow(horizontalAlignment: .leading, verticalAlignment: .top) {
+        AIChip(text: "一批博学者信息，我来挑") {
+          send(AIPrompts.savantBatchPrompt, display: "一批博学者信息，我来挑", effort: "medium")
+        }
         ForEach(quickPrompts, id: \.self) { prompt in
           AIChip(text: prompt) {
             send(prompt)
