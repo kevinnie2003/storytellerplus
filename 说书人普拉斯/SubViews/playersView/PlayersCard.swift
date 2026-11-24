@@ -87,8 +87,10 @@ struct PlayerCard: View {
                   .foregroundColor(.demon)
                   .opacity(index >= playersIsAlive.count ? 0.0 : (playersIsAlive[index] ? 0.0 : 1))
               )
-              .onTapGesture {
+              // 长按号码才切换死亡/复活，避免误触
+              .onLongPressGesture(minimumDuration: 0.5) {
                 if gameState != 0 {
+                  UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                   withAnimation(.easeInOut(duration: 0.3)) {
                     playersIsAlive[index].toggle()
                   }

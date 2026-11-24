@@ -62,6 +62,22 @@ struct GameSaveData: Codable {
 }
 
 
+/// 剧本 JSON 里的 image 有两种写法：一个链接字符串，或者一个链接数组（新格式，依次是善良、邪恶等版本的图标）。
+/// 数组时取第一个非空的链接。
+func imageURLString(_ value: Any?) -> String {
+  if let text = value as? String {
+    return text
+  }
+  if let list = value as? [Any] {
+    for item in list {
+      if let text = item as? String, !text.isEmpty {
+        return text
+      }
+    }
+  }
+  return ""
+}
+
 func loadGameData(
   from playJSON: [[String: Any]],
   characters: inout [Character],
@@ -97,7 +113,7 @@ func loadGameData(
     } else if id.contains("_meta") {
       let jinx = Jinx(
         name: jsonItem["name"] as? String ?? "",
-        imageURL: jsonItem["image"] as? String ?? "",
+        imageURL: imageURLString(jsonItem["image"]),
         type: 1,
         description: jsonItem["ability"] as? String ?? ""
       )
@@ -113,7 +129,7 @@ func loadGameData(
         let name = jsonItem["name"] as? String ?? ""
         let description = jsonItem["ability"] as? String ?? ""
         if !name.isEmpty && !description.isEmpty {
-          jinxList.append(Jinx(name: name, imageURL: jsonItem["image"] as? String ?? "", type: 1, description: description))
+          jinxList.append(Jinx(name: name, imageURL: imageURLString(jsonItem["image"]), type: 1, description: description))
         }
       }
       
@@ -142,7 +158,7 @@ func loadGameData(
       
       
       
-      let imageURL = jsonItem["image"] as? String ?? ""
+      let imageURL = imageURLString(jsonItem["image"])
       
       let character = Character(
         id: id,

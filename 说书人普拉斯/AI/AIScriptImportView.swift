@@ -54,7 +54,7 @@ enum AIScriptTools {
   static func fillIcons(_ items: inout [[String: Any]]) -> [String] {
     var missing: [String] = []
     for i in items.indices where isCharacter(items[i]) {
-      let existing = items[i]["image"] as? String ?? ""
+      let existing = imageURLString(items[i]["image"])
       let official = (items[i]["officialId"] as? String ?? "").trimmingCharacters(in: .whitespaces).lowercased()
       if existing.isEmpty {
         if !official.isEmpty && official.allSatisfy({ $0.isLetter || $0 == "_" }) {
