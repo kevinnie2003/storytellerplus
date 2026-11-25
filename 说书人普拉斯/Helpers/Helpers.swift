@@ -59,6 +59,8 @@ struct GameSaveData: Codable {
   let selectedFabledCharacters: [Character]
   
   let globalStates: [Reminder]
+  
+  var gameID: String? = nil // 每一局的存档 id，旧存档没有这个字段
 }
 
 

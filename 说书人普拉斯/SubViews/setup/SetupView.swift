@@ -32,17 +32,12 @@ struct SetupView: View {
   var body: some View{
     ZStack{
       // setup the background color effect
-      TimelineView(.periodic(from: .now, by: 1.0 / 15.0)) { context in
-        let time = Float(context.date.timeIntervalSince(startDate))
-        ZStack{
-          Color.white
-            .colorEffect(ShaderLibrary.dotPatternShader(
-              .float(80),
-              .float(1),
-              .float(time)))
-            .edgesIgnoringSafeArea(.all)
-        }
-      } // end of timeline view
+      Color.white
+        .colorEffect(ShaderLibrary.dotPatternShader(
+          .float(80),
+          .float(1),
+          .float(0)))
+        .edgesIgnoringSafeArea(.all)
       
       
       Group{

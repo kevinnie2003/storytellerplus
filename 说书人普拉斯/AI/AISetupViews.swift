@@ -62,7 +62,7 @@ struct AISetupSheet: View {
     Task {
       do {
         let reply = try await AIClient.sendStreaming(
-          system: AIPrompts.setupSystem,
+          system: AIPrompts.withHouseRules(AIPrompts.setupSystem),
           messages: [AIChatMessage(role: "user", text: AIPrompts.setupUser(characters: candidates, playerCount: playerCount, wish: wish))],
           maxTokens: 16000, effort: "high",
           onThinking: { thought in
@@ -222,7 +222,7 @@ struct AIPostDrawSheet: View {
     Task {
       do {
         let reply = try await AIClient.sendStreaming(
-          system: AIPrompts.postDrawSystem,
+          system: AIPrompts.withHouseRules(AIPrompts.postDrawSystem),
           messages: [AIChatMessage(role: "user", text: AIPrompts.postDrawUser(ctx, wish: wish))],
           maxTokens: 16000, effort: "high",
           onThinking: { thought in

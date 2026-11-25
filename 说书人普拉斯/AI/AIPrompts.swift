@@ -137,6 +137,21 @@ enum AIPrompts {
     return parts.joined(separator: "\n\n")
   }
   
+  /// 说书人在设置里写的本店规矩，追加到系统提示词最后
+  static func withHouseRules(_ system: String) -> String {
+    let rules = AppSettings.shared.houseRules.trimmingCharacters(in: .whitespacesAndNewlines)
+    if rules.isEmpty {
+      return system
+    }
+    return system + """
+
+
+    【本店规矩】
+    下面是这家店的说书人定的规矩，和上面的通用做法冲突时，以这里为准：
+    \(rules)
+    """
+  }
+  
   // MARK: 说书人心法（三个功能共用）
   
   /// 高水平说书人的通用原则，整理自官方百科、集石百科的说书人建议和社区的带局经验
@@ -238,10 +253,15 @@ enum AIPrompts {
   }
   
   /// 预设问题：一次给一批博学者信息让说书人自己挑
-  static let savantBatchPrompt = """
+  /// 一批博学者信息的条数和真假比例来自设置
+  static var savantBatchPrompt: String {
+    let total = AppSettings.shared.savantBatchTotal
+    let truths = min(AppSettings.shared.savantBatchTrue, total - 1)
+    let basic = max(1, total / 5)
+    return """
   给我一批这一局可以给博学者的信息备选，我自己挑着用。不管场上有没有博学者都直接给。
 
-  我要的是有创意、让玩家听了想琢磨的信息，不是“几号几号里有一个邪恶”这种谁都会给的。一共 14 条：8 条真的，6 条假的。其中“几人里恰有几个邪恶”“某两人同阵营”“某角色在不在场”这三种基础款加起来最多 3 条，其余 11 条每条换一个思路，从下面这些方向里挑，也可以自己想新的：
+  我要的是有创意、让玩家听了想琢磨的信息，不是“几号几号里有一个邪恶”这种谁都会给的。一共 \(total) 条：\(truths) 条真的，\(total - truths) 条假的。其中“几人里恰有几个邪恶”“某两人同阵营”“某角色在不在场”这三种基础款加起来最多 \(basic) 条，其余每条换一个思路，从下面这些方向里挑，也可以自己想新的：
   - 座位号的数字游戏：邪恶玩家座位号之和的奇偶或大小、恶魔的座位号比爪牙大还是小、是不是质数、最大和最小的邪恶座位号相差多少。
   - 比较和排序：谁比谁离恶魔更近、从某号顺时针数第几个邪恶玩家是什么类型、哪一半桌子邪恶更多。
   - 条件和假设：“如果几号是邪恶，那几号也是”“如果今天处决几号，游戏不会结束”“几号和几号里至少有一个在说真话”。
@@ -258,6 +278,7 @@ enum AIPrompts {
   - 假的那几条要贴合邪恶方现在的伪装和他们想推的人，让人想信，而且同样要有创意。
   - 先列全部【真】，再列全部【假】，各组里由弱到强。
   """
+  }
   
   // MARK: AI 配版
   

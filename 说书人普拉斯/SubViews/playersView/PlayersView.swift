@@ -34,6 +34,7 @@ struct PlayersView: View {
   @Binding var globalStates: [Reminder]
   
   let numCols: Int
+  @ObservedObject private var appSettings = AppSettings.shared
   @AppStorage(hideTeamColorsKey) private var hideTeamColors: Bool = false
   func tagColor(_ team: Int) -> Color {
     return hideTeamColors ? Color.neutralTeam : teamid2Color(team)
@@ -100,8 +101,8 @@ struct PlayersView: View {
             .rotationEffect(reminder.isReversed ? .degrees(180) : .degrees(0))
             .onTapGesture(count: 2){
               // remove this reminder
-              globalStates.remove(at: reminderIndex)
-              allLogs.append(GameLogEntry(message: "\(reminder.effect)", messager: -10, source: reminder.from, type: 17, characterName: "全局", playerNumbers: [reminder.playerId], playerCharacters: [reminder.from], playerTeams: [reminder.team]))
+              let entry = GameLogEntry(message: "\(reminder.effect)", messager: -10, source: reminder.from, type: 17, characterName: "全局", playerNumbers: [reminder.playerId], playerCharacters: [reminder.from], playerTeams: [reminder.team])
+              TownActions.removeReminder(at: reminderIndex, from: $globalStates, logEntry: entry, logs: $allLogs, label: "全局标签")
             }
             .onLongPressGesture(minimumDuration: 1){
               withAnimation(.easeInOut(duration: 0.3)) {
@@ -134,6 +135,22 @@ struct PlayersView: View {
       .overlay(RoundedRectangle(cornerRadius: 50)
         .stroke(Color.black, lineWidth: 8))
       .clipShape(RoundedRectangle(cornerRadius: 50))
+      if appSettings.circleLayout {
+        CircleTownView(
+          playersAssignedCharacters: $playersAssignedCharacters,
+          playersStates: $playersStates,
+          currentSelectedPlayerID: $currentSelectedPlayerID,
+          selectNewCharacter: $selectNewCharacter,
+          currentSelectedPlayerIDForReminder: $currentSelectedPlayerIDForReminder,
+          selectNewReminder: $selectNewReminder,
+          selectedReminderIndex: $selectedReminderIndex,
+          playersIsAlive: $playersIsAlive,
+          playersHasDeathVote: $playersHasDeathVote,
+          aliveCount: $aliveCount,
+          gameState: $gameState,
+          allLogs: $allLogs
+        )
+      } else {
       ForEach(0 ..< Int(ceil(Double(playersAssignedCharacters.count) / Double(numCols))), id: \.self) { rowIndex in
         HStack{
           ForEach(0 ..< numCols, id: \.self) { colIndex in
@@ -168,6 +185,7 @@ struct PlayersView: View {
             
           }
         }
+      }
       }
     }
     .animation(.easeInOut(duration: 0.3), value: playersAssignedCharacters.count)

@@ -67,11 +67,7 @@ struct StoryTellerView: View {
   
   // FOR THE NOTEPAD
   @State private var showNotepad: Bool = false
-  @State private var predefinedTags: [String] = [
-    "你是", "他是", "是", "活着", "死亡", "邪恶", "善良",
-    "镇民", "外来者", "爪牙", "旅行者", "恶魔", "中毒", "醉酒", "你被", "洗脑",
-    "使用能力吗", "共边", "不共边", "左边", "右边", "不能说", "不可以", "不建议", "请选择", "选择", "?"
-  ]
+  @State private var predefinedTags: [String] = AppSettings.shared.notepadTags
   
   // FOR LISTING THE CHARACTER AND THEIR ABILITIES
   @State private var showCharacterAndAbilities: Bool = false
@@ -91,6 +87,68 @@ struct StoryTellerView: View {
   // FOR FABLED CHARACTERS
   @State private var showFabledCharactersSelection: Bool = false
   @State private var selectedFabledCharacters: [Character] = []
+  
+  // FOR SETTINGS AND ARCHIVE
+  @State private var showSettings: Bool = false
+  @State private var showArchive: Bool = false
+  @State private var gameID: String = UUID().uuidString
+  @ObservedObject private var appSettings = AppSettings.shared
+  
+  private func makeSaveData() -> GameSaveData {
+    GameSaveData(
+      playName: playName,
+      playAuthor: playAuthor,
+      gameState: gameState,
+      characters: characters,
+      playersAssignedCharacters: playersAssignedCharacters,
+      playersIsAlive: playersIsAlive,
+      playersHasDeathVote: playersHasDeathVote,
+      aliveCount: aliveCount,
+      playableCharacters: playableCharacters,
+      travelers: travelers,
+      fabled: fabled,
+      notPresentedGoodCharacters: notPresentedGoodCharacters,
+      jinxList: jinxList,
+      allReminders: allReminders,
+      playersStates: playersStates,
+      currentSelectedPlayerID: currentSelectedPlayerID,
+      selectNewCharacter: selectNewCharacter,
+      currentSelectedPlayerIDForReminder: currentSelectedPlayerIDForReminder,
+      selectNewReminder: selectNewReminder,
+      selectedReminderIndex: selectedReminderIndex,
+      allLogs: allLogs,
+      firstNightOrder: firstNightOrder,
+      currentlyAwakePlayerIndex: currentlyAwakePlayerIndex,
+      selectedFabledCharacters: selectedFabledCharacters,
+      globalStates: globalStates,
+      gameID: gameID
+    )
+  }
+  
+  /// 保存当前这一局：一份作为“返回小镇”用的最近存档，开始游戏之后再在存档列表里存一份
+  private func saveGame() {
+    let saveData = makeSaveData()
+    if let encoded = try? JSONEncoder().encode(saveData) {
+      UserDefaults.standard.set(encoded, forKey: "SavedGameState")
+    }
+    GameArchive.save(saveData)
+  }
+  
+  /// 载入另一局：先保存当前这一局，再重新打开小镇
+  private func loadArchive(_ id: String) {
+    saveGame()
+    guard let data = GameArchive.load(id) else {
+      alertMessage = "读取存档失败。"
+      showAlert = true
+      return
+    }
+    UserDefaults.standard.set(data, forKey: "SavedGameState")
+    loadLast = true
+    currentView = 0
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+      currentView = 1
+    }
+  }
   
   // FOR AI
   @State private var showAIAdvisor: Bool = false
@@ -146,7 +204,7 @@ struct StoryTellerView: View {
       
       // here we put a menu bar
       if showMenu{
-        SubMenuView(playersAssignedCharacters: $playersAssignedCharacters, playersStates: $playersStates, playersIsAlive: $playersIsAlive, playersHasDeathVote: $playersHasDeathVote, playerCount: $playerCount, aliveCount: $aliveCount, playableCharacters: $playableCharacters, notPresentedGoodCharacters: $notPresentedGoodCharacters, showMenu: $showMenu, gameState: $gameState, allLogs: $allLogs)
+        SubMenuView(showSettings: $showSettings, showArchive: $showArchive, playersAssignedCharacters: $playersAssignedCharacters, playersStates: $playersStates, playersIsAlive: $playersIsAlive, playersHasDeathVote: $playersHasDeathVote, playerCount: $playerCount, aliveCount: $aliveCount, playableCharacters: $playableCharacters, notPresentedGoodCharacters: $notPresentedGoodCharacters, showMenu: $showMenu, gameState: $gameState, allLogs: $allLogs)
           .offset(x: 65)
           .zIndex(10)
       }// end of the if loop for showing menu
@@ -189,7 +247,7 @@ struct StoryTellerView: View {
               currentView = 0
             }
           } message: {
-            Text("城镇内容将会被清空")
+            Text(gameState == 0 ? "还没开始游戏，这个城镇不会保存" : "这一局已经存进存档，可以在设置里载入")
           }
           .background(RoundedRectangle(cornerRadius: 10).fill(Color.mainbg))
           .overlay(RoundedRectangle(cornerRadius: 10)
@@ -209,7 +267,7 @@ struct StoryTellerView: View {
                       gameState: $gameState,
                       allLogs: $allLogs,
                       globalStates: $globalStates,
-                      numCols: 3
+                      numCols: appSettings.cardsPerRow
           )
           if (gameState == 0){
             HStack{
@@ -406,6 +464,16 @@ struct StoryTellerView: View {
           alertMessage: &alertMessage,
           showAlert: &showAlert
         )
+        // 按设置预设玩家人数
+        let count = appSettings.defaultPlayerCount
+        if count > 0 && playersAssignedCharacters.isEmpty {
+          playerCount = count
+          aliveCount = count
+          playersAssignedCharacters = Array(repeating: defaultCharacter, count: count)
+          playersStates = Array(repeating: [Reminder](), count: count)
+          playersIsAlive = Array(repeating: true, count: count)
+          playersHasDeathVote = Array(repeating: true, count: count)
+        }
       }else{
         if let data = UserDefaults.standard.data(forKey: "SavedGameState") {
           do {
@@ -437,6 +505,7 @@ struct StoryTellerView: View {
             self.currentlyAwakePlayerIndex = decoded.currentlyAwakePlayerIndex
             self.selectedFabledCharacters = decoded.selectedFabledCharacters
             self.globalStates = decoded.globalStates
+            self.gameID = decoded.gameID ?? UUID().uuidString
             
             print("[Load] Successfully restored saved game.")
           } catch {
@@ -452,39 +521,43 @@ struct StoryTellerView: View {
       }
     }
     .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { _ in
-      let saveData = GameSaveData(
-        playName: playName,
-        playAuthor: playAuthor,
-        gameState: gameState,
-        characters: characters,
-        playersAssignedCharacters: playersAssignedCharacters,
-        playersIsAlive: playersIsAlive,
-        playersHasDeathVote: playersHasDeathVote,
-        aliveCount: aliveCount,
-        playableCharacters: playableCharacters,
-        travelers: travelers,
-        fabled: fabled,
-        notPresentedGoodCharacters: notPresentedGoodCharacters,
-        jinxList: jinxList,
-        allReminders: allReminders,
-        playersStates: playersStates,
-        currentSelectedPlayerID: currentSelectedPlayerID,
-        selectNewCharacter: selectNewCharacter,
-        currentSelectedPlayerIDForReminder: currentSelectedPlayerIDForReminder,
-        selectNewReminder: selectNewReminder,
-        selectedReminderIndex: selectedReminderIndex,
-        allLogs: allLogs,
-        firstNightOrder: firstNightOrder,
-        currentlyAwakePlayerIndex: currentlyAwakePlayerIndex,
-        selectedFabledCharacters: selectedFabledCharacters,
-        globalStates: globalStates
-      )
-      
-      if let encoded = try? JSONEncoder().encode(saveData) {
-        UserDefaults.standard.set(encoded, forKey: "SavedGameState")
-        print("[AutoSave] Game saved at \(Date())")
-      } else {
-        print("[AutoSave] Failed to encode game state.")
+      saveGame()
+    }
+    .onChange(of: gameState) { _, _ in
+      // 开始游戏、天亮、入夜时各存一次
+      saveGame()
+    }
+    .onDisappear {
+      saveGame()
+      UndoCenter.shared.clear()
+    }
+    .overlay(alignment: .bottom) {
+      UndoToast()
+        .padding(.bottom, 24)
+    }
+    .onChange(of: showArchive) { _, showing in
+      // 打开存档前先存一次，列表里就是最新的状态
+      if showing {
+        saveGame()
+      }
+    }
+    .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
+      saveGame()
+    }
+    .onChange(of: predefinedTags) { _, tags in
+      // 记事本里新加的常用词也记到设置里
+      if tags != appSettings.notepadTags {
+        appSettings.notepadTags = tags
+      }
+    }
+    .sheet(isPresented: $showSettings, onDismiss: {
+      predefinedTags = appSettings.notepadTags
+    }) {
+      SettingsView()
+    }
+    .sheet(isPresented: $showArchive) {
+      ArchiveView(currentGameID: gameState == 0 ? nil : gameID) { id in
+        loadArchive(id)
       }
     }
     .animation(.easeInOut(duration: 0.3), value: selectNewCharacter)

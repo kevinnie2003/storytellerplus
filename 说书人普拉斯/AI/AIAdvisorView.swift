@@ -48,7 +48,7 @@ struct AIAdvisorView: View {
     progress = "正在思考…"
     streamingText = ""
     let history = chat
-    let system = AIPrompts.advisorSystem(makeContext())
+    let system = AIPrompts.withHouseRules(AIPrompts.advisorSystem(makeContext()))
     Task {
       do {
         let reply = try await AIClient.sendStreaming(system: system, messages: history, maxTokens: 32000, effort: effort, onThinking: { thought in

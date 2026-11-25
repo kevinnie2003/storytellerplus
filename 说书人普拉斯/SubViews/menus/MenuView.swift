@@ -82,7 +82,7 @@ struct MenuView: View {
       Button(action: {
         showAllCharacterInfos = true
       }){
-        Image(systemName: "note.text")
+        Image(systemName: "person.2.crop.square.stack")
           .resizable()
           .scaledToFit()
           .frame(width: 30, height: 30)
@@ -93,7 +93,7 @@ struct MenuView: View {
       Button(action: {
         showConversation = true
       }){
-        Image(systemName: "text.bubble")
+        Image(systemName: "list.bullet.clipboard")
           .resizable()
           .scaledToFit()
           .frame(width: 30, height: 30)
@@ -104,7 +104,7 @@ struct MenuView: View {
       Button(action: {
         showNotepad = true
       }){
-        Image(systemName: "pencil.line")
+        Image(systemName: "rectangle.and.pencil.and.ellipsis")
           .resizable()
           .scaledToFit()
           .frame(width: 30, height: 30)

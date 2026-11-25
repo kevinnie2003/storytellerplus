@@ -17,21 +17,36 @@ struct ContentView: View {
   @State private var jsonArray: [[String: Any]] = []
   @State private var showAIImport = false
   @State private var showAISettings = false
+  @State private var showStartChooser = false
+  @State private var showArchive = false
+  
+  /// 上一局（“继续上一局”用）的剧本名，没有就是空
+  private var lastGameName: String {
+    guard let data = UserDefaults.standard.data(forKey: "SavedGameState"),
+          let game = try? JSONDecoder().decode(GameSaveData.self, from: data) else {
+      return ""
+    }
+    return game.playName.isEmpty ? "无名剧本" : game.playName
+  }
+  
+  private func openArchive(_ id: String) {
+    if let data = GameArchive.load(id) {
+      UserDefaults.standard.set(data, forKey: "SavedGameState")
+      loadLast = true
+      viewNumber = 1
+    }
+  }
   let startDate = Date() // for the animation effect
   var body: some View {
     
     ZStack{
-      TimelineView(.periodic(from: .now, by: 1.0 / 15.0)) { context in
-        let time = Float(context.date.timeIntervalSince(startDate))
-        ZStack{
-          Color.white
-            .colorEffect(ShaderLibrary.dotPatternShader(
-              .float(80),
-              .float(1),
-              .float(time)))
-            .edgesIgnoringSafeArea(.all)
-        }
-      }
+      // 静止的圆点背景
+      Color.white
+        .colorEffect(ShaderLibrary.dotPatternShader(
+          .float(80),
+          .float(1),
+          .float(0)))
+        .edgesIgnoringSafeArea(.all)
       //      Color.mainbg
       //        .edgesIgnoringSafeArea(.all)
       
@@ -44,58 +59,22 @@ struct ContentView: View {
             }
           }
           ZStack{
-            VStack{
+            VStack(spacing: 18){
               Spacer()
-              Button(action: {
-                isFileImporterPresented = true
-                loadLast = false
-              }){
-                Text("上传JSON")
-                  .font(.system(size: 20,  design: .rounded))
-                  .fontWeight(.bold)
-                  .padding()
-                  .foregroundColor(.black)
-                  .padding(.horizontal, 10)
-                  .padding(.vertical, 3)
-                  .frame(width: 150)
-                  .background(.goodTextBg)
-                  .cornerRadius(30)
-                  .overlay(RoundedRectangle(cornerRadius: 30).stroke(Color.black, lineWidth: 3))
+              Text("说书人普拉斯")
+                .font(.system(size: 52, weight: .black, design: .rounded))
+                .padding(.bottom, 26)
+              STBigButton(title: "开始游戏", systemImage: "play.fill", filled: true) {
+                showStartChooser = true
               }
-              Button(action: {
-                loadLast = true
-                viewNumber = 1
-              }){
-                Text("返回小镇")
-                  .font(.system(size: 20,  design: .rounded))
-                  .fontWeight(.bold)
-                  .padding()
-                  .foregroundColor(.black)
-                  .padding(.horizontal, 10)
-                  .padding(.vertical, 3)
-                  .frame(width: 150)
-                  .background(.goodTextBg)
-                  .cornerRadius(30)
-                  .overlay(RoundedRectangle(cornerRadius: 30).stroke(Color.black, lineWidth: 3))
-                
+              .frame(width: 320)
+              STBigButton(title: "设置", systemImage: "gearshape.fill") {
+                showAISettings = true
               }
-              .padding(.top, 20)
-              Button(action: {
-                showAIImport = true
-              }){
-                Text("图片生成剧本")
-                  .font(.system(size: 20,  design: .rounded))
-                  .fontWeight(.bold)
-                  .padding()
-                  .foregroundColor(.black)
-                  .padding(.horizontal, 10)
-                  .padding(.vertical, 3)
-                  .frame(width: 190)
-                  .background(.goodTextBg)
-                  .cornerRadius(30)
-                  .overlay(RoundedRectangle(cornerRadius: 30).stroke(Color.black, lineWidth: 3))
+              .frame(width: 320)
+              .sheet(isPresented: $showAISettings) {
+                SettingsView()
               }
-              .padding(.top, 20)
               .sheet(isPresented: $showAIImport) {
                 AIScriptImportView { items in
                   jsonArray = items
@@ -103,27 +82,43 @@ struct ContentView: View {
                   viewNumber = 1
                 }
               }
-              Button(action: {
-                showAISettings = true
-              }){
-                Text("AI 设置")
-                  .font(.system(size: 20,  design: .rounded))
-                  .fontWeight(.bold)
-                  .padding()
-                  .foregroundColor(.black)
-                  .padding(.horizontal, 10)
-                  .padding(.vertical, 3)
-                  .frame(width: 150)
-                  .background(.goodTextBg)
-                  .cornerRadius(30)
-                  .overlay(RoundedRectangle(cornerRadius: 30).stroke(Color.black, lineWidth: 3))
-              }
-              .padding(.top, 20)
-              .sheet(isPresented: $showAISettings) {
-                AISettingsView()
+              .sheet(isPresented: $showArchive) {
+                ArchiveView { id in
+                  openArchive(id)
+                }
               }
               Spacer()
             }
+            if showStartChooser {
+              Color.black.opacity(0.25)
+                .ignoresSafeArea()
+                .onTapGesture { showStartChooser = false }
+              StartChooser(
+                lastGameName: lastGameName,
+                onUploadJSON: {
+                  showStartChooser = false
+                  isFileImporterPresented = true
+                  loadLast = false
+                },
+                onImageScript: {
+                  showStartChooser = false
+                  showAIImport = true
+                },
+                onContinue: {
+                  showStartChooser = false
+                  loadLast = true
+                  viewNumber = 1
+                },
+                onOpenArchive: {
+                  showStartChooser = false
+                  showArchive = true
+                },
+                onClose: { showStartChooser = false }
+              )
+              .transition(.scale(scale: 0.95).combined(with: .opacity))
+            }
+          }
+          .animation(.easeOut(duration: 0.2), value: showStartChooser)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .transition(.opacity)
             .fileImporter(
@@ -140,7 +135,6 @@ struct ContentView: View {
                 print("Failed to import file: \(error.localizedDescription)")
               }
             }
-          }
         }else if viewNumber == 1{
           StoryTellerView(currentView: $viewNumber, loadLast: $loadLast, playJSON: jsonArray)
             .transition(.opacity)
@@ -188,4 +182,58 @@ struct ContentView: View {
 #Preview {
   ContentView()
   //    .modelContainer(for: Item.self, inMemory: true)
+}
+
+/// 点“开始游戏”后的选择：开一局新的，或者回到存档
+struct StartChooser: View {
+  let lastGameName: String
+  let onUploadJSON: () -> Void
+  let onImageScript: () -> Void
+  let onContinue: () -> Void
+  let onOpenArchive: () -> Void
+  let onClose: () -> Void
+  
+  var body: some View {
+    VStack(alignment: .leading, spacing: 22) {
+      HStack {
+        Text("开始游戏")
+          .font(.system(size: 30, weight: .black, design: .rounded))
+        Spacer()
+        Button(action: onClose) {
+          Image(systemName: "xmark")
+            .font(.system(size: 20, weight: .black))
+            .foregroundColor(.black)
+            .padding(8)
+        }
+        .buttonStyle(.plain)
+      }
+      HStack(alignment: .top, spacing: 22) {
+        VStack(alignment: .leading, spacing: 12) {
+          Text("新的一局")
+            .font(.system(size: 19, weight: .bold, design: .rounded))
+            .foregroundColor(.black.opacity(0.6))
+          STBigButton(title: "上传剧本 JSON", systemImage: "doc.fill", filled: true, action: onUploadJSON)
+          STBigButton(title: "用图片生成剧本", systemImage: "photo.fill", action: onImageScript)
+        }
+        Rectangle()
+          .fill(Color.black)
+          .frame(width: 3)
+        VStack(alignment: .leading, spacing: 12) {
+          Text("接着玩")
+            .font(.system(size: 19, weight: .bold, design: .rounded))
+            .foregroundColor(.black.opacity(0.6))
+          if !lastGameName.isEmpty {
+            STBigButton(title: "继续上一局", subtitle: lastGameName, systemImage: "arrow.uturn.backward", filled: true, action: onContinue)
+          }
+          STBigButton(title: "打开存档", systemImage: "tray.full.fill", action: onOpenArchive)
+        }
+      }
+      .fixedSize(horizontal: false, vertical: true)
+    }
+    .padding(28)
+    .frame(width: 760)
+    .background(Color.mainbg)
+    .clipShape(RoundedRectangle(cornerRadius: 26))
+    .overlay(RoundedRectangle(cornerRadius: 26).stroke(Color.black, lineWidth: 4))
+  }
 }

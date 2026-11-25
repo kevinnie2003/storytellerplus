@@ -25,6 +25,29 @@ struct PlayerCard: View {
   @Binding var aliveCount: Int
   @Binding var allLogs: [GameLogEntry]
   @AppStorage(hideTeamColorsKey) private var hideTeamColors: Bool = false
+  @ObservedObject private var appSettings = AppSettings.shared
+  @State private var showDeathConfirm: Bool = false
+  
+  private func fontSize(_ base: CGFloat) -> CGFloat {
+    (base * appSettings.cardFontScale).rounded()
+  }
+  
+  /// 号码被点或被长按时：按设置决定是否先确认
+  private func requestToggleAlive() {
+    if gameState == 0 || index >= playersIsAlive.count {
+      return
+    }
+    if appSettings.confirmDeath {
+      showDeathConfirm = true
+    } else {
+      toggleAlive()
+    }
+  }
+  
+  private func toggleAlive() {
+    TownActions.toggleAlive(index: index, players: playersAssignedCharacters, alive: $playersIsAlive, deathVote: $playersHasDeathVote, aliveCount: $aliveCount, logs: $allLogs)
+  }
+
   func tagColor(_ team: Int) -> Color {
     return hideTeamColors ? Color.neutralTeam : teamid2Color(team)
   }
@@ -74,10 +97,10 @@ struct PlayerCard: View {
         VStack {
           HStack {
             Text("\(index + 1)")
-              .font(.system(size: 25, design: .rounded))
+              .font(.system(size: fontSize(25), design: .rounded))
               .fontWeight(.black)
               .foregroundColor(teamColorMain)
-              .frame(width: 50, height: 50, alignment: .center)
+              .frame(width: appSettings.cardsPerRow >= 4 ? 40 : 50, height: appSettings.cardsPerRow >= 4 ? 40 : 50, alignment: .center)
               .background(Circle()
                 .fill(teamColorSecondary)
               )
@@ -87,30 +110,22 @@ struct PlayerCard: View {
                   .foregroundColor(.demon)
                   .opacity(index >= playersIsAlive.count ? 0.0 : (playersIsAlive[index] ? 0.0 : 1))
               )
-              // 长按号码才切换死亡/复活，避免误触
-              .onLongPressGesture(minimumDuration: 0.5) {
-                if gameState != 0 {
-                  UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                  withAnimation(.easeInOut(duration: 0.3)) {
-                    playersIsAlive[index].toggle()
-                  }
-                  
-                  aliveCount += playersIsAlive[index] ? 1 : -1
-                  if playersIsAlive[index]{
-                    allLogs.append(GameLogEntry(message: "", messager: index + 1, source: "说书人", type: 12, characterName: character.name, playerNumbers: [index + 1], playerCharacters: [character.name], playerTeams: [team2Int(character.team)]))
-                    playersHasDeathVote[index] = true
-                  }else{
-                    allLogs.append(GameLogEntry(message: "", messager: index + 1, source: "说书人", type: 6, characterName: character.name, playerNumbers: [index + 1], playerCharacters: [character.name], playerTeams: [team2Int(character.team)]))
-                  }
+              // 按设置：点一下或者长按号码切换死亡/复活
+              .modifier(SeatNumberGesture(byTap: appSettings.deathByTap, seconds: appSettings.deathLongPressSeconds, action: requestToggleAlive))
+              .alert(index < playersIsAlive.count && playersIsAlive[index] ? "让 \(index + 1) 号死亡吗？" : "让 \(index + 1) 号复活吗？", isPresented: $showDeathConfirm) {
+                Button("取消", role: .cancel) {}
+                Button("确定", role: .destructive) {
+                  toggleAlive()
                 }
               }
               .padding(.leading, 5)
             Text(character.name)
-              .font(.system(size: 22, design: .rounded))
+              .font(.system(size: fontSize(22), design: .rounded))
               .fontWeight(.bold)
               .foregroundColor(teamColorSecondary)
               .padding(.horizontal, 5)
               .lineLimit(1)
+              .minimumScaleFactor(0.5)
               .frame(maxWidth: .infinity, alignment: .leading)
             if hideTeamColors && isPlayerTeam(character.team) {
               Text(teamShortName(character.team))
@@ -121,7 +136,7 @@ struct PlayerCard: View {
             }
             CachedImageView(urlString: character.imageURL)
               .grayscale(hideTeamColors ? 1 : 0)
-              .frame(width: 50, height: 50)
+              .frame(width: appSettings.cardsPerRow >= 4 ? 40 : 50, height: appSettings.cardsPerRow >= 4 ? 40 : 50)
               .background(Circle()
                 .fill(teamColorSecondary)
               )
@@ -133,7 +148,7 @@ struct PlayerCard: View {
           }
           .padding(.top, 20)
           Text(character.ability)
-            .font(.system(size: 18, design: .rounded))
+            .font(.system(size: fontSize(18), design: .rounded))
             .fontWeight(.semibold)
             .foregroundColor(teamColorSecondary.opacity(1))
             .padding(.horizontal, 5)
@@ -158,7 +173,7 @@ struct PlayerCard: View {
               HStack(spacing: 0){
                 if reminder.playerId >= 0 {
                   Text("\(reminder.playerId + 1)")
-                    .font(.system(size: 18, design: .rounded))
+                    .font(.system(size: fontSize(18), design: .rounded))
                     .fontWeight(.black)
                     .foregroundColor(tagColor(reminder.team))
                     .frame(minWidth: 24)
@@ -180,7 +195,7 @@ struct PlayerCard: View {
               .background(RoundedRectangle(cornerRadius: 20).fill(Color.goodTextBg))
               .padding(.trailing, (reminder.playerId >= 0 || imageURL != "") ? 2: 0)
               Text(reminder.effect)
-                .font(.system(size: 18, design: .rounded))
+                .font(.system(size: fontSize(18), design: .rounded))
                 .fontWeight(.bold)
                 .foregroundColor(.goodTextBg)
                 .padding(.horizontal, 5)
@@ -193,8 +208,8 @@ struct PlayerCard: View {
             .rotationEffect(reminder.isReversed ? .degrees(180) : .degrees(0))
             .onTapGesture(count: 2){
               // remove this reminder
-              reminders.remove(at: reminderIndex)
-              allLogs.append(GameLogEntry(message: "\(reminder.effect)", messager: index + 1, source: reminder.from, type: 14, characterName: character.name, playerNumbers: [index + 1], playerCharacters: [character.name, reminder.from], playerTeams: [team2Int(character.team), reminder.team]))
+              let entry = GameLogEntry(message: "\(reminder.effect)", messager: index + 1, source: reminder.from, type: 14, characterName: character.name, playerNumbers: [index + 1], playerCharacters: [character.name, reminder.from], playerTeams: [team2Int(character.team), reminder.team])
+              TownActions.removeReminder(at: reminderIndex, from: $reminders, logEntry: entry, logs: $allLogs, label: "\(index + 1) 号的标签")
             }
             .onLongPressGesture(minimumDuration: 1){
               withAnimation(.easeInOut(duration: 0.3)) {
@@ -231,6 +246,21 @@ struct PlayerCard: View {
         .animation(.easeInOut(duration: 0.3), value: reminders.count)
       }
       .frame(maxWidth: .infinity)
+    }
+  }
+}
+
+/// 号码的手势：点一下，或者长按指定秒数
+struct SeatNumberGesture: ViewModifier {
+  let byTap: Bool
+  let seconds: Double
+  let action: () -> Void
+  
+  func body(content: Content) -> some View {
+    if byTap {
+      content.onTapGesture(perform: action)
+    } else {
+      content.onLongPressGesture(minimumDuration: seconds, perform: action)
     }
   }
 }
