@@ -41,6 +41,7 @@ struct ArchiveView: View {
   @Environment(\.dismiss) private var dismiss
   @State private var entries: [GameArchiveEntry] = []
   @State private var pendingDelete: GameArchiveEntry? = nil
+  @State private var reviewing: GameArchiveEntry? = nil
   
   private func stageText(_ entry: GameArchiveEntry) -> String {
     switch entry.gameState {
@@ -89,6 +90,9 @@ struct ArchiveView: View {
                   Spacer(minLength: 0)
                 }
                 HStack(spacing: 10) {
+                  STChoice(selected: false, action: { reviewing = entry }) {
+                    Text("复盘").font(.system(size: 17, weight: .bold, design: .rounded))
+                  }
                   if isCurrent {
                     Text("正在进行")
                       .font(.system(size: 17, weight: .bold, design: .rounded))
@@ -129,6 +133,9 @@ struct ArchiveView: View {
     .aiPanelSizing()
     .onAppear {
       entries = GameArchive.list()
+    }
+    .sheet(item: $reviewing) { entry in
+      ReviewView(gameID: entry.id)
     }
     .alert("删除“\(pendingDelete?.playName ?? "")”的存档吗？", isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } })) {
       Button("取消", role: .cancel) {}
