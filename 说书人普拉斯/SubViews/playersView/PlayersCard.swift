@@ -212,9 +212,16 @@ struct PlayerCard: View {
               TownActions.removeReminder(at: reminderIndex, from: $reminders, logEntry: entry, logs: $allLogs, label: "\(index + 1) 号的标签")
             }
             .onLongPressGesture(minimumDuration: 1){
+              let entry = GameLogEntry(message: "\(reminder.effect)", messager: index + 1, source: reminder.from, type: 15, characterName: character.name, playerNumbers: [index + 1], playerCharacters: [character.name, reminder.from], playerTeams: [team2Int(character.team), reminder.team])
               withAnimation(.easeInOut(duration: 0.3)) {
                 reminders[reminderIndex].isReversed.toggle()
-                allLogs.append(GameLogEntry(message: "\(reminder.effect)", messager: index + 1, source: reminder.from, type: 15, characterName: character.name, playerNumbers: [index + 1], playerCharacters: [character.name, reminder.from], playerTeams: [team2Int(character.team), reminder.team]))
+                allLogs.append(entry)
+              }
+              let flipped = reminderIndex
+              UndoCenter.shared.register("已倒置“\(reminder.effect)”") {
+                guard flipped < reminders.count else { return }
+                withAnimation(.easeInOut(duration: 0.3)) { reminders[flipped].isReversed.toggle() }
+                allLogs.removeAll(where: { $0.id == entry.id })
               }
             }
           }

@@ -24,6 +24,28 @@ struct CharacterSelectionView: View {
   @State private var demons: [Character] = []
   @State private var travelers: [Character] = []
   @State private var officialTravelers: [Character] = []
+  /// 换角色，并登记撤销（恢复原来的角色，去掉这次的记录）
+  private func assignWithUndo(_ character: Character) {
+    let slot = currentSelectedPlayerID
+    let previous: Character? = slot < playersAssignedCharacters.count ? playersAssignedCharacters[slot] : (slot > 20 && slot - 21 < notPresentedGoodCharacters.count ? notPresentedGoodCharacters[slot - 21] : nil)
+    let logCount = allLogs.count
+    assignCharacter(to: slot, character: character, playersAssignedCharacters: &playersAssignedCharacters, notPresentedGoodCharacters: &notPresentedGoodCharacters)
+    guard let old = previous, old != character else { return }
+    // 记录是在这一步之后追加的，等它写完再登记
+    DispatchQueue.main.async {
+      let added = allLogs.count > logCount ? Array(allLogs[logCount...]).map { $0.id } : []
+      let label = slot > 20 ? "恶魔伪装" : "\(slot + 1) 号"
+      UndoCenter.shared.register("已把\(label)换成\(character.name)") {
+        if slot < playersAssignedCharacters.count {
+          playersAssignedCharacters[slot] = old
+        } else if slot > 20 && slot - 21 < notPresentedGoodCharacters.count {
+          notPresentedGoodCharacters[slot - 21] = old
+        }
+        allLogs.removeAll(where: { added.contains($0.id) })
+      }
+    }
+  }
+  
   var body: some View{
     ZStack {
       Color.mainbg.opacity(0.3)
@@ -61,7 +83,7 @@ struct CharacterSelectionView: View {
             .overlay(RoundedRectangle(cornerRadius: 10)
               .stroke(Color.black, lineWidth: selectedCharacterNames.contains(character.name) ? 3 : 0))
             .onTapGesture {
-              assignCharacter(to: currentSelectedPlayerID, character: character, playersAssignedCharacters: &playersAssignedCharacters, notPresentedGoodCharacters: &notPresentedGoodCharacters)
+              assignWithUndo(character)
               selectNewCharacter = false
               if gameState != 0{
                 // we assigned a new character not in start phase
@@ -103,7 +125,7 @@ struct CharacterSelectionView: View {
             .overlay(RoundedRectangle(cornerRadius: 10)
               .stroke(Color.black, lineWidth: selectedCharacterNames.contains(character.name) ? 3 : 0))
             .onTapGesture {
-              assignCharacter(to: currentSelectedPlayerID, character: character, playersAssignedCharacters: &playersAssignedCharacters, notPresentedGoodCharacters: &notPresentedGoodCharacters)
+              assignWithUndo(character)
               selectNewCharacter = false
               if gameState != 0{
                 // we assigned a new character not in start phase
@@ -145,7 +167,7 @@ struct CharacterSelectionView: View {
             .overlay(RoundedRectangle(cornerRadius: 10)
               .stroke(Color.black, lineWidth: selectedCharacterNames.contains(character.name) ? 3 : 0))
             .onTapGesture {
-              assignCharacter(to: currentSelectedPlayerID, character: character, playersAssignedCharacters: &playersAssignedCharacters, notPresentedGoodCharacters: &notPresentedGoodCharacters)
+              assignWithUndo(character)
               selectNewCharacter = false
               if gameState != 0{
                 // we assigned a new character not in start phase
@@ -187,7 +209,7 @@ struct CharacterSelectionView: View {
             .overlay(RoundedRectangle(cornerRadius: 10)
               .stroke(Color.black, lineWidth: selectedCharacterNames.contains(character.name) ? 3 : 0))
             .onTapGesture {
-              assignCharacter(to: currentSelectedPlayerID, character: character, playersAssignedCharacters: &playersAssignedCharacters, notPresentedGoodCharacters: &notPresentedGoodCharacters)
+              assignWithUndo(character)
               selectNewCharacter = false
               if gameState != 0{
                 // we assigned a new character not in start phase
@@ -229,7 +251,7 @@ struct CharacterSelectionView: View {
             .overlay(RoundedRectangle(cornerRadius: 10)
               .stroke(Color.black, lineWidth: selectedCharacterNames.contains(character.name) ? 3 : 0))
             .onTapGesture {
-              assignCharacter(to: currentSelectedPlayerID, character: character, playersAssignedCharacters: &playersAssignedCharacters, notPresentedGoodCharacters: &notPresentedGoodCharacters)
+              assignWithUndo(character)
               selectNewCharacter = false
               if gameState != 0{
                 // we assigned a new character not in start phase
@@ -271,7 +293,7 @@ struct CharacterSelectionView: View {
             .overlay(RoundedRectangle(cornerRadius: 10)
               .stroke(Color.black, lineWidth: selectedCharacterNames.contains(character.name) ? 3 : 0))
             .onTapGesture {
-              assignCharacter(to: currentSelectedPlayerID, character: character, playersAssignedCharacters: &playersAssignedCharacters, notPresentedGoodCharacters: &notPresentedGoodCharacters)
+              assignWithUndo(character)
               selectNewCharacter = false
               if gameState != 0{
                 // we assigned a new character not in start phase

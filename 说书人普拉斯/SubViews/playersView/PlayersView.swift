@@ -105,9 +105,16 @@ struct PlayersView: View {
               TownActions.removeReminder(at: reminderIndex, from: $globalStates, logEntry: entry, logs: $allLogs, label: "全局标签")
             }
             .onLongPressGesture(minimumDuration: 1){
+              let entry = GameLogEntry(message: "\(reminder.effect)", messager: -10, source: reminder.from, type: 18, characterName: "全局", playerNumbers: [reminder.playerId], playerCharacters: [reminder.from], playerTeams: [reminder.team])
               withAnimation(.easeInOut(duration: 0.3)) {
                 globalStates[reminderIndex].isReversed.toggle()
-                allLogs.append(GameLogEntry(message: "\(reminder.effect)", messager: -10, source: reminder.from, type: 18, characterName: "全局", playerNumbers: [reminder.playerId], playerCharacters: [reminder.from], playerTeams: [reminder.team]))
+                allLogs.append(entry)
+              }
+              let flipped = reminderIndex
+              UndoCenter.shared.register("已倒置全局标签“\(reminder.effect)”") {
+                guard flipped < globalStates.count else { return }
+                withAnimation(.easeInOut(duration: 0.3)) { globalStates[flipped].isReversed.toggle() }
+                allLogs.removeAll(where: { $0.id == entry.id })
               }
             }
           }

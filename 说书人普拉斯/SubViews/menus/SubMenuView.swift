@@ -61,7 +61,12 @@ struct SubMenuView: View {
       return
     }
     let lastIndex = playersAssignedCharacters.count - 1
-    if lastIndex < playersIsAlive.count && playersIsAlive[lastIndex] {
+    let wasAlive = lastIndex < playersIsAlive.count ? playersIsAlive[lastIndex] : true
+    let removedCharacter = playersAssignedCharacters[lastIndex]
+    let removedStates = lastIndex < playersStates.count ? playersStates[lastIndex] : []
+    let removedVote = lastIndex < playersHasDeathVote.count ? playersHasDeathVote[lastIndex] : true
+    var removedLog: (Int, GameLogEntry)? = nil
+    if wasAlive {
       aliveCount -= 1
     }
     playersAssignedCharacters.removeLast()
@@ -70,24 +75,50 @@ struct SubMenuView: View {
     if !playersHasDeathVote.isEmpty { playersHasDeathVote.removeLast() }
     if gameState != 0, let i = allLogs.lastIndex(where: { $0.type == 7 && $0.messager == lastIndex + 1 }) {
       // 撤掉“几号玩家加入游戏”这条记录
+      removedLog = (i, allLogs[i])
       allLogs.remove(at: i)
     }
     playerCount = max(playerCount - 1, 0)
+    UndoCenter.shared.register("已删除 \(lastIndex + 1) 号") {
+      playersAssignedCharacters.append(removedCharacter)
+      playersStates.append(removedStates)
+      playersIsAlive.append(wasAlive)
+      playersHasDeathVote.append(removedVote)
+      if wasAlive { aliveCount += 1 }
+      if let (i, entry) = removedLog {
+        allLogs.insert(entry, at: min(i, allLogs.count))
+      }
+      playerCount += 1
+    }
   }
   
   private func addPlayer() {
-    if (playerCount < 20){
-      aliveCount += 1
-      playersAssignedCharacters.append(defaultCharacter)
-      playersStates.append([Reminder]())
-      playersIsAlive.append(true)
-      playersHasDeathVote.append(true)
-      if (gameState != 0){
-        allLogs.append(GameLogEntry(message: "", messager: playerCount + 1, source: "说书人", type: 7, playerNumbers: [playerCount + 1]))
-      }
+    guard playerCount < 20 else {
+      return
     }
-    playerCount = min(playerCount + 1, 20)
-    
+    aliveCount += 1
+    playersAssignedCharacters.append(defaultCharacter)
+    playersStates.append([Reminder]())
+    playersIsAlive.append(true)
+    playersHasDeathVote.append(true)
+    var joinLog: GameLogEntry? = nil
+    if (gameState != 0){
+      let entry = GameLogEntry(message: "", messager: playerCount + 1, source: "说书人", type: 7, playerNumbers: [playerCount + 1])
+      allLogs.append(entry)
+      joinLog = entry
+    }
+    playerCount += 1
+    let added = playerCount
+    UndoCenter.shared.register("已加入 \(added) 号") {
+      // 只在最后一位还是刚加的空位时撤销
+      guard playersAssignedCharacters.count == added, playersAssignedCharacters.last?.name.isEmpty == true else { return }
+      playersAssignedCharacters.removeLast()
+      if !playersStates.isEmpty { playersStates.removeLast() }
+      if let alive = playersIsAlive.popLast(), alive { aliveCount -= 1 }
+      if !playersHasDeathVote.isEmpty { playersHasDeathVote.removeLast() }
+      if let entry = joinLog { allLogs.removeAll(where: { $0.id == entry.id }) }
+      playerCount -= 1
+    }
   }
   
   private func randomAssign() {

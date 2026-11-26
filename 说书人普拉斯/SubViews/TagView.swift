@@ -232,17 +232,34 @@ struct TagView: View{
             if selectedReminderIndex >= 0 {
               if (currentSelectedPlayerIDForReminder >= 0){
                 let selectedReminder = remindersWithSource[selectedReminderIndex]
-                playersStates[currentSelectedPlayerIDForReminder].append(selectedReminder)
+                let target = currentSelectedPlayerIDForReminder
+                playersStates[target].append(selectedReminder)
+                var addLog: GameLogEntry? = nil
+                defer {
+                  UndoCenter.shared.register("已给 \(target + 1) 号加上“\(selectedReminder.effect)”") {
+                    guard target < playersStates.count, let i = playersStates[target].lastIndex(where: { $0.id == selectedReminder.id }) else { return }
+                    withAnimation(.easeInOut(duration: 0.3)) { _ = playersStates[target].remove(at: i) }
+                    if let entry = addLog { allLogs.removeAll(where: { $0.id == entry.id }) }
+                  }
+                }
                 if gameState != 0 {
                   let selectedCharacter = playersAssignedCharacters[currentSelectedPlayerIDForReminder]
-                  allLogs.append(GameLogEntry(message: "\(selectedReminder.effect)", messager: currentSelectedPlayerIDForReminder + 1, source: selectedReminder.from, type: 1, characterName: selectedCharacter.name, playerNumbers: [selectedReminder.playerId], playerCharacters: [selectedCharacter.name, selectedReminder.from], playerTeams: [team2Int(selectedCharacter.team), selectedReminder.team]))
+                  addLog = GameLogEntry(message: "\(selectedReminder.effect)", messager: currentSelectedPlayerIDForReminder + 1, source: selectedReminder.from, type: 1, characterName: selectedCharacter.name, playerNumbers: [selectedReminder.playerId], playerCharacters: [selectedCharacter.name, selectedReminder.from], playerTeams: [team2Int(selectedCharacter.team), selectedReminder.team])
+                  allLogs.append(addLog!)
                 }
               }
               else{
                 let selectedReminder = remindersWithSource[selectedReminderIndex]
                 globalStates.append(selectedReminder)
+                var addLog: GameLogEntry? = nil
                 if gameState != 0 {
-                  allLogs.append(GameLogEntry(message: "\(selectedReminder.effect)", messager: -20, source: selectedReminder.from, type: 16, characterName: "全局", playerNumbers: [selectedReminder.playerId], playerCharacters: [selectedReminder.from], playerTeams: [selectedReminder.team]))
+                  addLog = GameLogEntry(message: "\(selectedReminder.effect)", messager: -20, source: selectedReminder.from, type: 16, characterName: "全局", playerNumbers: [selectedReminder.playerId], playerCharacters: [selectedReminder.from], playerTeams: [selectedReminder.team])
+                  allLogs.append(addLog!)
+                }
+                UndoCenter.shared.register("已加上全局标签“\(selectedReminder.effect)”") {
+                  guard let i = globalStates.lastIndex(where: { $0.id == selectedReminder.id }) else { return }
+                  withAnimation(.easeInOut(duration: 0.3)) { _ = globalStates.remove(at: i) }
+                  if let entry = addLog { allLogs.removeAll(where: { $0.id == entry.id }) }
                 }
               }
             }
