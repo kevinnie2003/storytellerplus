@@ -63,7 +63,7 @@ struct ArchiveView: View {
             .font(.system(size: 44, weight: .bold))
           Text("还没有存档")
             .font(.system(size: 22, weight: .black, design: .rounded))
-          Text("开始游戏之后会自动保存")
+          Text("分好角色之后会自动保存")
             .font(.system(size: 16, design: .rounded))
             .foregroundColor(.black.opacity(0.6))
         }

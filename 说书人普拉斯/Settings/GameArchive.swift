@@ -2,7 +2,7 @@
 //  GameArchive.swift
 //  说书人普拉斯
 //
-//  游戏存档：每一局开始后都会自动存一份，方便以后载入复盘
+//  游戏存档：每一局分好角色或开始之后都会自动存一份，方便以后载入复盘
 //
 
 import Foundation
@@ -30,8 +30,15 @@ enum GameArchive {
     folder.appendingPathComponent("\(id).json")
   }
   
+  /// 开始游戏之后，或者还在配版但每个座位都分到了角色，就值得存一份
+  static func shouldSave(_ data: GameSaveData) -> Bool {
+    if data.gameState != 0 { return true }
+    let seats = data.playersAssignedCharacters
+    return !seats.isEmpty && seats.allSatisfy { !$0.name.isEmpty }
+  }
+  
   static func save(_ data: GameSaveData) {
-    guard let id = data.gameID, data.gameState != 0, let encoded = try? JSONEncoder().encode(data) else {
+    guard let id = data.gameID, shouldSave(data), let encoded = try? JSONEncoder().encode(data) else {
       return
     }
     try? encoded.write(to: fileURL(id), options: .atomic)

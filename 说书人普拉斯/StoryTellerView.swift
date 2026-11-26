@@ -125,7 +125,7 @@ struct StoryTellerView: View {
     )
   }
   
-  /// 保存当前这一局：一份作为“返回小镇”用的最近存档，开始游戏之后再在存档列表里存一份
+  /// 保存当前这一局：一份作为“返回小镇”用的最近存档，分好角色或开始游戏之后再在存档列表里存一份
   private func saveGame() {
     let saveData = makeSaveData()
     if let encoded = try? JSONEncoder().encode(saveData) {
@@ -247,7 +247,7 @@ struct StoryTellerView: View {
               currentView = 0
             }
           } message: {
-            Text(gameState == 0 ? "还没开始游戏，这个城镇不会保存" : "这一局已经存进存档，可以在设置里载入")
+            Text(GameArchive.shouldSave(makeSaveData()) ? "这一局已经存进存档，可以在存档里载入" : "还没分好角色，这个城镇不会保存")
           }
           .background(RoundedRectangle(cornerRadius: 10).fill(Color.mainbg))
           .overlay(RoundedRectangle(cornerRadius: 10)
@@ -527,6 +527,10 @@ struct StoryTellerView: View {
       // 开始游戏、天亮、入夜时各存一次
       saveGame()
     }
+    .onChange(of: playersAssignedCharacters.map(\.name)) { _, _ in
+      // 发角色、换角色、加减人时存一次，保证配完版就有存档
+      saveGame()
+    }
     .onChange(of: characters.count) { _, _ in
       // 有网的时候把这个剧本的图标都存到本机，之后断网也能显示
       ImageCache.shared.prefetch(characters.map { $0.imageURL })
@@ -564,7 +568,7 @@ struct StoryTellerView: View {
       SettingsView()
     }
     .sheet(isPresented: $showArchive) {
-      ArchiveView(currentGameID: gameState == 0 ? nil : gameID) { id in
+      ArchiveView(currentGameID: gameID) { id in
         loadArchive(id)
       }
     }
