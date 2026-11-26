@@ -378,14 +378,111 @@ enum AIClient {
   }
 }
 
-/// 从模型回复里取出 JSON（容忍前后的说明文字和 ``` 代码块）
+/// 从模型回复里取出 JSON。容忍：前后的说明文字、``` 代码块、说明文字里出现的方括号（如“[+1 外来者]”）、
+/// 字符串里没有转义的英文双引号、结尾多余的逗号。
 func aiExtractJSON(_ text: String) -> Any? {
-  guard let start = text.firstIndex(where: { $0 == "{" || $0 == "[" }) else {
+  var body = text
+  // 去掉代码块标记
+  body = body.replacingOccurrences(of: "```json", with: "").replacingOccurrences(of: "```JSON", with: "").replacingOccurrences(of: "```", with: "")
+  let chars = Array(body)
+  var tried = Set<Int>()
+  // 从每一个 { 或 [ 开始，找到与之配对的结尾，能解析成对象的就用
+  var candidates: [String] = []
+  for i in chars.indices where (chars[i] == "{" || chars[i] == "[") && !tried.contains(i) {
+    tried.insert(i)
+    if let end = aiMatchingBracket(chars, from: i) {
+      candidates.append(String(chars[i...end]))
+    }
+  }
+  // 优先长的（完整的对象），再试短的
+  candidates.sort { $0.count > $1.count }
+  for candidate in candidates {
+    if let parsed = aiParseJSON(candidate) {
+      return parsed
+    }
+  }
+  // 配对失败时（常见于字符串里有没转义的引号），退回到“第一个 { 到最后一个 }”再修复
+  if let start = chars.firstIndex(of: "{"), let end = chars.lastIndex(of: "}"), end > start {
+    return aiParseJSON(String(chars[start...end]))
+  }
+  return nil
+}
+
+/// 解析，失败时修复常见问题再试一次
+private func aiParseJSON(_ text: String) -> Any? {
+  if let parsed = try? JSONSerialization.jsonObject(with: Data(text.utf8)) {
+    return parsed
+  }
+  return try? JSONSerialization.jsonObject(with: Data(aiRepairJSON(text).utf8))
+}
+
+/// 找到与 chars[start] 配对的括号位置（跳过字符串里的内容）
+private func aiMatchingBracket(_ chars: [Swift.Character], from start: Int) -> Int? {
+  var depth = 0
+  var inString = false
+  var escaped = false
+  for i in start..<chars.count {
+    let c = chars[i]
+    if inString {
+      if escaped { escaped = false }
+      else if c == "\\" { escaped = true }
+      else if c == "\"" { inString = false }
+      continue
+    }
+    if c == "\"" { inString = true }
+    else if c == "{" || c == "[" { depth += 1 }
+    else if c == "}" || c == "]" {
+      depth -= 1
+      if depth == 0 { return i }
+    }
+  }
+  return nil
+}
+
+/// 修复：字符串内部没转义的英文双引号改成中文引号；去掉 } 或 ] 前多余的逗号
+func aiRepairJSON(_ text: String) -> String {
+  let chars = Array(text)
+  var out = ""
+  var inString = false
+  var escaped = false
+  var openQuote = true
+  func nextNonSpace(_ i: Int) -> Swift.Character? {
+    var j = i + 1
+    while j < chars.count {
+      if !chars[j].isWhitespace { return chars[j] }
+      j += 1
+    }
     return nil
   }
-  let closing = text[start] == "{" ? "}" : "]"
-  guard let end = text.range(of: closing, options: .backwards)?.lowerBound, end > start else {
-    return nil
+  for i in chars.indices {
+    let c = chars[i]
+    if inString {
+      if escaped { escaped = false; out.append(c); continue }
+      if c == "\\" { escaped = true; out.append(c); continue }
+      if c == "\"" {
+        // 结构上的结束引号后面紧跟 : , } ] 或者文本结束
+        let next = nextNonSpace(i)
+        if next == nil || next == ":" || next == "," || next == "}" || next == "]" {
+          inString = false
+          out.append(c)
+        } else {
+          out.append(openQuote ? "“" : "”")
+          openQuote.toggle()
+        }
+        continue
+      }
+      if c == "\n" { out.append("\\n"); continue }
+      out.append(c)
+    } else {
+      if c == "\"" { inString = true; openQuote = true }
+      out.append(c)
+    }
   }
-  return try? JSONSerialization.jsonObject(with: Data(String(text[start...end]).utf8))
+  // 去掉多余的结尾逗号
+  var cleaned = out
+  while let range = cleaned.range(of: #",\s*([}\]])"#, options: .regularExpression) {
+    let closer = cleaned[range].last!
+    cleaned.replaceSubrange(range, with: String(closer))
+  }
+  return cleaned
 }

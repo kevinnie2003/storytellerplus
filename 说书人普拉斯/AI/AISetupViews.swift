@@ -8,6 +8,45 @@
 import SwiftUI
 import Flow
 
+/// 请求一个 JSON 对象；回复解析失败时自动再要一次，并把出错的原文存下来方便排查
+@MainActor
+func aiRequestJSON(system: String, user: String, writingLabel: String, progress: @escaping @MainActor (String) -> Void) async throws -> [String: Any] {
+  var messages = [AIChatMessage(role: "user", text: user)]
+  for attempt in 0..<2 {
+    let reply = try await AIClient.sendStreaming(
+      system: system,
+      messages: messages,
+      maxTokens: 16000, effort: "high",
+      onThinking: { thought in
+        progress(aiThinkingTail(thought))
+      }
+    ) { partial in
+      if !partial.isEmpty {
+        progress(attempt == 0 ? writingLabel : "格式有误，正在重写…")
+      }
+    }
+    if let object = aiExtractJSON(reply) as? [String: Any] {
+      return object
+    }
+    aiSaveFailedReply(reply)
+    // 第二次：把上一次的回复交回去，让它只重写成合法 JSON
+    messages = [
+      AIChatMessage(role: "user", text: user),
+      AIChatMessage(role: "assistant", text: reply),
+      AIChatMessage(role: "user", text: "你上面的回复不是合法的 JSON，程序无法读取。请把同样的内容重新输出成一个合法的 JSON 对象：只输出 JSON 本身，不要任何说明文字和代码块标记，字符串里不要出现英文双引号。")
+    ]
+    progress("格式有误，正在重写…")
+  }
+  throw AIError.badFormat("模型连续两次没有返回合法的 JSON，请点重新生成")
+}
+
+/// 把最近一次解析失败的原文存到本机（Application Support/ai-last-bad-reply.txt）
+func aiSaveFailedReply(_ reply: String) {
+  let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+  try? FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
+  try? reply.write(to: base.appendingPathComponent("ai-last-bad-reply.txt"), atomically: true, encoding: .utf8)
+}
+
 struct AIBagPlan {
   var bag: [Character] = []
   var unknownNames: [String] = []
@@ -61,21 +100,12 @@ struct AISetupSheet: View {
     let candidates = playableCharacters.filter({ teams.contains($0.team) })
     Task {
       do {
-        let reply = try await AIClient.sendStreaming(
+        let object = try await aiRequestJSON(
           system: AIPrompts.withHouseRules(AIPrompts.setupSystem),
-          messages: [AIChatMessage(role: "user", text: AIPrompts.setupUser(characters: candidates, playerCount: playerCount, wish: wish))],
-          maxTokens: 16000, effort: "high",
-          onThinking: { thought in
-            progress = aiThinkingTail(thought)
-          }
-        ) { partial in
-          if !partial.isEmpty {
-            progress = "正在写出配版…"
-          }
-        }
-        guard let object = aiExtractJSON(reply) as? [String: Any] else {
-          throw AIError.badFormat("不是 JSON")
-        }
+          user: AIPrompts.setupUser(characters: candidates, playerCount: playerCount, wish: wish),
+          writingLabel: "正在写出配版…",
+          progress: { progress = $0 }
+        )
         var result = AIBagPlan()
         for name in (object["bag"] as? [Any] ?? []).compactMap({ $0 as? String }) {
           if let character = candidates.first(where: { $0.name == name }) {
@@ -221,21 +251,12 @@ struct AIPostDrawSheet: View {
     plan = nil
     Task {
       do {
-        let reply = try await AIClient.sendStreaming(
+        let object = try await aiRequestJSON(
           system: AIPrompts.withHouseRules(AIPrompts.postDrawSystem),
-          messages: [AIChatMessage(role: "user", text: AIPrompts.postDrawUser(ctx, wish: wish))],
-          maxTokens: 16000, effort: "high",
-          onThinking: { thought in
-            progress = aiThinkingTail(thought)
-          }
-        ) { partial in
-          if !partial.isEmpty {
-            progress = "正在写出结果…"
-          }
-        }
-        guard let object = aiExtractJSON(reply) as? [String: Any] else {
-          throw AIError.badFormat("不是 JSON")
-        }
+          user: AIPrompts.postDrawUser(ctx, wish: wish),
+          writingLabel: "正在写出结果…",
+          progress: { progress = $0 }
+        )
         var result = AIPostDrawPlan()
         for item in (object["tags"] as? [Any] ?? []).compactMap({ $0 as? [String: Any] }) {
           let player = (item["player"] as? Int) ?? Int(item["player"] as? String ?? "") ?? 0
