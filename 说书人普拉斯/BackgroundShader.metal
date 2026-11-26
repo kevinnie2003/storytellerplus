@@ -18,7 +18,8 @@ inline half4 lerpColor(half4 c1, half4 c2, float a) {
     half4  currentColor,      // (ignored in this implementation—left here so signature matches your call)
     const float spaceBetween, // distance between dot centers
     const float radius,       // dot radius
-    float time                // elapsed time (in seconds)
+    float time,               // elapsed time (in seconds)
+    const float dark          // 1 = 深色模式
 ) {
     // 1. Precompute half‐spacing and squared radius
     float halfSpace = spaceBetween * 0.5;
@@ -51,8 +52,8 @@ inline half4 lerpColor(half4 c1, half4 c2, float a) {
 
     // 6. Predefine your two colors
     //    (these match the original color values you used, just normalized to [0,1])
-    half4 bgColor  = half4(222.0/253.0, 218.0/255.0, 205.0/255.0, 1.0);
-    half4 dotColor = half4(0.0/255.0,   0.0/255.0,  0.0/255.0,  1.0);
+    half4 bgColor  = dark > 0.5 ? half4(29.0/255.0, 27.0/255.0, 24.0/255.0, 1.0) : half4(222.0/253.0, 218.0/255.0, 205.0/255.0, 1.0);
+    half4 dotColor = dark > 0.5 ? half4(110.0/255.0, 104.0/255.0, 95.0/255.0, 1.0) : half4(0.0/255.0,   0.0/255.0,  0.0/255.0,  1.0);
 
     // 7. Check which grid cell this pixel belongs to (dot0 vs. dot1)
     bool inDot0 = (distSq0 < radiusSq);

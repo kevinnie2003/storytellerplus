@@ -75,13 +75,13 @@ struct CharacterSelectionView: View {
               Text(character.name)
                 .font(.system(size: 15, design: .rounded))
                 .fontWeight(.bold)
-                .foregroundColor(.black)
+                .foregroundColor(.ink)
             }
             .padding()
             .background(Color.white.opacity(0.2))
             .cornerRadius(10)
             .overlay(RoundedRectangle(cornerRadius: 10)
-              .stroke(Color.black, lineWidth: selectedCharacterNames.contains(character.name) ? 3 : 0))
+              .stroke(Color.ink, lineWidth: selectedCharacterNames.contains(character.name) ? 3 : 0))
             .onTapGesture {
               assignWithUndo(character)
               selectNewCharacter = false
@@ -117,13 +117,13 @@ struct CharacterSelectionView: View {
               Text(character.name)
                 .font(.system(size: 15, design: .rounded))
                 .fontWeight(.bold)
-                .foregroundColor(.black)
+                .foregroundColor(.ink)
             }
             .padding()
             .background(Color.white.opacity(0.2))
             .cornerRadius(10)
             .overlay(RoundedRectangle(cornerRadius: 10)
-              .stroke(Color.black, lineWidth: selectedCharacterNames.contains(character.name) ? 3 : 0))
+              .stroke(Color.ink, lineWidth: selectedCharacterNames.contains(character.name) ? 3 : 0))
             .onTapGesture {
               assignWithUndo(character)
               selectNewCharacter = false
@@ -159,13 +159,13 @@ struct CharacterSelectionView: View {
               Text(character.name)
                 .font(.system(size: 15, design: .rounded))
                 .fontWeight(.bold)
-                .foregroundColor(.black)
+                .foregroundColor(.ink)
             }
             .padding()
             .background(Color.white.opacity(0.2))
             .cornerRadius(10)
             .overlay(RoundedRectangle(cornerRadius: 10)
-              .stroke(Color.black, lineWidth: selectedCharacterNames.contains(character.name) ? 3 : 0))
+              .stroke(Color.ink, lineWidth: selectedCharacterNames.contains(character.name) ? 3 : 0))
             .onTapGesture {
               assignWithUndo(character)
               selectNewCharacter = false
@@ -201,13 +201,13 @@ struct CharacterSelectionView: View {
               Text(character.name)
                 .font(.system(size: 15, design: .rounded))
                 .fontWeight(.bold)
-                .foregroundColor(.black)
+                .foregroundColor(.ink)
             }
             .padding()
             .background(Color.white.opacity(0.2))
             .cornerRadius(10)
             .overlay(RoundedRectangle(cornerRadius: 10)
-              .stroke(Color.black, lineWidth: selectedCharacterNames.contains(character.name) ? 3 : 0))
+              .stroke(Color.ink, lineWidth: selectedCharacterNames.contains(character.name) ? 3 : 0))
             .onTapGesture {
               assignWithUndo(character)
               selectNewCharacter = false
@@ -243,13 +243,13 @@ struct CharacterSelectionView: View {
               Text(character.name)
                 .font(.system(size: 15, design: .rounded))
                 .fontWeight(.bold)
-                .foregroundColor(.black)
+                .foregroundColor(.ink)
             }
             .padding()
             .background(Color.white.opacity(0.2))
             .cornerRadius(10)
             .overlay(RoundedRectangle(cornerRadius: 10)
-              .stroke(Color.black, lineWidth: selectedCharacterNames.contains(character.name) ? 3 : 0))
+              .stroke(Color.ink, lineWidth: selectedCharacterNames.contains(character.name) ? 3 : 0))
             .onTapGesture {
               assignWithUndo(character)
               selectNewCharacter = false
@@ -285,13 +285,13 @@ struct CharacterSelectionView: View {
               Text(character.name)
                 .font(.system(size: 15, design: .rounded))
                 .fontWeight(.bold)
-                .foregroundColor(.black)
+                .foregroundColor(.ink)
             }
             .padding()
             .background(Color.white.opacity(0.2))
             .cornerRadius(10)
             .overlay(RoundedRectangle(cornerRadius: 10)
-              .stroke(Color.black, lineWidth: selectedCharacterNames.contains(character.name) ? 3 : 0))
+              .stroke(Color.ink, lineWidth: selectedCharacterNames.contains(character.name) ? 3 : 0))
             .onTapGesture {
               assignWithUndo(character)
               selectNewCharacter = false
@@ -315,7 +315,7 @@ struct CharacterSelectionView: View {
       .clipShape(RoundedRectangle(cornerRadius: 20))
       .overlay(
         RoundedRectangle(cornerRadius: 20)
-          .stroke(Color.black, lineWidth: 3)
+          .stroke(Color.ink, lineWidth: 3)
       )
       .padding(.vertical, 50)
       .animation(.easeInOut(duration: 0.3), value: selectNewCharacter)

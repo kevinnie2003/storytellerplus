@@ -34,7 +34,7 @@ struct MenuView: View {
           .resizable()
           .scaledToFit()
           .frame(width: 30, height: 30)
-          .foregroundColor(.black)
+          .foregroundColor(.ink)
       }
       .padding(.top, 30)
       .padding(.horizontal, 20)
@@ -52,7 +52,7 @@ struct MenuView: View {
           .resizable()
           .scaledToFit()
           .frame(width: 30, height: 30)
-          .foregroundColor(.black)
+          .foregroundColor(.ink)
       }
       .padding(.horizontal, 20)
       
@@ -64,7 +64,7 @@ struct MenuView: View {
           .resizable()
           .scaledToFit()
           .frame(width: 30, height: 30)
-          .foregroundColor(.black)
+          .foregroundColor(.ink)
       }
       .padding(.bottom, 35)
       .padding(.horizontal, 20)
@@ -75,7 +75,7 @@ struct MenuView: View {
           .resizable()
           .scaledToFit()
           .frame(width: 30, height: 30)
-          .foregroundColor(.black)
+          .foregroundColor(.ink)
       }
       .padding(.bottom, 35)
       .padding(.horizontal, 20)
@@ -86,7 +86,7 @@ struct MenuView: View {
           .resizable()
           .scaledToFit()
           .frame(width: 30, height: 30)
-          .foregroundColor(.black)
+          .foregroundColor(.ink)
       }
       .padding(.bottom, 35)
       .padding(.horizontal, 20)
@@ -97,7 +97,7 @@ struct MenuView: View {
           .resizable()
           .scaledToFit()
           .frame(width: 30, height: 30)
-          .foregroundColor(.black)
+          .foregroundColor(.ink)
       }
       .padding(.bottom, 35)
       .padding(.horizontal, 20)
@@ -108,7 +108,7 @@ struct MenuView: View {
           .resizable()
           .scaledToFit()
           .frame(width: 30, height: 30)
-          .foregroundColor(.black)
+          .foregroundColor(.ink)
       }
       .padding(.bottom, 35)
       .padding(.horizontal, 20)
@@ -121,7 +121,7 @@ struct MenuView: View {
           .resizable()
           .scaledToFit()
           .frame(width: 30, height: 30)
-          .foregroundColor(.black)
+          .foregroundColor(.ink)
       }
       .padding(.bottom, 35)
       .padding(.horizontal, 20)

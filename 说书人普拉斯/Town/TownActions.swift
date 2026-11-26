@@ -51,14 +51,14 @@ struct UndoToast: View {
       HStack(spacing: 18) {
         Text(message)
           .font(.system(size: 18, weight: .bold, design: .rounded))
-          .foregroundColor(Color.goodTextBg)
+          .foregroundColor(Color.paper)
         Button(action: { center.undo() }) {
           Text("撤销")
             .font(.system(size: 18, weight: .black, design: .rounded))
-            .foregroundColor(.black)
+            .foregroundColor(.ink)
             .padding(.horizontal, 16)
             .padding(.vertical, 7)
-            .background(Color.goodTextBg)
+            .background(Color.paper)
             .clipShape(Capsule())
         }
         .buttonStyle(.plain)
@@ -66,7 +66,7 @@ struct UndoToast: View {
       .padding(.leading, 22)
       .padding(.trailing, 8)
       .padding(.vertical, 8)
-      .background(Color.black)
+      .background(Color.ink)
       .clipShape(Capsule())
       .transition(.move(edge: .bottom).combined(with: .opacity))
     }

@@ -23,8 +23,8 @@ struct OrderView: View {
           .frame(maxWidth: .infinity)
           .padding(.vertical, 10)
           .opacity(firstNightOrder ? 1 : 0.5)
-          .border(width: 3, edges: [.bottom], color: .black)
-          .border(width: 1.5, edges: [.trailing], color: .black)
+          .border(width: 3, edges: [.bottom], color: .ink)
+          .border(width: 1.5, edges: [.trailing], color: .ink)
           .onTapGesture {
             currentlyAwakePlayerIndex = -666
             firstNightOrder = true
@@ -36,8 +36,8 @@ struct OrderView: View {
           .frame(maxWidth: .infinity)
           .padding(.vertical, 10)
           .opacity(firstNightOrder ? 0.5 : 1)
-          .border(width: 3, edges: [.bottom], color: .black)
-          .border(width: 1.5, edges: [.leading], color: .black)
+          .border(width: 3, edges: [.bottom], color: .ink)
+          .border(width: 1.5, edges: [.leading], color: .ink)
           .onTapGesture {
             currentlyAwakePlayerIndex = -666
             firstNightOrder = false
@@ -136,14 +136,14 @@ struct OrderView: View {
             currentlyAwakePlayerIndex = nightReminder.playerID
           }
         }
-        Rectangle().fill(Color.black)
+        Rectangle().fill(Color.ink)
           .frame(height: 3)
           .frame(maxWidth: .infinity)
           .padding(.horizontal, 10)
         Text("不需要唤醒")
           .font(.system(size: 20, design: .rounded))
           .fontWeight(.bold)
-        Rectangle().fill(Color.black)
+        Rectangle().fill(Color.ink)
           .frame(height: 3)
           .frame(maxWidth: .infinity)
           .padding(.horizontal, 10)

@@ -20,9 +20,9 @@ struct SeatRing: View {
           let angle = 2 * Double.pi * Double(i) / Double(max(alive.count, 1)) - Double.pi / 2
           Group {
             if alive[i] {
-              Circle().fill(Color.black)
+              Circle().fill(Color.ink)
             } else {
-              Circle().stroke(Color.black, lineWidth: 1.5)
+              Circle().stroke(Color.ink, lineWidth: 1.5)
                 .overlay(Image(systemName: "xmark").font(.system(size: 6, weight: .black)))
             }
           }
@@ -65,7 +65,7 @@ struct ArchiveView: View {
             .font(.system(size: 22, weight: .black, design: .rounded))
           Text("分好角色之后会自动保存")
             .font(.system(size: 16, design: .rounded))
-            .foregroundColor(.black.opacity(0.6))
+            .foregroundColor(.ink.opacity(0.6))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
       } else {
@@ -85,7 +85,7 @@ struct ArchiveView: View {
                       .font(.system(size: 16, weight: .semibold, design: .rounded))
                     Text("\(stageText(entry))，\(entry.savedAt.formatted(.dateTime.locale(Locale(identifier: "zh_CN")).month().day().hour().minute())) 保存")
                       .font(.system(size: 15, design: .rounded))
-                      .foregroundColor(.black.opacity(0.6))
+                      .foregroundColor(.ink.opacity(0.6))
                   }
                   Spacer(minLength: 0)
                 }
@@ -96,7 +96,7 @@ struct ArchiveView: View {
                   if isCurrent {
                     Text("正在进行")
                       .font(.system(size: 17, weight: .bold, design: .rounded))
-                      .foregroundColor(.black.opacity(0.5))
+                      .foregroundColor(.ink.opacity(0.5))
                       .padding(.vertical, 10)
                   } else {
                     STChoice(selected: true, action: {
@@ -109,7 +109,7 @@ struct ArchiveView: View {
                     Button(action: { pendingDelete = entry }) {
                       Image(systemName: "trash")
                         .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(.demon)
+                        .foregroundColor(.demonInk)
                         .padding(10)
                     }
                     .buttonStyle(.plain)
@@ -117,9 +117,9 @@ struct ArchiveView: View {
                 }
               }
               .padding(18)
-              .background(Color.goodTextBg)
+              .background(Color.paper)
               .clipShape(RoundedRectangle(cornerRadius: 18))
-              .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.black, lineWidth: isCurrent ? 5 : 3))
+              .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.ink, lineWidth: isCurrent ? 5 : 3))
             }
           }
           .padding(.bottom, 30)
@@ -129,7 +129,7 @@ struct ArchiveView: View {
     }
     .padding(28)
     .background(Color.mainbg.ignoresSafeArea())
-    .preferredColorScheme(.light)
+    .stColorScheme()
     .aiPanelSizing()
     .onAppear {
       entries = GameArchive.list()

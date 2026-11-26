@@ -271,7 +271,8 @@ struct RecapPoster: View {
 
 @MainActor
 func renderRecapPoster(game: GameSaveData, recap: RecapData) -> UIImage? {
-  let renderer = ImageRenderer(content: RecapPoster(game: game, recap: recap))
+  // 导出的图片永远是浅色，不跟深色模式
+  let renderer = ImageRenderer(content: RecapPoster(game: game, recap: recap).environment(\.colorScheme, .light))
   renderer.scale = 2
   return renderer.uiImage
 }

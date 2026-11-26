@@ -85,7 +85,7 @@ struct SetupPlayerPick: View {
                     Angle.degrees(cardRotation[index] + 180.0),
                     axis: (x: 0, y: 1, z: 0) // rotate around Y axis
                   )
-                CardBack(cardColor: .black)
+                CardBack(cardColor: .ink)
                   .opacity(cardRotation[index] > 90 && cardRotation[index] < 270 ? 0 : 1)
                   .rotation3DEffect(
                     Angle.degrees(cardRotation[index]),
@@ -170,7 +170,7 @@ struct SetupPlayerPick: View {
                                 in: RoundedRectangle(cornerRadius: 40, style: .continuous))
                     .overlay(
                       RoundedRectangle(cornerRadius: 40, style: .continuous)
-                        .stroke(.black, lineWidth: 3)
+                        .stroke(.ink, lineWidth: 3)
                     )
                     .matchedGeometryEffect(id: "playerSelection", in: selectionNS)
                     .padding(.horizontal, 6)
@@ -218,11 +218,11 @@ struct SetupPlayerPick: View {
               Text("返回")
                 .font(.system(size: 20, design: .rounded))
                 .fontWeight(.bold)
-                .foregroundColor(.black)
+                .foregroundColor(.ink)
                 .padding(.horizontal, 20)
                 .padding(.vertical, 10)
                 .background(Color.mainbg)
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.black, lineWidth: 3))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.ink, lineWidth: 3))
                 .contentShape(RoundedRectangle(cornerRadius: 10))
             }
             Spacer()
@@ -232,11 +232,11 @@ struct SetupPlayerPick: View {
               Text("确认")
                 .font(.system(size: 20, design: .rounded))
                 .fontWeight(.bold)
-                .foregroundColor(.black)
+                .foregroundColor(.ink)
                 .padding(.horizontal, 20)
                 .padding(.vertical, 10)
                 .background(Color.mainbg)
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.black, lineWidth: 3))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.ink, lineWidth: 3))
                 .contentShape(RoundedRectangle(cornerRadius: 10))
             }
             Spacer()
@@ -246,11 +246,11 @@ struct SetupPlayerPick: View {
               Text("退出")
                 .font(.system(size: 20, design: .rounded))
                 .fontWeight(.bold)
-                .foregroundColor(.black)
+                .foregroundColor(.ink)
                 .padding(.horizontal, 20)
                 .padding(.vertical, 10)
                 .background(Color.mainbg)
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.black, lineWidth: 3))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.ink, lineWidth: 3))
                 .contentShape(RoundedRectangle(cornerRadius: 10))
             }
           }

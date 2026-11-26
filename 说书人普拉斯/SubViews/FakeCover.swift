@@ -19,7 +19,7 @@ struct FakeCover: View {
       Text("恶魔伪装")
         .font(.system(size: 20, design: .rounded))
         .fontWeight(.bold)
-        .foregroundColor(.black)
+        .foregroundColor(.ink)
       ForEach(0...2, id: \.self) { index in
         let character = index < notPresentedGoodCharacters.count ? notPresentedGoodCharacters[index] : defaultCharacter
         VStack(spacing: 0){
@@ -32,7 +32,7 @@ struct FakeCover: View {
           Text(character.name)
             .font(.system(size: 14, design: .rounded))
             .fontWeight(.bold)
-            .foregroundColor(.black)
+            .foregroundColor(.ink)
             .lineLimit(1)
         }
         .padding(.vertical, 5)

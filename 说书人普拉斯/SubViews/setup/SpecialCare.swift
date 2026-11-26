@@ -228,10 +228,10 @@ struct SpecialCare: View {
             Text("确认")
               .font(.system(size: 20, design: .rounded))
               .fontWeight(.bold)
-              .foregroundColor(.black)
+              .foregroundColor(.ink)
               .padding(.horizontal, 20)
               .padding(.vertical, 8)
-              .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.black, lineWidth: 2))
+              .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.ink, lineWidth: 2))
           }
           .padding(.horizontal, 30)
           .padding(.vertical, 20)
@@ -242,10 +242,10 @@ struct SpecialCare: View {
             Text("返回")
               .font(.system(size: 20, design: .rounded))
               .fontWeight(.bold)
-              .foregroundColor(.black)
+              .foregroundColor(.ink)
               .padding(.horizontal, 20)
               .padding(.vertical, 8)
-              .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.black, lineWidth: 2))
+              .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.ink, lineWidth: 2))
           }
           .padding(.horizontal, 30)
           .padding(.vertical, 20)
@@ -256,7 +256,7 @@ struct SpecialCare: View {
       .frame(width: 600)
       .overlay(
         RoundedRectangle(cornerRadius: 20)
-          .stroke(Color.black, lineWidth: 3)
+          .stroke(Color.ink, lineWidth: 3)
       )
       .padding(.vertical, 50)
       .onAppear(){

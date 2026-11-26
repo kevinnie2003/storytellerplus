@@ -88,7 +88,7 @@ struct ExtraRepeatedCharacterSelectionView: View {
       .background(Color.mainbg)
       .clipShape(RoundedRectangle(cornerRadius: 20))
       .overlay(RoundedRectangle(cornerRadius: 20)
-        .stroke(Color.black, lineWidth: 3))
+        .stroke(Color.ink, lineWidth: 3))
       .padding(.vertical, 50)
     }
   }

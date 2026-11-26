@@ -60,11 +60,11 @@ struct SetupBlindPick: View {
           Text("返回")
             .font(.system(size: 30, design: .rounded))
             .fontWeight(.bold)
-            .foregroundColor(.black)
+            .foregroundColor(.ink)
             .padding(.horizontal, 30)
             .padding(.vertical, 15)
             .background(Color.mainbg)
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.black, lineWidth: 4))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.ink, lineWidth: 4))
             .contentShape(RoundedRectangle(cornerRadius: 10))
         }
         Button(action: {
@@ -73,11 +73,11 @@ struct SetupBlindPick: View {
           Text("确认")
             .font(.system(size: 30, design: .rounded))
             .fontWeight(.bold)
-            .foregroundColor(.black)
+            .foregroundColor(.ink)
             .padding(.horizontal, 30)
             .padding(.vertical, 15)
             .background(Color.mainbg)
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.black, lineWidth: 4))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.ink, lineWidth: 4))
             .contentShape(RoundedRectangle(cornerRadius: 10))
         }
       }

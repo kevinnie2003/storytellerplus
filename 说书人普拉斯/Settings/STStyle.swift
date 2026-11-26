@@ -20,9 +20,9 @@ struct STSection<Content: View>: View {
       }
       .padding(20)
       .frame(maxWidth: .infinity, alignment: .leading)
-      .background(Color.goodTextBg)
+      .background(Color.paper)
       .clipShape(RoundedRectangle(cornerRadius: 18))
-      .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.black, lineWidth: 3))
+      .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.ink, lineWidth: 3))
     }
   }
 }
@@ -40,7 +40,7 @@ struct STRow<Content: View>: View {
         if !hint.isEmpty {
           Text(hint)
             .font(.system(size: 15, design: .rounded))
-            .foregroundColor(.black.opacity(0.55))
+            .foregroundColor(.ink.opacity(0.55))
         }
       }
       content
@@ -56,12 +56,12 @@ struct STChoice<Label: View>: View {
   var body: some View {
     Button(action: action) {
       label
-        .foregroundColor(selected ? Color.goodTextBg : .black)
+        .foregroundColor(selected ? Color.paper : .ink)
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
-        .background(selected ? Color.black : Color.clear)
+        .background(selected ? Color.ink : Color.clear)
         .clipShape(RoundedRectangle(cornerRadius: 14))
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.black, lineWidth: 2.5))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.ink, lineWidth: 2.5))
         .contentShape(RoundedRectangle(cornerRadius: 14))
     }
     .buttonStyle(.plain)
@@ -113,13 +113,13 @@ struct STBigButton: View {
         }
         Spacer(minLength: 0)
       }
-      .foregroundColor(filled ? Color.goodTextBg : .black)
+      .foregroundColor(filled ? Color.paper : .ink)
       .padding(.horizontal, 20)
       .padding(.vertical, 12)
       .frame(maxWidth: .infinity, minHeight: 72)
-      .background(filled ? Color.black : Color.goodTextBg)
+      .background(filled ? Color.ink : Color.paper)
       .clipShape(RoundedRectangle(cornerRadius: 18))
-      .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.black, lineWidth: 3))
+      .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.ink, lineWidth: 3))
       .contentShape(RoundedRectangle(cornerRadius: 18))
     }
     .buttonStyle(.plain)
@@ -138,10 +138,10 @@ struct STPageHeader: View {
       Button(action: onClose) {
         Text("完成")
           .font(.system(size: 19, weight: .black, design: .rounded))
-          .foregroundColor(Color.goodTextBg)
+          .foregroundColor(Color.paper)
           .padding(.horizontal, 22)
           .padding(.vertical, 10)
-          .background(Color.black)
+          .background(Color.ink)
           .clipShape(Capsule())
       }
       .buttonStyle(.plain)
@@ -154,7 +154,7 @@ struct CardLayoutPreview: View {
   let perRow: Int
   let selected: Bool
   var body: some View {
-    let ink = selected ? Color.goodTextBg : Color.black
+    let ink = selected ? Color.paper : Color.ink
     VStack(spacing: 4) {
       ForEach(0..<2, id: \.self) { _ in
         HStack(spacing: 4) {

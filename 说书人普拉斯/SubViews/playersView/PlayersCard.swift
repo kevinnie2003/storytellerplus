@@ -83,7 +83,7 @@ struct PlayerCard: View {
     } else if character.team == "traveler"{
       return Color.goodTextBg
     }
-    return Color.black
+    return Color.ink
   }
   
   
@@ -232,9 +232,9 @@ struct PlayerCard: View {
           }) {
             Image(systemName: "plus")
               .font(.system(size: 25, weight: .bold))
-              .foregroundColor(.black)
+              .foregroundColor(.ink)
               .frame(width: 35, height: 35)
-              .overlay(Circle().stroke(Color.black, lineWidth: 3))
+              .overlay(Circle().stroke(Color.ink, lineWidth: 3))
           }
           .contentShape(Circle())
         }

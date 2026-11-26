@@ -22,11 +22,11 @@ struct JinxView: View {
             Text(jinx.name)
               .font(.system(size: 20, design: .rounded))
               .fontWeight(.bold)
-              .foregroundColor(.black)
+              .foregroundColor(.ink)
             Text(jinx.description)
               .font(.system(size: 15, design: .rounded))
               .fontWeight(.semibold)
-              .foregroundColor(.black.opacity(0.8))
+              .foregroundColor(.ink.opacity(0.8))
           }
           .padding(.top, 2)
           .frame(maxWidth: .infinity, alignment: .leading)

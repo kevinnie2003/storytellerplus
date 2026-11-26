@@ -51,11 +51,11 @@ struct NotepadView: View {
                     Text(predefinedTagsWithPlayerInfo[index])
                       .font(.system(size: 25, design: .monospaced))
                       .fontWeight(.semibold)
-                      .foregroundStyle(.black)
+                      .foregroundStyle(.ink)
                       .padding(.vertical, 4)
                       .padding(.horizontal, 8)
                       .overlay(RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color.black, lineWidth: 2))
+                        .stroke(Color.ink, lineWidth: 2))
                   }
                 }
               }
@@ -73,11 +73,11 @@ struct NotepadView: View {
                       Text(character.name)
                         .font(.system(size: 25, design: .monospaced))
                         .fontWeight(.semibold)
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.ink)
                         .padding(.vertical, 4)
                         .padding(.horizontal, 8)
                         .overlay(RoundedRectangle(cornerRadius: 10)
-                          .stroke(Color.black, lineWidth: 2))
+                          .stroke(Color.ink, lineWidth: 2))
                     }
                   }
                 }
@@ -96,11 +96,11 @@ struct NotepadView: View {
                     Text(predefinedTagsWithCharacterInfo[index])
                       .font(.system(size: 25, design: .monospaced))
                       .fontWeight(.semibold)
-                      .foregroundStyle(.black)
+                      .foregroundStyle(.ink)
                       .padding(.vertical, 4)
                       .padding(.horizontal, 8)
                       .overlay(RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color.black, lineWidth: 2))
+                        .stroke(Color.ink, lineWidth: 2))
                   }
                 }
               }
@@ -118,11 +118,11 @@ struct NotepadView: View {
                     Text(predefinedTags[index])
                       .font(.system(size: 25, design: .monospaced))
                       .fontWeight(.semibold)
-                      .foregroundStyle(.black)
+                      .foregroundStyle(.ink)
                       .padding(.vertical, 4)
                       .padding(.horizontal, 8)
                       .overlay(RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color.black, lineWidth: 2))
+                        .stroke(Color.ink, lineWidth: 2))
                   }
                 }
               }
@@ -132,7 +132,7 @@ struct NotepadView: View {
             .frame(width: 200)
             
           }
-          .border(width: 3, edges: [.trailing], color: .black)
+          .border(width: 3, edges: [.trailing], color: .ink)
           .transition(.move(edge: .leading))
         }
         VStack{
@@ -155,11 +155,11 @@ struct NotepadView: View {
               Text(showPredefinedTags ? "收起" : "预设")
                 .font(.system(size: 20, design: .rounded))
                 .fontWeight(.semibold)
-                .foregroundStyle(.black)
+                .foregroundStyle(.ink)
                 .padding()
                 .frame(maxWidth: .infinity)
-                .border(width: 3, edges: [.top], color: .black)
-                .border(width: 1.5, edges: [.trailing], color: .black)
+                .border(width: 3, edges: [.top], color: .ink)
+                .border(width: 1.5, edges: [.trailing], color: .ink)
             }
             
             Button(action: {
@@ -170,11 +170,11 @@ struct NotepadView: View {
               Text("清空")
                 .font(.system(size: 20, design: .rounded))
                 .fontWeight(.semibold)
-                .foregroundStyle(.black)
+                .foregroundStyle(.ink)
                 .padding()
                 .frame(maxWidth: .infinity)
-                .border(width: 3, edges: [.top], color: .black)
-                .border(width: 1.5, edges: [.leading, .trailing], color: .black)
+                .border(width: 3, edges: [.top], color: .ink)
+                .border(width: 1.5, edges: [.leading, .trailing], color: .ink)
             }
             Button(action: {
               withAnimation(.easeInOut(duration: 0.3)) {
@@ -184,11 +184,11 @@ struct NotepadView: View {
               Text("保存")
                 .font(.system(size: 20, design: .rounded))
                 .fontWeight(.semibold)
-                .foregroundStyle(.black)
+                .foregroundStyle(.ink)
                 .padding()
                 .frame(maxWidth: .infinity)
-                .border(width: 3, edges: [.top], color: .black)
-                .border(width: 1.5, edges: [.leading], color: .black)
+                .border(width: 3, edges: [.top], color: .ink)
+                .border(width: 1.5, edges: [.leading], color: .ink)
             }
           }
         }
@@ -199,7 +199,7 @@ struct NotepadView: View {
       .background(.mainbg)
       .clipShape(RoundedRectangle(cornerRadius: 20))
       .overlay(RoundedRectangle(cornerRadius: 20)
-        .stroke(Color.black, lineWidth: 3))
+        .stroke(Color.ink, lineWidth: 3))
       .padding(.vertical, 50)
       
       

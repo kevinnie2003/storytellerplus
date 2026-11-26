@@ -183,7 +183,7 @@ struct SubMenuView: View {
           .font(.system(size: 18, weight: .bold, design: .rounded))
         Spacer(minLength: 0)
       }
-      .foregroundColor(.black)
+      .foregroundColor(.ink)
       .padding(.horizontal, 14)
       .padding(.vertical, 11)
       .contentShape(Rectangle())
@@ -208,7 +208,7 @@ struct SubMenuView: View {
               .font(.system(size: 24, weight: .black))
               .frame(width: 64, height: 52)
               .background(RoundedRectangle(cornerRadius: 12).fill(Color.mainbg.opacity(0.6)))
-              .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.black, lineWidth: 2.5))
+              .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.ink, lineWidth: 2.5))
               .contentShape(Rectangle())
           }
           .buttonStyle(.plain)
@@ -222,18 +222,18 @@ struct SubMenuView: View {
               .font(.system(size: 24, weight: .black))
               .frame(width: 64, height: 52)
               .background(RoundedRectangle(cornerRadius: 12).fill(Color.mainbg.opacity(0.6)))
-              .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.black, lineWidth: 2.5))
+              .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.ink, lineWidth: 2.5))
               .contentShape(Rectangle())
           }
           .buttonStyle(.plain)
           .disabled(playerCount >= 20)
           .opacity(playerCount >= 20 ? 0.3 : 1)
         }
-        .foregroundColor(.black)
+        .foregroundColor(.ink)
         .padding(.vertical, 8)
         .padding(.trailing, 8)
         if gameState == 0 {
-          Divider().overlay(Color.black)
+          Divider().overlay(Color.ink)
           row("随机分配角色", icon: "shuffle", action: randomAssign)
           Button(action: startGame) {
             HStack(spacing: 12) {
@@ -244,10 +244,10 @@ struct SubMenuView: View {
                 .font(.system(size: 18, weight: .black, design: .rounded))
               Spacer(minLength: 0)
             }
-            .foregroundColor(Color.goodTextBg)
+            .foregroundColor(Color.paper)
             .padding(.horizontal, 14)
             .padding(.vertical, 11)
-            .background(Color.black)
+            .background(Color.ink)
             .clipShape(RoundedRectangle(cornerRadius: 10))
             .padding(.horizontal, 6)
             .padding(.bottom, 6)
@@ -256,7 +256,7 @@ struct SubMenuView: View {
           .disabled(playersAssignedCharacters.count < 5)
           .opacity(playersAssignedCharacters.count < 5 ? 0.4 : 1)
         }
-        Divider().overlay(Color.black)
+        Divider().overlay(Color.ink)
         row(hideTeamColors ? "显示阵营颜色" : "隐藏阵营颜色", icon: hideTeamColors ? "eye" : "eye.slash") {
           withAnimation(.easeInOut(duration: 0.3)) {
             hideTeamColors.toggle()
@@ -272,9 +272,9 @@ struct SubMenuView: View {
         }
       }
       .frame(width: 280)
-      .background(Color.goodTextBg)
+      .background(Color.paper)
       .clipShape(RoundedRectangle(cornerRadius: 16))
-      .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.black, lineWidth: 3))
+      .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.ink, lineWidth: 3))
       .padding(.bottom, 70)
       .transition(.scale(scale: 0.9, anchor: .bottomLeading).combined(with: .opacity))
     }

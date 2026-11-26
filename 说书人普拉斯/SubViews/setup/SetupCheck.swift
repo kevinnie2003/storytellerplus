@@ -141,7 +141,7 @@ struct SetupCheck: View {
               let cardColor: Color = characterTeam == "demon" ? .demon :
                                       characterTeam == "minion" ? .minion :
                                       characterTeam == "outsider" ? .outsider :
-                                      characterTeam == "townsfolk" ? .townsfolk : .black
+                                      characterTeam == "townsfolk" ? .townsfolk : .ink
               CardFront(character: extraRepeatedCharacters[index], cardColor: cardColor)
                 .scaleEffect(extraRepeatedCardSelected[index] ? 1.05 : 0.95)
                 .opacity(extraRepeatedCardSelected[index] ? 1.0 : 0.7)
@@ -158,7 +158,7 @@ struct SetupCheck: View {
               VStack{
                 Image(systemName: "plus.circle.fill")
                   .font(.system(size: 100, design: .rounded))
-                  .foregroundColor(.black)
+                  .foregroundColor(.ink)
               }
               .frame(width: 200, height: 300)
               .padding(.vertical, 20)
@@ -174,13 +174,13 @@ struct SetupCheck: View {
               .font(.system(size: 20,  design: .rounded))
               .fontWeight(.bold)
               .padding()
-              .foregroundColor(.black)
+              .foregroundColor(.ink)
               .padding(.horizontal, 10)
               .padding(.vertical, 3)
               .frame(width: 150)
               .background(.mainbg)
               .cornerRadius(30)
-              .overlay(RoundedRectangle(cornerRadius: 30).stroke(Color.black, lineWidth: 3))
+              .overlay(RoundedRectangle(cornerRadius: 30).stroke(Color.ink, lineWidth: 3))
               .contentShape(RoundedRectangle(cornerRadius: 30))
           }
           .padding(.top, 30)

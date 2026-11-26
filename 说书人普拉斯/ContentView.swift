@@ -9,6 +9,7 @@ import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
 struct ContentView: View {
+  @Environment(\.colorScheme) private var colorScheme
   //  @Environment(\.modelContext) private var modelContext
   //  @Query private var items: [Item]
   @State private var viewNumber = 0
@@ -45,7 +46,8 @@ struct ContentView: View {
         .colorEffect(ShaderLibrary.dotPatternShader(
           .float(80),
           .float(1),
-          .float(0)))
+          .float(0),
+          .float(colorScheme == .dark ? 1 : 0)))
         .edgesIgnoringSafeArea(.all)
       //      Color.mainbg
       //        .edgesIgnoringSafeArea(.all)
@@ -143,7 +145,7 @@ struct ContentView: View {
       .animation(.easeInOut(duration: 0.5), value: viewNumber)
       
     }// end of the outer zstack
-    .preferredColorScheme(.light)
+    .stColorScheme()
     
   }
   private func readJSON(from url: URL) {
@@ -202,7 +204,7 @@ struct StartChooser: View {
         Button(action: onClose) {
           Image(systemName: "xmark")
             .font(.system(size: 20, weight: .black))
-            .foregroundColor(.black)
+            .foregroundColor(.ink)
             .padding(8)
         }
         .buttonStyle(.plain)
@@ -211,17 +213,17 @@ struct StartChooser: View {
         VStack(alignment: .leading, spacing: 12) {
           Text("新的一局")
             .font(.system(size: 19, weight: .bold, design: .rounded))
-            .foregroundColor(.black.opacity(0.6))
+            .foregroundColor(.ink.opacity(0.6))
           STBigButton(title: "上传剧本 JSON", systemImage: "doc.fill", filled: true, action: onUploadJSON)
           STBigButton(title: "用图片生成剧本", systemImage: "photo.fill", action: onImageScript)
         }
         Rectangle()
-          .fill(Color.black)
+          .fill(Color.ink)
           .frame(width: 3)
         VStack(alignment: .leading, spacing: 12) {
           Text("接着玩")
             .font(.system(size: 19, weight: .bold, design: .rounded))
-            .foregroundColor(.black.opacity(0.6))
+            .foregroundColor(.ink.opacity(0.6))
           if !lastGameName.isEmpty {
             STBigButton(title: "继续上一局", subtitle: lastGameName, systemImage: "arrow.uturn.backward", filled: true, action: onContinue)
           }
@@ -234,6 +236,6 @@ struct StartChooser: View {
     .frame(width: 760)
     .background(Color.mainbg)
     .clipShape(RoundedRectangle(cornerRadius: 26))
-    .overlay(RoundedRectangle(cornerRadius: 26).stroke(Color.black, lineWidth: 4))
+    .overlay(RoundedRectangle(cornerRadius: 26).stroke(Color.ink, lineWidth: 4))
   }
 }

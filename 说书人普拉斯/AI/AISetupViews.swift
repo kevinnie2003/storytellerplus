@@ -136,9 +136,9 @@ struct AISetupSheet: View {
         .lineLimit(1...4)
         .font(.system(size: 17, design: .rounded))
         .padding(10)
-        .background(Color.goodTextBg)
+        .background(Color.paper)
         .cornerRadius(12)
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.black, lineWidth: 2))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.ink, lineWidth: 2))
       HFlow(horizontalAlignment: .leading, verticalAlignment: .top) {
         ForEach(wishChips, id: \.self) { chip in
           AIChip(text: chip) {
@@ -216,7 +216,7 @@ struct AISetupSheet: View {
     }
     .padding(20)
     .background(Color.mainbg.ignoresSafeArea())
-    .preferredColorScheme(.light)
+    .stColorScheme()
     .aiPanelSizing()
     .sheet(isPresented: $showSettings) {
       AISettingsView()
@@ -297,9 +297,9 @@ struct AIPostDrawSheet: View {
         .lineLimit(1...3)
         .font(.system(size: 17, design: .rounded))
         .padding(10)
-        .background(Color.goodTextBg)
+        .background(Color.paper)
         .cornerRadius(12)
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.black, lineWidth: 2))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.ink, lineWidth: 2))
       HStack(spacing: 12) {
         Button(action: generate) {
           AIPillLabel(text: busy ? "思考中…" : (plan == nil ? "开始" : "重新生成"), filled: true)
@@ -335,7 +335,7 @@ struct AIPostDrawSheet: View {
                   }
                 }
               }
-              .tint(.black)
+              .tint(.ink)
             }
             if plan!.bluffs.count == 3 {
               Toggle(isOn: $applyBluffs) {
@@ -349,7 +349,7 @@ struct AIPostDrawSheet: View {
                   }
                 }
               }
-              .tint(.black)
+              .tint(.ink)
             }
             if !plan!.notes.isEmpty {
               Text(plan!.notes)
@@ -373,7 +373,7 @@ struct AIPostDrawSheet: View {
     }
     .padding(20)
     .background(Color.mainbg.ignoresSafeArea())
-    .preferredColorScheme(.light)
+    .stColorScheme()
     .aiPanelSizing()
     .sheet(isPresented: $showSettings) {
       AISettingsView()

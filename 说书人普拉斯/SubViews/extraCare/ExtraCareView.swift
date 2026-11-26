@@ -25,8 +25,8 @@ struct ExtraCareView: View {
           .frame(maxWidth: .infinity)
           .padding(.vertical, 10)
           .opacity(selectedView == 0 ? 1 : 0.5)
-          .border(width: 3, edges: [.bottom], color: .black)
-          .border(width: 1.5, edges: [.trailing], color: .black)
+          .border(width: 3, edges: [.bottom], color: .ink)
+          .border(width: 1.5, edges: [.trailing], color: .ink)
           .onTapGesture {
             selectedView = 0
           }
@@ -36,8 +36,8 @@ struct ExtraCareView: View {
           .frame(maxWidth: .infinity)
           .padding(.vertical, 10)
           .opacity(selectedView == 1 ? 1 : 0.5)
-          .border(width: 3, edges: [.bottom], color: .black)
-          .border(width: 1.5, edges: [.trailing, .leading], color: .black)
+          .border(width: 3, edges: [.bottom], color: .ink)
+          .border(width: 1.5, edges: [.trailing, .leading], color: .ink)
           .onTapGesture {
             selectedView = 1
           }
@@ -47,8 +47,8 @@ struct ExtraCareView: View {
           .frame(maxWidth: .infinity)
           .padding(.vertical, 10)
           .opacity(selectedView == 2 ? 1 : 0.5)
-          .border(width: 3, edges: [.bottom], color: .black)
-          .border(width: 1.5, edges: [.leading], color: .black)
+          .border(width: 3, edges: [.bottom], color: .ink)
+          .border(width: 1.5, edges: [.leading], color: .ink)
           .onTapGesture {
             selectedView = 2
           }
@@ -78,8 +78,8 @@ struct ExtraCareView: View {
           .frame(maxWidth: .infinity)
           .padding(.vertical, 10)
           .opacity(selectedView == 3 ? 1 : 0.5)
-          .border(width: 3, edges: [.top], color: .black)
-          .border(width: 1.5, edges: [.trailing], color: .black)
+          .border(width: 3, edges: [.top], color: .ink)
+          .border(width: 1.5, edges: [.trailing], color: .ink)
           .onTapGesture {
             selectedView = 3
           }
@@ -89,8 +89,8 @@ struct ExtraCareView: View {
           .frame(maxWidth: .infinity)
           .padding(.vertical, 10)
           .opacity(selectedView == 4 ? 1 : 0.5)
-          .border(width: 3, edges: [.top], color: .black)
-          .border(width: 1.5, edges: [.leading, .trailing], color: .black)
+          .border(width: 3, edges: [.top], color: .ink)
+          .border(width: 1.5, edges: [.leading, .trailing], color: .ink)
           .onTapGesture {
             selectedView = 4
           }
@@ -100,8 +100,8 @@ struct ExtraCareView: View {
           .frame(maxWidth: .infinity)
           .padding(.vertical, 10)
           .opacity(selectedView == 5 ? 1 : 0.5)
-          .border(width: 3, edges: [.top], color: .black)
-          .border(width: 1.5, edges: [.leading], color: .black)
+          .border(width: 3, edges: [.top], color: .ink)
+          .border(width: 1.5, edges: [.leading], color: .ink)
           .onTapGesture {
             selectedView = 5
           }

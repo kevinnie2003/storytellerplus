@@ -64,16 +64,16 @@ struct CircleSeat: View {
           .grayscale(hideTeamColors ? 1 : 0)
           .frame(width: 58, height: 58)
           .background(Circle().fill(Color.goodTextBg))
-          .overlay(Circle().stroke(Color.black, lineWidth: 2.5))
+          .overlay(Circle().stroke(Color.ink, lineWidth: 2.5))
           .onTapGesture {
             currentSelectedPlayerID = index
             selectNewCharacter = true
           }
         Text("\(index + 1)")
           .font(.system(size: 15, weight: .black, design: .rounded))
-          .foregroundColor(Color.goodTextBg)
+          .foregroundColor(Color.paper)
           .frame(width: 28, height: 28)
-          .background(Circle().fill(Color.black))
+          .background(Circle().fill(Color.ink))
           .overlay(
             Image(systemName: "xmark")
               .font(.system(size: 26, weight: .black))
@@ -95,7 +95,7 @@ struct CircleSeat: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 3)
         .background(Capsule().fill(fill))
-        .overlay(Capsule().stroke(Color.black, lineWidth: isSelected ? 4 : 2))
+        .overlay(Capsule().stroke(Color.ink, lineWidth: isSelected ? 4 : 2))
         .scaleEffect(isSelected ? 1.12 : 1)
         .onTapGesture(perform: onSelect)
       VStack(spacing: 3) {
@@ -121,9 +121,9 @@ struct CircleSeat: View {
         }) {
           Image(systemName: "plus")
             .font(.system(size: 12, weight: .black))
-            .foregroundColor(.black)
+            .foregroundColor(.ink)
             .frame(width: 22, height: 22)
-            .overlay(Circle().stroke(Color.black, lineWidth: 2))
+            .overlay(Circle().stroke(Color.ink, lineWidth: 2))
         }
         .buttonStyle(.plain)
       }
@@ -167,7 +167,7 @@ struct CircleTownView: View {
           Button(action: { selectedSeat = nil }) {
             Image(systemName: "xmark")
               .font(.system(size: 15, weight: .black))
-              .foregroundColor(.black)
+              .foregroundColor(.ink)
               .padding(6)
           }
           .buttonStyle(.plain)
@@ -181,9 +181,9 @@ struct CircleTownView: View {
       }
       .padding(16)
       .frame(width: width)
-      .background(Color.goodTextBg)
+      .background(Color.paper)
       .clipShape(RoundedRectangle(cornerRadius: 16))
-      .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.black, lineWidth: 3))
+      .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.ink, lineWidth: 3))
       .fixedSize(horizontal: false, vertical: true)
     } else {
       VStack(spacing: 4) {
@@ -191,7 +191,7 @@ struct CircleTownView: View {
           .font(.system(size: 54, weight: .black, design: .rounded))
         Text("人存活，共 \(count) 人")
           .font(.system(size: 17, weight: .semibold, design: .rounded))
-          .foregroundColor(.black.opacity(0.6))
+          .foregroundColor(.ink.opacity(0.6))
       }
     }
   }

@@ -145,7 +145,7 @@ struct CharacterRoleSection: View {
       }
       
       Rectangle()
-        .fill(Color.black)
+        .fill(Color.ink)
         .frame(height: 4)
         .padding(.vertical, 30)
     }

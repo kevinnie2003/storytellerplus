@@ -9,6 +9,7 @@ import SwiftUI
 import Flow
 
 struct SetupView: View {
+  @Environment(\.colorScheme) private var colorScheme
   @Binding var playableCharacters: [Character]
   @Binding var playersAssignedCharacters: [Character]
   @Binding var playerCount: Int
@@ -36,7 +37,8 @@ struct SetupView: View {
         .colorEffect(ShaderLibrary.dotPatternShader(
           .float(80),
           .float(1),
-          .float(0)))
+          .float(0),
+          .float(colorScheme == .dark ? 1 : 0)))
         .edgesIgnoringSafeArea(.all)
       
       
@@ -80,12 +82,12 @@ struct SetupView: View {
             Text("AI 配版")
           }
           .font(.system(size: 20, weight: .bold, design: .rounded))
-          .foregroundColor(.black)
+          .foregroundColor(.ink)
           .padding(.horizontal, 18)
           .padding(.vertical, 12)
-          .background(Color.goodTextBg)
+          .background(Color.paper)
           .cornerRadius(30)
-          .overlay(RoundedRectangle(cornerRadius: 30).stroke(Color.black, lineWidth: 3))
+          .overlay(RoundedRectangle(cornerRadius: 30).stroke(Color.ink, lineWidth: 3))
         }
         .padding(20)
       }

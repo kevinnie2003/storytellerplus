@@ -78,17 +78,17 @@ struct TimerView: View{
         Text("游戏时长")
           .font(.system(size: 20, design: .rounded))
           .fontWeight(.bold)
-          .foregroundColor(.black)
+          .foregroundColor(.ink)
         if gameState == 0 {
           Text("00:00:00")
             .font(.system(size: 18, design: .monospaced))
             .fontWeight(.semibold)
-            .foregroundColor(.black)
+            .foregroundColor(.ink)
         }else{
           Text(formattedTimeElapsed(timeElapsed: timeElapsed))
             .font(.system(size: 18, design: .monospaced))
             .fontWeight(.semibold)
-            .foregroundColor(.black)
+            .foregroundColor(.ink)
         }
       }
       .frame(maxHeight: .infinity)
@@ -97,20 +97,20 @@ struct TimerView: View{
           Text("夜晚时长")
             .font(.system(size: 20, design: .rounded))
             .fontWeight(.bold)
-            .foregroundColor(.black)
+            .foregroundColor(.ink)
           Text(formattedTimeElapsed(timeElapsed: timeElapsedNight))
             .font(.system(size: 18, design: .monospaced))
             .fontWeight(.semibold)
-            .foregroundColor(.black)
+            .foregroundColor(.ink)
         }else if gameState == 2 {
           Text("白天时长")
             .font(.system(size: 20, design: .rounded))
             .fontWeight(.bold)
-            .foregroundColor(.black)
+            .foregroundColor(.ink)
           Text(formattedTimeElapsed(timeElapsed: timeElapsedDay))
             .font(.system(size: 18, design: .monospaced))
             .fontWeight(.semibold)
-            .foregroundColor(.black)
+            .foregroundColor(.ink)
         }
       }
       .frame(maxHeight: .infinity)
@@ -118,17 +118,17 @@ struct TimerView: View{
         Text(countdownSeconds > 0 ? "倒计时" : "计时器")
           .font(.system(size: 20, design: .rounded))
           .fontWeight(.bold)
-          .foregroundColor(.black)
+          .foregroundColor(.ink)
         if (gameState == 0){
           Text("00:00:00")
             .font(.system(size: 18, design: .monospaced))
             .fontWeight(.semibold)
-            .foregroundColor(.black)
+            .foregroundColor(.ink)
         }else{
           Text(formattedTimeElapsed(timeElapsed: timerDisplay))
             .font(.system(size: 18, design: .monospaced))
             .fontWeight(.semibold)
-            .foregroundColor(timeUp ? .white : .black)
+            .foregroundColor(timeUp ? .white : .ink)
             .padding(.horizontal, 4)
             .background(RoundedRectangle(cornerRadius: 6).fill(timeUp && flash ? Color.demon : Color.clear))
         }

@@ -60,10 +60,10 @@ enum ReviewBuilder {
   
   static func color(_ entry: GameLogEntry) -> Color {
     switch entry.type {
-    case 6: return .demon
+    case 6: return .demonInk
     case 12: return .townsfolk
-    case 4, 5: return .black
-    default: return .black.opacity(0.75)
+    case 4, 5: return .ink
+    default: return .ink.opacity(0.75)
     }
   }
   
@@ -177,14 +177,14 @@ struct ReviewView: View {
           if let game = game {
             Text("\(game.playersAssignedCharacters.count) 人，还剩 \(game.aliveCount) 人活着")
               .font(.system(size: 16, design: .rounded))
-              .foregroundColor(.black.opacity(0.6))
+              .foregroundColor(.ink.opacity(0.6))
           }
         }
         Spacer()
         Button(action: { showSettings = true }) {
           Image(systemName: "gearshape")
             .font(.system(size: 22, weight: .bold))
-            .foregroundColor(.black)
+            .foregroundColor(.ink)
         }
         .padding(.trailing, 10)
         STPageHeader(title: "", onClose: { dismiss() })
@@ -202,16 +202,16 @@ struct ReviewView: View {
                     Text(segment.title)
                   }
                   .font(.system(size: 19, weight: .black, design: .rounded))
-                  .foregroundColor(segment.isNight ? Color.goodTextBg : .black)
+                  .foregroundColor(segment.isNight ? Color.paper : .ink)
                   .padding(.horizontal, 12)
                   .padding(.vertical, 5)
-                  .background(segment.isNight ? Color.black : Color.goodTextBg)
+                  .background(segment.isNight ? Color.ink : Color.paper)
                   .clipShape(Capsule())
-                  .overlay(Capsule().stroke(Color.black, lineWidth: 2))
+                  .overlay(Capsule().stroke(Color.ink, lineWidth: 2))
                   if segment.entries.isEmpty {
                     Text("没有记录")
                       .font(.system(size: 15, design: .rounded))
-                      .foregroundColor(.black.opacity(0.4))
+                      .foregroundColor(.ink.opacity(0.4))
                       .padding(.leading, 12)
                   }
                   ForEach(segment.entries) { entry in
@@ -228,9 +228,9 @@ struct ReviewView: View {
             .padding(18)
           }
           .frame(maxWidth: .infinity)
-          .background(Color.goodTextBg)
+          .background(Color.paper)
           .clipShape(RoundedRectangle(cornerRadius: 18))
-          .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.black, lineWidth: 3))
+          .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.ink, lineWidth: 3))
           
           // 座位和 AI 复盘
           VStack(alignment: .leading, spacing: 14) {
@@ -255,16 +255,16 @@ struct ReviewView: View {
                     if !alive {
                       Image(systemName: "xmark")
                         .font(.system(size: 12, weight: .black))
-                        .foregroundColor(.demon)
+                        .foregroundColor(.demonInk)
                     }
                   }
                 }
               }
               .padding(10)
             }
-            .background(Color.goodTextBg)
+            .background(Color.paper)
             .clipShape(RoundedRectangle(cornerRadius: 14))
-            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.black, lineWidth: 2.5))
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.ink, lineWidth: 2.5))
             
             HStack(spacing: 10) {
               Text("AI 复盘")
@@ -291,7 +291,7 @@ struct ReviewView: View {
                   .resizable()
                   .scaledToFit()
                   .clipShape(RoundedRectangle(cornerRadius: 12))
-                  .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.black, lineWidth: 2))
+                  .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.ink, lineWidth: 2))
               }
               HStack(spacing: 10) {
                 STChoice(selected: true, action: {
@@ -303,10 +303,10 @@ struct ReviewView: View {
                 ShareLink(item: Image(uiImage: poster), preview: SharePreview("复盘", image: Image(uiImage: poster))) {
                   Text("分享")
                     .font(.system(size: 16, weight: .bold, design: .rounded))
-                    .foregroundColor(.black)
+                    .foregroundColor(.ink)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
-                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.black, lineWidth: 2.5))
+                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.ink, lineWidth: 2.5))
                 }
                 if !savedMessage.isEmpty {
                   Text(savedMessage)
@@ -317,7 +317,7 @@ struct ReviewView: View {
             } else if !busy && recap == nil {
               Text("让 AI 根据这一局的记录生成一张复盘长图，可以保存或发给玩家。")
                 .font(.system(size: 15, design: .rounded))
-                .foregroundColor(.black.opacity(0.45))
+                .foregroundColor(.ink.opacity(0.45))
               Spacer()
             } else {
               Spacer()
@@ -333,7 +333,7 @@ struct ReviewView: View {
     }
     .padding(26)
     .background(Color.mainbg.ignoresSafeArea())
-    .preferredColorScheme(.light)
+    .stColorScheme()
     .aiPanelSizing()
     .onAppear(perform: load)
     .sheet(isPresented: $showSettings) {

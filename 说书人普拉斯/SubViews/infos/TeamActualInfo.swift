@@ -36,7 +36,7 @@ struct TeamActualInfo: View {
           let text6 = Text(" 爪 ")
             .font(.system(size: 15, design: .rounded))
             .fontWeight(.semibold)
-            .foregroundColor(.minion)
+            .foregroundColor(.minionInk)
           let text7 = Text("\(playersAssignedCharacters.filter({$0.team == "demon"}).count)")
             .font(.system(size: 15, design: .monospaced))
             .fontWeight(.bold)
@@ -46,7 +46,7 @@ struct TeamActualInfo: View {
           let text8 = Text(" 恶" + (travlerCount > 0 ? " " : ""))
             .font(.system(size: 15, design: .rounded))
             .fontWeight(.semibold)
-            .foregroundColor(.demon)
+            .foregroundColor(.demonInk)
           
           let text9 = Text(travlerCount > 0 ? "\(travlerCount)" : "")
             .font(.system(size: 15, design: .monospaced))

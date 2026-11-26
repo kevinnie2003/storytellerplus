@@ -50,7 +50,7 @@ struct ExtraSetupForSetup: View {
       .clipShape(RoundedRectangle(cornerRadius: 10))
       .overlay(
         RoundedRectangle(cornerRadius: 10)
-          .stroke(Color.black.opacity(1), lineWidth: 3)
+          .stroke(Color.ink.opacity(1), lineWidth: 3)
       )
       HStack{
         Button(action: {
@@ -59,11 +59,11 @@ struct ExtraSetupForSetup: View {
           Text("返回")
             .font(.system(size: 20, design: .rounded))
             .fontWeight(.bold)
-            .foregroundColor(.black)
+            .foregroundColor(.ink)
             .padding(.horizontal, 20)
             .padding(.vertical, 10)
             .background(Color.mainbg)
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.black, lineWidth: 3))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.ink, lineWidth: 3))
             .contentShape(RoundedRectangle(cornerRadius: 10))
         }
         Spacer()
@@ -73,11 +73,11 @@ struct ExtraSetupForSetup: View {
           Text("确认")
             .font(.system(size: 20, design: .rounded))
             .fontWeight(.bold)
-            .foregroundColor(.black)
+            .foregroundColor(.ink)
             .padding(.horizontal, 20)
             .padding(.vertical, 10)
             .background(Color.mainbg)
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.black, lineWidth: 3))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.ink, lineWidth: 3))
             .contentShape(RoundedRectangle(cornerRadius: 10))
         }
         Spacer()
@@ -87,11 +87,11 @@ struct ExtraSetupForSetup: View {
           Text("退出")
             .font(.system(size: 20, design: .rounded))
             .fontWeight(.bold)
-            .foregroundColor(.black)
+            .foregroundColor(.ink)
             .padding(.horizontal, 20)
             .padding(.vertical, 10)
             .background(Color.mainbg)
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.black, lineWidth: 3))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.ink, lineWidth: 3))
             .contentShape(RoundedRectangle(cornerRadius: 10))
         }
       }

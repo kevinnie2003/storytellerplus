@@ -157,7 +157,7 @@ struct AISettingsView: View {
         }
       }
     }
-    .preferredColorScheme(.light)
+    .stColorScheme()
     .onAppear {
       load()
     }
@@ -183,13 +183,13 @@ struct AIPanelHeader: View {
       Button(action: { showSettings = true }) {
         Image(systemName: "gearshape")
           .font(.system(size: 22, weight: .bold))
-          .foregroundColor(.black)
+          .foregroundColor(.ink)
       }
       .padding(.leading, 10)
       Button(action: onClose) {
         Image(systemName: "xmark.circle")
           .font(.system(size: 22, weight: .bold))
-          .foregroundColor(.black)
+          .foregroundColor(.ink)
       }
       .padding(.leading, 10)
     }
@@ -202,12 +202,12 @@ struct AIPillLabel: View {
   var body: some View {
     Text(text)
       .font(.system(size: 18, weight: .bold, design: .rounded))
-      .foregroundColor(filled ? Color.goodTextBg : .black)
+      .foregroundColor(filled ? Color.paper : .ink)
       .padding(.horizontal, 18)
       .padding(.vertical, 10)
-      .background(filled ? Color.black : Color.goodTextBg)
+      .background(filled ? Color.ink : Color.paper)
       .cornerRadius(24)
-      .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.black, lineWidth: 3))
+      .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.ink, lineWidth: 3))
   }
 }
 
@@ -218,12 +218,12 @@ struct AIChip: View {
     Button(action: action) {
       Text(text)
         .font(.system(size: 15, weight: .semibold, design: .rounded))
-        .foregroundColor(.black)
+        .foregroundColor(.ink)
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
-        .background(Color.goodTextBg)
+        .background(Color.paper)
         .cornerRadius(16)
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.black, lineWidth: 2))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.ink, lineWidth: 2))
     }
   }
 }

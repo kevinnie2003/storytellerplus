@@ -61,7 +61,7 @@ struct VotingView: View{
     case "traveler":
       return Color.goodTextBg
     default:
-      return Color.black
+      return Color.ink
     }
   }
   
@@ -78,13 +78,13 @@ struct VotingView: View{
           let columns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 5)
           HStack{
             Rectangle()
-              .fill(Color.black)
+              .fill(Color.ink)
               .frame(height: 2)
             Text(nominationPhase == 0 ? "未提名": "未被提")
               .font(.system(size: 20, design: .monospaced))
               .fontWeight(.bold)
             Rectangle()
-              .fill(Color.black)
+              .fill(Color.ink)
               .frame(height: 2)
           }
           .padding(.vertical, 10)
@@ -125,7 +125,7 @@ struct VotingView: View{
                   }else{
                     Text("说")
                       .frame(width: 40, height: 40)
-                      .overlay(Circle().stroke(Color.black, lineWidth: 2))
+                      .overlay(Circle().stroke(Color.ink, lineWidth: 2))
                   }
                 }
               }
@@ -154,13 +154,13 @@ struct VotingView: View{
           .padding(.vertical, 10)
           HStack{
             Rectangle()
-              .fill(Color.black)
+              .fill(Color.ink)
               .frame(height: 2)
             Text(nominationPhase == 0 ? "已提名": "已被提")
               .font(.system(size: 20, design: .monospaced))
               .fontWeight(.bold)
             Rectangle()
-              .fill(Color.black)
+              .fill(Color.ink)
               .frame(height: 2)
           }
           .padding(.vertical, 10)
@@ -202,7 +202,7 @@ struct VotingView: View{
                   }else{
                     Text("说")
                       .frame(width: 40, height: 40)
-                      .overlay(Circle().stroke(Color.black, lineWidth: 2))
+                      .overlay(Circle().stroke(Color.ink, lineWidth: 2))
                   }
                 }
               }
@@ -243,8 +243,8 @@ struct VotingView: View{
                 .fontWeight(.bold)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
-                .foregroundColor(.black)
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.black, lineWidth: 2))
+                .foregroundColor(.ink)
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.ink, lineWidth: 2))
             }
           }else{
             Button(action: {
@@ -255,8 +255,8 @@ struct VotingView: View{
                 .fontWeight(.bold)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
-                .foregroundColor(.black)
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.black, lineWidth: 2))
+                .foregroundColor(.ink)
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.ink, lineWidth: 2))
             }
             .frame(maxWidth: .infinity)
             Button(action: {
@@ -270,8 +270,8 @@ struct VotingView: View{
                 .fontWeight(.bold)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
-                .foregroundColor(.black)
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.black, lineWidth: 2))
+                .foregroundColor(.ink)
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.ink, lineWidth: 2))
             }
             .frame(maxWidth: .infinity)
           }
@@ -301,20 +301,20 @@ struct VotingView: View{
             Text("从\((nominatedIndex + 1) % playerCount + 1)号开始投票")
               .font(.system(size: 20, design: .monospaced))
               .fontWeight(.semibold)
-              .foregroundColor(.black.opacity(0.7))
+              .foregroundColor(.ink.opacity(0.7))
           }
           let columns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 5)
           if nominatedIndex < playerCount && playersAssignedCharacters[nominatedIndex].team == "traveler"{
             // for traverler nomination
             HStack{
               Rectangle()
-                .fill(Color.black)
+                .fill(Color.ink)
                 .frame(height: 2)
               Text("玩家")
                 .font(.system(size: 20, design: .monospaced))
                 .fontWeight(.bold)
               Rectangle()
-                .fill(Color.black)
+                .fill(Color.ink)
                 .frame(height: 2)
             }
             LazyVGrid(columns: columns, spacing: 20){
@@ -345,13 +345,13 @@ struct VotingView: View{
           }else{
             HStack{
               Rectangle()
-                .fill(Color.black)
+                .fill(Color.ink)
                 .frame(height: 2)
               Text("存活")
                 .font(.system(size: 20, design: .monospaced))
                 .fontWeight(.bold)
               Rectangle()
-                .fill(Color.black)
+                .fill(Color.ink)
                 .frame(height: 2)
             }
             LazyVGrid(columns: columns, spacing: 20){
@@ -386,13 +386,13 @@ struct VotingView: View{
             
             HStack{
               Rectangle()
-                .fill(Color.black)
+                .fill(Color.ink)
                 .frame(height: 2)
               Text("死亡")
                 .font(.system(size: 20, design: .monospaced))
                 .fontWeight(.bold)
               Rectangle()
-                .fill(Color.black)
+                .fill(Color.ink)
                 .frame(height: 2)
             }
             LazyVGrid(columns: columns, spacing: 20){
@@ -426,13 +426,13 @@ struct VotingView: View{
             .padding(.horizontal, 5)
             HStack{
               Rectangle()
-                .fill(Color.black)
+                .fill(Color.ink)
                 .frame(height: 2)
               Text("无票")
                 .font(.system(size: 20, design: .monospaced))
                 .fontWeight(.bold)
               Rectangle()
-                .fill(Color.black)
+                .fill(Color.ink)
                 .frame(height: 2)
             }
             LazyVGrid(columns: columns, spacing: 20){
@@ -466,13 +466,13 @@ struct VotingView: View{
             .padding(.horizontal, 5)
             HStack{
               Rectangle()
-                .fill(Color.black)
+                .fill(Color.ink)
                 .frame(height: 2)
               Text("特殊")
                 .font(.system(size: 20, design: .monospaced))
                 .fontWeight(.bold)
               Rectangle()
-                .fill(Color.black)
+                .fill(Color.ink)
                 .frame(height: 2)
             }
             LazyVGrid(columns: columns, spacing: 20){
@@ -483,7 +483,7 @@ struct VotingView: View{
                   .font(.system(size: 20, design: .monospaced))
                   .fontWeight(.bold)
                   .frame(width: 40, height: 40)
-                  .overlay(Circle().stroke(Color.black, lineWidth: 2))
+                  .overlay(Circle().stroke(Color.ink, lineWidth: 2))
                   .scaleEffect(nominationVotes.contains(trueIndex) ? 1.2 : 1)
                   .frame(maxWidth: .infinity)
                   .opacity(nominationVotes.contains(trueIndex) ? 1 : 0.5)
@@ -546,8 +546,8 @@ struct VotingView: View{
               .fontWeight(.bold)
               .padding(.horizontal, 10)
               .padding(.vertical, 5)
-              .foregroundColor(.black)
-              .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.black, lineWidth: 2))
+              .foregroundColor(.ink)
+              .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.ink, lineWidth: 2))
           }
         }
       }else{
@@ -582,7 +582,7 @@ struct VotingView: View{
                     .font(.system(size: 15, design: .monospaced))
                     .fontWeight(.semibold)
                     .frame(width: 30, height: 30)
-                    .overlay(Circle().stroke(Color.black, lineWidth: 2))
+                    .overlay(Circle().stroke(Color.ink, lineWidth: 2))
                 }
               }
             }
@@ -609,8 +609,8 @@ struct VotingView: View{
           .frame(maxWidth: .infinity)
           .padding(.vertical, 10)
           .opacity(votingPhase == 0 ? 1 : 0.5)
-          .border(width: 3, edges: [.top], color: .black)
-          .border(width: 1.5, edges: [.trailing], color: .black)
+          .border(width: 3, edges: [.top], color: .ink)
+          .border(width: 1.5, edges: [.trailing], color: .ink)
           .onTapGesture {
             votingPhase = 0
             //            nominatorIndex = -1
@@ -623,8 +623,8 @@ struct VotingView: View{
           .frame(maxWidth: .infinity)
           .padding(.vertical, 10)
           .opacity(votingPhase == 1 ? 1 : 0.5)
-          .border(width: 3, edges: [.top], color: .black)
-          .border(width: 1.5, edges: [.trailing, .leading], color: .black)
+          .border(width: 3, edges: [.top], color: .ink)
+          .border(width: 1.5, edges: [.trailing, .leading], color: .ink)
         
         //          .onTapGesture {
         //            votingPhase = 1
@@ -635,8 +635,8 @@ struct VotingView: View{
           .frame(maxWidth: .infinity)
           .padding(.vertical, 10)
           .opacity(votingPhase == 2 ? 1 : 0.5)
-          .border(width: 3, edges: [.top], color: .black)
-          .border(width: 1.5, edges: [.leading], color: .black)
+          .border(width: 3, edges: [.top], color: .ink)
+          .border(width: 1.5, edges: [.leading], color: .ink)
           .onTapGesture {
             votingPhase = 2
           }

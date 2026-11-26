@@ -278,8 +278,8 @@ struct AIScriptImportView: View {
         VStack(spacing: 12) {
           ZStack {
             RoundedRectangle(cornerRadius: 14)
-              .fill(Color.goodTextBg)
-              .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.black, lineWidth: 3))
+              .fill(Color.paper)
+              .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.ink, lineWidth: 3))
             if let image = image {
               Image(uiImage: image)
                 .resizable()
@@ -359,13 +359,13 @@ struct AIScriptImportView: View {
                     }) {
                       Text("\(i + 1). \(notes[i])")
                         .font(.system(size: 16, design: .rounded))
-                        .foregroundColor(.black)
+                        .foregroundColor(.ink)
                         .multilineTextAlignment(.leading)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(8)
-                        .background(Color.goodTextBg)
+                        .background(Color.paper)
                         .cornerRadius(10)
-                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.black, lineWidth: 2))
+                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.ink, lineWidth: 2))
                     }
                   }
                 }
@@ -394,9 +394,9 @@ struct AIScriptImportView: View {
                 .lineLimit(1...3)
                 .font(.system(size: 16, design: .rounded))
                 .padding(10)
-                .background(Color.goodTextBg)
+                .background(Color.paper)
                 .cornerRadius(12)
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.black, lineWidth: 2))
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.ink, lineWidth: 2))
                 .onSubmit {
                   refine()
                 }
@@ -429,7 +429,7 @@ struct AIScriptImportView: View {
     }
     .padding(20)
     .background(Color.mainbg.ignoresSafeArea())
-    .preferredColorScheme(.light)
+    .stColorScheme()
     .aiPanelSizing()
     .onChange(of: pickerItem) { _, newItem in
       guard let newItem = newItem else { return }

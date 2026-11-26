@@ -54,7 +54,7 @@ struct PlayersView: View {
 
           }
           .padding(.trailing, 10)
-          Color.black
+          Color.ink
             .frame(width: 4)
             .padding(.vertical, 0)
             .padding(.horizontal, 10)
@@ -126,9 +126,9 @@ struct PlayersView: View {
           }) {
             Image(systemName: "plus")
               .font(.system(size: 35, weight: .bold))
-              .foregroundColor(.black)
+              .foregroundColor(.ink)
               .frame(width: 50, height: 50)
-              .overlay(Circle().stroke(Color.black, lineWidth: 3))
+              .overlay(Circle().stroke(Color.ink, lineWidth: 3))
           }
           .contentShape(Circle())
         }
@@ -140,7 +140,7 @@ struct PlayersView: View {
       .animation(.easeInOut(duration: 0.3), value: globalStates.count)
       .background(.mainbg)
       .overlay(RoundedRectangle(cornerRadius: 50)
-        .stroke(Color.black, lineWidth: 8))
+        .stroke(Color.ink, lineWidth: 8))
       .clipShape(RoundedRectangle(cornerRadius: 50))
       if appSettings.circleLayout {
         CircleTownView(

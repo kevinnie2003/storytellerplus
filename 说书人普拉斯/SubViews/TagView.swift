@@ -68,7 +68,7 @@ struct TagView: View{
                 .fontWeight(.bold)
               Picker(selection: $newTagSource, label: Text(currentSpeaker).font(.system(size: 20, design: .rounded))
                 .fontWeight(.bold)
-                .foregroundColor(.black)
+                .foregroundColor(.ink)
                 .lineLimit(1)               // <-- Restrict to 1 line
                 .truncationMode(.tail)     // <-- Show "..." if needed
               ) {
@@ -78,7 +78,7 @@ struct TagView: View{
                        : "说书人")
                   .font(.system(size: 20, design: .rounded))
                   .fontWeight(.bold)
-                  .foregroundColor(.black) // <-- this makes each option black
+                  .foregroundColor(.ink) // <-- this makes each option black
                   .tag(item)
                 }
               }
@@ -105,10 +105,10 @@ struct TagView: View{
                 Text("确认")
                   .font(.system(size: 15, design: .rounded))
                   .fontWeight(.bold)
-                  .foregroundColor(.black)
+                  .foregroundColor(.ink)
                   .padding(.horizontal, 20)
                   .padding(.vertical, 8)
-                  .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.black, lineWidth: 2))
+                  .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.ink, lineWidth: 2))
               }
               Button(action: {
                 showTagEditor = false
@@ -116,10 +116,10 @@ struct TagView: View{
                 Text("取消")
                   .font(.system(size: 15, design: .rounded))
                   .fontWeight(.bold)
-                  .foregroundColor(.black)
+                  .foregroundColor(.ink)
                   .padding(.horizontal, 20)
                   .padding(.vertical, 8)
-                  .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.black, lineWidth: 2))
+                  .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.ink, lineWidth: 2))
               }
               
             }
@@ -127,11 +127,11 @@ struct TagView: View{
           }
           .padding(.horizontal, 20)
           .frame(width: 300, height: 300)
-          .background(.goodTextBg)
+          .background(.paper)
           .cornerRadius(20)
           .overlay(
             RoundedRectangle(cornerRadius: 20)
-              .stroke(Color.black, lineWidth: 3)
+              .stroke(Color.ink, lineWidth: 3)
           )
         }
         .zIndex(3)
@@ -208,11 +208,11 @@ struct TagView: View{
                 .resizable()
                 .scaledToFit()
                 .frame(width: 25, height: 25)
-                .foregroundColor(.black)
+                .foregroundColor(.ink)
                 .frame(width: 50, height: 50) // This defines the container size
                 .overlay(
                   Circle()
-                    .stroke(Color.black, lineWidth: 3)
+                    .stroke(Color.ink, lineWidth: 3)
                 )
             }
             .scaleEffect(0.9)
@@ -268,10 +268,10 @@ struct TagView: View{
             Text("确认")
               .font(.system(size: 20, design: .rounded))
               .fontWeight(.bold)
-              .foregroundColor(.black)
+              .foregroundColor(.ink)
               .padding(.horizontal, 20)
               .padding(.vertical, 8)
-              .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.black, lineWidth: 2))
+              .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.ink, lineWidth: 2))
           }
           .padding(.horizontal, 30)
           .padding(.vertical, 20)
@@ -282,10 +282,10 @@ struct TagView: View{
             Text("返回")
               .font(.system(size: 20, design: .rounded))
               .fontWeight(.bold)
-              .foregroundColor(.black)
+              .foregroundColor(.ink)
               .padding(.horizontal, 20)
               .padding(.vertical, 8)
-              .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.black, lineWidth: 2))
+              .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.ink, lineWidth: 2))
           }
           .padding(.horizontal, 30)
           .padding(.vertical, 20)
@@ -297,7 +297,7 @@ struct TagView: View{
       .frame(width: 600)
       .overlay(
         RoundedRectangle(cornerRadius: 20)
-          .stroke(Color.black, lineWidth: 3)
+          .stroke(Color.ink, lineWidth: 3)
       )
       .padding(.vertical, 50)
     } // end of zstack

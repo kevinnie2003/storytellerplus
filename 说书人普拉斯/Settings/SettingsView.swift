@@ -39,6 +39,11 @@ struct SettingsView: View {
       STPageHeader(title: "设置", onClose: { dismiss() })
       ScrollView {
         VStack(alignment: .leading, spacing: 28) {
+          STSection(title: "外观") {
+            STRow(title: "深色模式", hint: settings.appearance == "game" ? "入夜自动变深色，天亮变回浅色" : "") {
+              STChoiceRow(options: [("light", "浅色"), ("dark", "深色"), ("game", "跟随昼夜")], selection: $settings.appearance)
+            }
+          }
           STSection(title: "玩家卡片") {
             STRow(title: "摆法") {
               STChoiceRow(options: [(false, "网格"), (true, "圆桌")], selection: $settings.circleLayout)
@@ -118,7 +123,7 @@ struct SettingsView: View {
                   }
                   .padding(.horizontal, 10)
                   .padding(.vertical, 6)
-                  .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.black, lineWidth: 2))
+                  .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.ink, lineWidth: 2))
                 }
               }
               HStack(spacing: 10) {
@@ -127,7 +132,7 @@ struct SettingsView: View {
                   .padding(10)
                   .background(Color.mainbg.opacity(0.5))
                   .clipShape(RoundedRectangle(cornerRadius: 12))
-                  .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.black, lineWidth: 2))
+                  .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.ink, lineWidth: 2))
                   .frame(maxWidth: 320)
                   .onSubmit(addTag)
                 STChoice(selected: true, action: addTag) {
@@ -136,7 +141,7 @@ struct SettingsView: View {
                 Spacer()
                 Button("恢复默认") { showResetTags = true }
                   .font(.system(size: 16, weight: .semibold, design: .rounded))
-                  .foregroundColor(.black.opacity(0.6))
+                  .foregroundColor(.ink.opacity(0.6))
               }
             }
           }
@@ -155,12 +160,12 @@ struct SettingsView: View {
                 .frame(minHeight: 110)
                 .background(Color.mainbg.opacity(0.5))
                 .clipShape(RoundedRectangle(cornerRadius: 12))
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.black, lineWidth: 2))
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.ink, lineWidth: 2))
                 .overlay(alignment: .topLeading) {
                   if settings.houseRules.isEmpty {
                     Text("比如：邪恶玩家伪装成某个角色来问信息，说书人照样给。")
                       .font(.system(size: 17, design: .rounded))
-                      .foregroundColor(.black.opacity(0.35))
+                      .foregroundColor(.ink.opacity(0.35))
                       .padding(.horizontal, 13)
                       .padding(.vertical, 16)
                       .allowsHitTesting(false)
@@ -210,7 +215,7 @@ struct SettingsView: View {
       Text("清除后，没网时图标会显示成问号，下次有网开局时会重新下载。")
     }
     .background(Color.mainbg.ignoresSafeArea())
-    .preferredColorScheme(.light)
+    .stColorScheme()
     .aiPanelSizing()
     .sheet(isPresented: $showAISettings) {
       AISettingsView()

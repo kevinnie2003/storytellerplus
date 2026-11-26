@@ -34,14 +34,14 @@ struct SetupCount: View {
           Text("-")
             .font(.system(size: 40, design: .rounded))
             .fontWeight(.bold)
-            .foregroundColor(.black)
+            .foregroundColor(.ink)
             .padding(.horizontal, 20)
             .padding(.vertical, 10)
         }
         Text("\(selectedTeamCounts[selectionState / 3])")
           .font(.system(size: 40, design: .rounded))
           .fontWeight(.bold)
-          .foregroundColor(.black)
+          .foregroundColor(.ink)
           .padding(.horizontal, 20)
           .padding(.vertical, 10)
         Button(action: {
@@ -50,7 +50,7 @@ struct SetupCount: View {
           Text("+")
             .font(.system(size: 40, design: .rounded))
             .fontWeight(.bold)
-            .foregroundColor(.black)
+            .foregroundColor(.ink)
             .padding(.horizontal, 20)
             .padding(.vertical, 10)
         }

@@ -56,12 +56,12 @@ struct ConversationLogView: View{
               Text("获得角色: ")
                 .font(.system(size: 20, design: .rounded))
                 .fontWeight(.semibold)
-                .foregroundColor(.black)
+                .foregroundColor(.ink)
               playerCharacterBox(playerCharacter: entry.playerCharacters[0], playerTeam: entry.playerTeams[0])
             }
             .padding(.horizontal, 10)
             .frame(minHeight: 50)
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.black, lineWidth: 2))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.ink, lineWidth: 2))
           }
           .frame(maxWidth: .infinity, alignment: .leading)
           .padding(.vertical, 3)
@@ -74,7 +74,7 @@ struct ConversationLogView: View{
               Text("获得标签: ")
                 .font(.system(size: 20, design: .rounded))
                 .fontWeight(.semibold)
-                .foregroundColor(.black)
+                .foregroundColor(.ink)
               +
               Text("\(entry.message)")
                 .font(.system(size: 20, design: .rounded))
@@ -84,7 +84,7 @@ struct ConversationLogView: View{
               Text("，来源为：")
                 .font(.system(size: 20, design: .rounded))
                 .fontWeight(.semibold)
-                .foregroundColor(.black)
+                .foregroundColor(.ink)
               if (entry.playerNumbers.count > 0 && entry.playerNumbers[0] >= 0){
                 playerNumberCircle(playerNumber: entry.playerNumbers[0] + 1, playerTeam: entry.playerTeams[1])
               }
@@ -92,7 +92,7 @@ struct ConversationLogView: View{
             }
             .padding(.horizontal, 10)
             .frame(minHeight: 50)
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.black, lineWidth: 2))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.ink, lineWidth: 2))
           }
           .frame(maxWidth: .infinity, alignment: .leading)
           .padding(.vertical, 3)
@@ -104,13 +104,13 @@ struct ConversationLogView: View{
               Text("被唤醒了")
                 .font(.system(size: 20, design: .rounded))
                 .fontWeight(.bold)
-                .foregroundColor(.black)
+                .foregroundColor(.ink)
                 .padding(.horizontal, 5)
                 .padding(.vertical, 5)
             }
             .padding()
             .frame(maxWidth: .infinity)
-            .border(width: 2, edges: [.top, .bottom], color: .black)
+            .border(width: 2, edges: [.top, .bottom], color: .ink)
             .padding(.vertical, 5)
           }else{
             HStack(spacing: 4){
@@ -119,13 +119,13 @@ struct ConversationLogView: View{
               Text("被唤醒了")
                 .font(.system(size: 20, design: .rounded))
                 .fontWeight(.bold)
-                .foregroundColor(.black)
+                .foregroundColor(.ink)
                 .padding(.horizontal, 5)
                 .padding(.vertical, 5)
             }
             .padding()
             .frame(maxWidth: .infinity)
-            .border(width: 2, edges: [.top, .bottom], color: .black)
+            .border(width: 2, edges: [.top, .bottom], color: .ink)
             .padding(.vertical, 10)
           }
         }else if type == 3{
@@ -138,10 +138,10 @@ struct ConversationLogView: View{
               Text(entry.message)
                 .font(.system(size: 20, design: .rounded))
                 .fontWeight(.semibold)
-                .foregroundColor(.black)
+                .foregroundColor(.ink)
                 .padding(.horizontal, 10)
                 .frame(minHeight: 50)
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.black, lineWidth: 2))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.ink, lineWidth: 2))
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.vertical, 3)
@@ -150,10 +150,10 @@ struct ConversationLogView: View{
               Text(entry.message)
                 .font(.system(size: 20, design: .rounded))
                 .fontWeight(.semibold)
-                .foregroundColor(.black)
+                .foregroundColor(.ink)
                 .padding(.horizontal, 10)
                 .frame(minHeight: 50)
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.black, lineWidth: 2))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.ink, lineWidth: 2))
               playerNumberCircle(playerNumber: 21, playerTeam: 5) // 说书人
             }
             .frame(maxWidth: .infinity, alignment: .trailing)
@@ -169,7 +169,7 @@ struct ConversationLogView: View{
               Text("号玩家")
                 .font(.system(size: 20, design: .rounded))
                 .fontWeight(.bold)
-                .foregroundColor(.black)
+                .foregroundColor(.ink)
                 .padding(.horizontal, 5)
                 .padding(.vertical, 5)
             }
@@ -177,7 +177,7 @@ struct ConversationLogView: View{
             Text("提名了")
               .font(.system(size: 20, design: .rounded))
               .fontWeight(.bold)
-              .foregroundColor(.black)
+              .foregroundColor(.ink)
               .padding(.horizontal, 5)
               .padding(.vertical, 5)
             if entry.playerTeams[1] != 5{
@@ -185,7 +185,7 @@ struct ConversationLogView: View{
               Text("号玩家")
                 .font(.system(size: 20, design: .rounded))
                 .fontWeight(.bold)
-                .foregroundColor(.black)
+                .foregroundColor(.ink)
                 .padding(.horizontal, 5)
                 .padding(.vertical, 5)
             }
@@ -193,7 +193,7 @@ struct ConversationLogView: View{
           }
           .padding()
           .frame(maxWidth: .infinity)
-          .border(width: 2, edges: [.top, .bottom], color: .black)
+          .border(width: 2, edges: [.top, .bottom], color: .ink)
           .padding(.vertical, 5)
         }else if type == 5{
           // MARK: 5 for voting
@@ -201,7 +201,7 @@ struct ConversationLogView: View{
             Text("投票结果: ")
               .font(.system(size: 20, design: .rounded))
               .fontWeight(.bold)
-              .foregroundColor(.black)
+              .foregroundColor(.ink)
               .padding(.horizontal, 5)
               .padding(.vertical, 5)
             ForEach(entry.playerNumbers.indices, id: \.self) { i in
@@ -218,7 +218,7 @@ struct ConversationLogView: View{
                 Text(", ")
                   .font(.system(size: 20, design: .rounded))
                   .fontWeight(.bold)
-                  .foregroundColor(.black)
+                  .foregroundColor(.ink)
                   .padding(.horizontal, 5)
                   .padding(.vertical, 5)
               }
@@ -226,7 +226,7 @@ struct ConversationLogView: View{
           }
           .padding()
           .frame(maxWidth: .infinity)
-          .border(width: 2, edges: [.top, .bottom], color: .black)
+          .border(width: 2, edges: [.top, .bottom], color: .ink)
           .padding(.vertical, 5)
         }else if type == 6{
           // MARK: 6 for death
@@ -242,7 +242,7 @@ struct ConversationLogView: View{
           }
           .padding()
           .frame(maxWidth: .infinity)
-          .border(width: 2, edges: [.top, .bottom], color: .black)
+          .border(width: 2, edges: [.top, .bottom], color: .ink)
           .padding(.vertical, 5)
         }else if type == 7{
           // MARK: 7 for player enter game
@@ -250,18 +250,18 @@ struct ConversationLogView: View{
             Text("\(entry.playerNumbers[0])")
               .font(.system(size: 20, design: .rounded))
               .fontWeight(.semibold)
-              .foregroundColor(.black)
+              .foregroundColor(.ink)
               .frame(width: 40, height: 40)
-              .overlay(Circle().stroke(Color.black, lineWidth: 2))
+              .overlay(Circle().stroke(Color.ink, lineWidth: 2))
               .padding(.horizontal, 2)
             HStack(spacing: 2){
               Text("进入游戏")
                 .font(.system(size: 20, design: .rounded))
                 .fontWeight(.bold)
-                .foregroundColor(.black)
+                .foregroundColor(.ink)
                 .padding(.horizontal, 10)
                 .frame(minHeight: 40)
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.black, lineWidth: 2))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.ink, lineWidth: 2))
             }
           }
           .frame(maxWidth: .infinity, alignment: .leading)
@@ -271,24 +271,24 @@ struct ConversationLogView: View{
             Text("游戏开始")
               .font(.system(size: 30, design: .rounded))
               .fontWeight(.black)
-              .foregroundColor(.black)
+              .foregroundColor(.ink)
               .padding(.horizontal, 2)
               .padding(.vertical, 10)
           }
           .frame(maxWidth: .infinity)
-          .border(width: 3, edges: [.top, .bottom], color: .black)
+          .border(width: 3, edges: [.top, .bottom], color: .ink)
           .padding(.vertical, 15)
         }else if type == 9 {
           HStack{
             Text("进入第1个夜晚")
               .font(.system(size: 30, design: .rounded))
               .fontWeight(.black)
-              .foregroundColor(.black)
+              .foregroundColor(.ink)
               .padding(.horizontal, 2)
               .padding(.vertical, 10)
           }
           .frame(maxWidth: .infinity)
-          .border(width: 3, edges: [.top, .bottom], color: .black)
+          .border(width: 3, edges: [.top, .bottom], color: .ink)
           .padding(.vertical, 15)
         }else if type == 10 {
           HStack{
@@ -296,12 +296,12 @@ struct ConversationLogView: View{
             Text("进入第\(dayCount)个白天")
               .font(.system(size: 30, design: .rounded))
               .fontWeight(.black)
-              .foregroundColor(.black)
+              .foregroundColor(.ink)
               .padding(.horizontal, 2)
               .padding(.vertical, 10)
           }
           .frame(maxWidth: .infinity)
-          .border(width: 3, edges: [.top, .bottom], color: .black)
+          .border(width: 3, edges: [.top, .bottom], color: .ink)
           .padding(.vertical, 15)
         }else if type == 11{
           HStack{
@@ -309,12 +309,12 @@ struct ConversationLogView: View{
             Text("进入第\(nightCount+1)个夜晚")
               .font(.system(size: 30, design: .rounded))
               .fontWeight(.black)
-              .foregroundColor(.black)
+              .foregroundColor(.ink)
               .padding(.horizontal, 2)
               .padding(.vertical, 10)
           }
           .frame(maxWidth: .infinity)
-          .border(width: 3, edges: [.top, .bottom], color: .black)
+          .border(width: 3, edges: [.top, .bottom], color: .ink)
           .padding(.vertical, 15)
         }else if type == 12{
           // MARK: 12 for revival
@@ -330,7 +330,7 @@ struct ConversationLogView: View{
           }
           .padding()
           .frame(maxWidth: .infinity)
-          .border(width: 2, edges: [.top, .bottom], color: .black)
+          .border(width: 2, edges: [.top, .bottom], color: .ink)
           .padding(.vertical, 5)
         }else if type == 13{
           // MARK: 13 for cover for demon
@@ -338,13 +338,13 @@ struct ConversationLogView: View{
             Text("恶魔得知伪装: ")
               .font(.system(size: 25, design: .rounded))
               .fontWeight(.bold)
-              .foregroundColor(.black)
+              .foregroundColor(.ink)
               .padding(.horizontal, 2)
               .padding(.vertical, 10)
             playerCharacterBox(playerCharacter: entry.playerCharacters[0], playerTeam: entry.playerTeams[0])
           }
           .frame(maxWidth: .infinity)
-          .border(width: 3, edges: [.top, .bottom], color: .black)
+          .border(width: 3, edges: [.top, .bottom], color: .ink)
           .padding(.vertical, 10)
         }else if type == 14{
           // MARK: 14 for removing tags
@@ -355,7 +355,7 @@ struct ConversationLogView: View{
               Text("失去标签: ")
                 .font(.system(size: 20, design: .rounded))
                 .fontWeight(.semibold)
-                .foregroundColor(.black)
+                .foregroundColor(.ink)
               +
               Text("\(entry.message)")
                 .font(.system(size: 20, design: .rounded))
@@ -365,12 +365,12 @@ struct ConversationLogView: View{
               Text("，来源为：")
                 .font(.system(size: 20, design: .rounded))
                 .fontWeight(.semibold)
-                .foregroundColor(.black)
+                .foregroundColor(.ink)
               playerCharacterBox(playerCharacter: entry.playerCharacters[1], playerTeam: entry.playerTeams[1])
             }
             .padding(.horizontal, 10)
             .frame(minHeight: 50)
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.black, lineWidth: 2))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.ink, lineWidth: 2))
           }
           .frame(maxWidth: .infinity, alignment: .leading)
           .padding(.vertical, 3)
@@ -383,7 +383,7 @@ struct ConversationLogView: View{
               Text("倒置标签: ")
                 .font(.system(size: 20, design: .rounded))
                 .fontWeight(.semibold)
-                .foregroundColor(.black)
+                .foregroundColor(.ink)
               +
               Text("\(entry.message)")
                 .font(.system(size: 20, design: .rounded))
@@ -393,12 +393,12 @@ struct ConversationLogView: View{
               Text("，来源为：")
                 .font(.system(size: 20, design: .rounded))
                 .fontWeight(.semibold)
-                .foregroundColor(.black)
+                .foregroundColor(.ink)
               playerCharacterBox(playerCharacter: entry.playerCharacters[1], playerTeam: entry.playerTeams[1])
             }
             .padding(.horizontal, 10)
             .frame(minHeight: 50)
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.black, lineWidth: 2))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.ink, lineWidth: 2))
           }
           .frame(maxWidth: .infinity, alignment: .leading)
           .padding(.vertical, 3)
@@ -407,7 +407,7 @@ struct ConversationLogView: View{
             Text("全局获得标签: ")
               .font(.system(size: 20, design: .rounded))
               .fontWeight(.semibold)
-              .foregroundColor(.black)
+              .foregroundColor(.ink)
             +
             Text("\(entry.message)")
               .font(.system(size: 20, design: .rounded))
@@ -417,7 +417,7 @@ struct ConversationLogView: View{
             Text("，来源为：")
               .font(.system(size: 20, design: .rounded))
               .fontWeight(.semibold)
-              .foregroundColor(.black)
+              .foregroundColor(.ink)
             if (entry.playerNumbers.count > 0 && entry.playerNumbers[0] >= 0){
               playerNumberCircle(playerNumber: entry.playerNumbers[0] + 1, playerTeam: entry.playerTeams[0])
             }
@@ -425,14 +425,14 @@ struct ConversationLogView: View{
           }
           .frame(maxWidth: .infinity)
           .padding(.vertical, 5)
-          .border(width: 3, edges: [.top, .bottom], color: .black)
+          .border(width: 3, edges: [.top, .bottom], color: .ink)
           .padding(.vertical, 15)
         }else if type == 17{
           HStack{
             Text("全局失去标签: ")
               .font(.system(size: 20, design: .rounded))
               .fontWeight(.semibold)
-              .foregroundColor(.black)
+              .foregroundColor(.ink)
             +
             Text("\(entry.message)")
               .font(.system(size: 20, design: .rounded))
@@ -442,7 +442,7 @@ struct ConversationLogView: View{
             Text("，来源为：")
               .font(.system(size: 20, design: .rounded))
               .fontWeight(.semibold)
-              .foregroundColor(.black)
+              .foregroundColor(.ink)
             if (entry.playerNumbers.count > 0 && entry.playerNumbers[0] >= 0){
               playerNumberCircle(playerNumber: entry.playerNumbers[0] + 1, playerTeam: entry.playerTeams[0])
             }
@@ -450,14 +450,14 @@ struct ConversationLogView: View{
           }
           .frame(maxWidth: .infinity)
           .padding(.vertical, 5)
-          .border(width: 3, edges: [.top, .bottom], color: .black)
+          .border(width: 3, edges: [.top, .bottom], color: .ink)
           .padding(.vertical, 15)
         }else if type == 18{
           HStack{
             Text("全局倒置标签: ")
               .font(.system(size: 20, design: .rounded))
               .fontWeight(.semibold)
-              .foregroundColor(.black)
+              .foregroundColor(.ink)
             +
             Text("\(entry.message)")
               .font(.system(size: 20, design: .rounded))
@@ -467,7 +467,7 @@ struct ConversationLogView: View{
             Text("，来源为：")
               .font(.system(size: 20, design: .rounded))
               .fontWeight(.semibold)
-              .foregroundColor(.black)
+              .foregroundColor(.ink)
             if (entry.playerNumbers.count > 0 && entry.playerNumbers[0] >= 0){
               playerNumberCircle(playerNumber: entry.playerNumbers[0] + 1, playerTeam: entry.playerTeams[0])
             }
@@ -475,7 +475,7 @@ struct ConversationLogView: View{
           }
           .frame(maxWidth: .infinity)
           .padding(.vertical, 5)
-          .border(width: 3, edges: [.top, .bottom], color: .black)
+          .border(width: 3, edges: [.top, .bottom], color: .ink)
           .padding(.vertical, 15)
         }
       }
@@ -553,7 +553,7 @@ struct ConversationView: View {
         HStack {
           Picker(selection: $currentSelection, label: Text(currentSpeaker).font(.system(size: 20, design: .rounded))
             .fontWeight(.bold)
-            .foregroundColor(.black)
+            .foregroundColor(.ink)
             .lineLimit(1)               // <-- Restrict to 1 line
             .truncationMode(.tail)     // <-- Show "..." if needed
           ) {
@@ -563,25 +563,25 @@ struct ConversationView: View {
                    : "说书人")
               .font(.system(size: 20, design: .rounded))
               .fontWeight(.bold)
-              .foregroundColor(.black) // <-- this makes each option black
+              .foregroundColor(.ink) // <-- this makes each option black
               .tag(item)
               
             }
           }
           .pickerStyle(.menu)
           .padding(.horizontal, 5)
-          .accentColor(.black)
+          .accentColor(.ink)
           .frame(width: 150)
           .padding(.vertical, 5)
-          .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.black, lineWidth: 2))
+          .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.ink, lineWidth: 2))
           TextField("输入聊天内容", text: $inputText)
             .font(.system(size: 20, design: .rounded))
             .fontWeight(.semibold)
-            .foregroundColor(.black)
+            .foregroundColor(.ink)
             .frame(width: 500)
             .padding(.vertical, 10)
             .padding(.horizontal, 10)
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.black, lineWidth: 2))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.ink, lineWidth: 2))
           Button(action: {
             // send message
             if inputText != "" {
@@ -592,14 +592,14 @@ struct ConversationView: View {
             Text("发送")
               .font(.system(size: 20, design: .rounded))
               .fontWeight(.semibold)
-              .foregroundColor(.black)
+              .foregroundColor(.ink)
               .padding(.horizontal, 10)
               .padding(.vertical, 10)
             
           }
           .padding(.horizontal, 5)
           .frame(maxWidth: .infinity)
-          .overlay(RoundedRectangle(cornerRadius: 5).stroke(Color.black, lineWidth: 2))
+          .overlay(RoundedRectangle(cornerRadius: 5).stroke(Color.ink, lineWidth: 2))
           
         }
         .padding(.vertical, 10)
@@ -609,7 +609,7 @@ struct ConversationView: View {
       .clipShape(RoundedRectangle(cornerRadius: 20))
       .overlay(
         RoundedRectangle(cornerRadius: 20)
-          .stroke(.black, lineWidth: 3)
+          .stroke(.ink, lineWidth: 3)
       )
       .padding(.vertical, 50)
       //      .ignoresSafeArea(.keyboard)

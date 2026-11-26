@@ -84,11 +84,11 @@ struct AIAdvisorView: View {
                 }
                 Text(aiMarkdown(message.display ?? message.text))
                   .font(.system(size: 17, weight: .medium, design: .rounded))
-                  .foregroundColor(message.role == "user" ? Color.goodTextBg : .black)
+                  .foregroundColor(message.role == "user" ? Color.paper : .ink)
                   .padding(12)
-                  .background(message.role == "user" ? Color.black : Color.goodTextBg)
+                  .background(message.role == "user" ? Color.ink : Color.paper)
                   .cornerRadius(14)
-                  .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.black, lineWidth: 2))
+                  .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.ink, lineWidth: 2))
                   .textSelection(.enabled)
                 if message.role != "user" {
                   Spacer(minLength: 60)
@@ -104,11 +104,11 @@ struct AIAdvisorView: View {
                 HStack {
                   Text(aiMarkdown(streamingText))
                     .font(.system(size: 17, weight: .medium, design: .rounded))
-                    .foregroundColor(.black)
+                    .foregroundColor(.ink)
                     .padding(12)
-                    .background(Color.goodTextBg)
+                    .background(Color.paper)
                     .cornerRadius(14)
-                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.black, lineWidth: 2))
+                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.ink, lineWidth: 2))
                   Spacer(minLength: 60)
                 }
                 .id("busy")
@@ -156,9 +156,9 @@ struct AIAdvisorView: View {
           .lineLimit(1...3)
           .font(.system(size: 17, design: .rounded))
           .padding(10)
-          .background(Color.goodTextBg)
+          .background(Color.paper)
           .cornerRadius(12)
-          .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.black, lineWidth: 2))
+          .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.ink, lineWidth: 2))
           .onSubmit {
             send(input)
           }
@@ -170,7 +170,7 @@ struct AIAdvisorView: View {
     }
     .padding(20)
     .background(Color.mainbg.ignoresSafeArea())
-    .preferredColorScheme(.light)
+    .stColorScheme()
     .aiPanelSizing()
     .sheet(isPresented: $showSettings) {
       AISettingsView()

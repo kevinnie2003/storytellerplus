@@ -251,7 +251,7 @@ struct StoryTellerView: View {
           }
           .background(RoundedRectangle(cornerRadius: 10).fill(Color.mainbg))
           .overlay(RoundedRectangle(cornerRadius: 10)
-            .stroke(Color.black.opacity(1), lineWidth: 3))
+            .stroke(Color.ink.opacity(1), lineWidth: 3))
         ScrollView(showsIndicators: false) {
           PlayersView(playersAssignedCharacters: $playersAssignedCharacters,
                       playersStates: $playersStates,
@@ -276,13 +276,13 @@ struct StoryTellerView: View {
                   .font(.system(size: 20,  design: .rounded))
                   .fontWeight(.bold)
                   .padding()
-                  .foregroundColor(.black)
+                  .foregroundColor(.ink)
                   .padding(.horizontal, 10)
                   .padding(.vertical, 3)
                   .frame(width: 150)
                   .background(.mainbg)
                   .cornerRadius(30)
-                  .overlay(RoundedRectangle(cornerRadius: 30).stroke(Color.black, lineWidth: 3))
+                  .overlay(RoundedRectangle(cornerRadius: 30).stroke(Color.ink, lineWidth: 3))
                   .contentShape(RoundedRectangle(cornerRadius: 30))
               }
               .padding(.top, 30)
@@ -294,13 +294,13 @@ struct StoryTellerView: View {
                   .font(.system(size: 20,  design: .rounded))
                   .fontWeight(.bold)
                   .padding()
-                  .foregroundColor(.black)
+                  .foregroundColor(.ink)
                   .padding(.horizontal, 10)
                   .padding(.vertical, 3)
                   .frame(width: 130)
                   .background(.mainbg)
                   .cornerRadius(30)
-                  .overlay(RoundedRectangle(cornerRadius: 30).stroke(Color.black, lineWidth: 3))
+                  .overlay(RoundedRectangle(cornerRadius: 30).stroke(Color.ink, lineWidth: 3))
                   .contentShape(RoundedRectangle(cornerRadius: 30))
               }
               .padding(.top, 30)
@@ -310,13 +310,13 @@ struct StoryTellerView: View {
                   .font(.system(size: 20,  design: .rounded))
                   .fontWeight(.bold)
                   .padding()
-                  .foregroundColor(.black)
+                  .foregroundColor(.ink)
                   .padding(.horizontal, 10)
                   .padding(.vertical, 3)
                   .frame(width: 170)
                   .background(.mainbg)
                   .cornerRadius(30)
-                  .overlay(RoundedRectangle(cornerRadius: 30).stroke(Color.black, lineWidth: 3))
+                  .overlay(RoundedRectangle(cornerRadius: 30).stroke(Color.ink, lineWidth: 3))
                   .contentShape(RoundedRectangle(cornerRadius: 30))
               }
               .padding(.top, 30)
@@ -340,7 +340,7 @@ struct StoryTellerView: View {
             .clipShape(RoundedRectangle(cornerRadius: 10))
             .overlay(
               RoundedRectangle(cornerRadius: 10)
-                .stroke(Color.black.opacity(1), lineWidth: 3)
+                .stroke(Color.ink.opacity(1), lineWidth: 3)
             )
           TimerView(gameState: $gameState)
             .animation(.easeInOut(duration: 0.3), value: gameState)
@@ -349,7 +349,7 @@ struct StoryTellerView: View {
             .clipShape(RoundedRectangle(cornerRadius: 10))
             .overlay(
               RoundedRectangle(cornerRadius: 10)
-                .stroke(Color.black.opacity(1), lineWidth: 3)
+                .stroke(Color.ink.opacity(1), lineWidth: 3)
             )
 ////            .frame(maxHeight: .infinity)
           FakeCover(playersAssignedCharacters: $playersAssignedCharacters, notPresentedGoodCharacters: $notPresentedGoodCharacters, selectNewCharacter: $selectNewCharacter, currentSelectedPlayerID: $currentSelectedPlayerID)
@@ -360,7 +360,7 @@ struct StoryTellerView: View {
             .clipShape(RoundedRectangle(cornerRadius: 10))
             .overlay(
               RoundedRectangle(cornerRadius: 10)
-                .stroke(Color.black.opacity(1), lineWidth: 3)
+                .stroke(Color.ink.opacity(1), lineWidth: 3)
             )
 //            .padding(.top, 10)
         }
@@ -391,7 +391,7 @@ struct StoryTellerView: View {
           .clipShape(RoundedRectangle(cornerRadius: 10))
           .overlay(
             RoundedRectangle(cornerRadius: 10)
-              .stroke(Color.black.opacity(1), lineWidth: 3)
+              .stroke(Color.ink.opacity(1), lineWidth: 3)
           )
           ExtraCareView(jinxList: $jinxList, playersAssignedCharacters: $playersAssignedCharacters, playersIsAlive: $playersIsAlive, votingPhase: $votingPhase, nominationPhase: $nominationPhase, gameState: $gameState)
             .frame(maxHeight: .infinity)
@@ -399,7 +399,7 @@ struct StoryTellerView: View {
             .clipShape(RoundedRectangle(cornerRadius: 10))
             .overlay(
               RoundedRectangle(cornerRadius: 10)
-                .stroke(Color.black.opacity(1), lineWidth: 3)
+                .stroke(Color.ink.opacity(1), lineWidth: 3)
             )
             .padding(.top, 10)
           Group{
@@ -416,7 +416,7 @@ struct StoryTellerView: View {
           .clipShape(RoundedRectangle(cornerRadius: 10))
           .overlay(
             RoundedRectangle(cornerRadius: 10)
-              .stroke(Color.black.opacity(1), lineWidth: 3)
+              .stroke(Color.ink.opacity(1), lineWidth: 3)
           )
           .transition(.move(edge: .trailing))
           .padding(.top, 10)
@@ -523,9 +523,10 @@ struct StoryTellerView: View {
     .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { _ in
       saveGame()
     }
-    .onChange(of: gameState) { _, _ in
+    .onChange(of: gameState) { _, newValue in
       // 开始游戏、天亮、入夜时各存一次
       saveGame()
+      appSettings.gameIsNight = newValue == 1 || newValue == 3
     }
     .onChange(of: playersAssignedCharacters.map(\.name)) { _, _ in
       // 发角色、换角色、加减人时存一次，保证配完版就有存档
@@ -540,6 +541,7 @@ struct StoryTellerView: View {
       ImageCache.shared.prefetch(characters.map { $0.imageURL } + selectedFabledCharacters.map { $0.imageURL })
     }
     .onDisappear {
+      appSettings.gameIsNight = false
       saveGame()
       UndoCenter.shared.clear()
     }

@@ -20,7 +20,7 @@ struct PlayInfo: View {
       Text(" by ")
         .font(.system(size: 20, design: .rounded))
         .fontWeight(.semibold)
-        .foregroundColor(.black.opacity(0.8))
+        .foregroundColor(.ink.opacity(0.8))
       +
       Text(playAuthor)
         .font(.system(size: 20, design: .rounded))

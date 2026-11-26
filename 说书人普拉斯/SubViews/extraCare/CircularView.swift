@@ -21,7 +21,7 @@ struct CircularView: View{
     case "minion": return .minion
     case "demon": return .demon
     case "traveler": return .traveler
-    default: return .black
+    default: return .ink
     }
   }
   var body: some View{
