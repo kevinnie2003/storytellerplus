@@ -48,20 +48,31 @@ struct SubMenuView: View {
     return selected
   }
   
-  func removeLastPlayer(){
-    if gameState == 0 {
-      if (playerCount > 0){
-        aliveCount -= 1
-        playersAssignedCharacters.removeLast()
-        playersStates.removeLast()
-        playersIsAlive.removeLast()
-        playersHasDeathVote.removeLast()
-        print("Players assigned characters count: \(playersAssignedCharacters.count)")
-        print("Players states count: \(playersStates.count)")
-        print("Players is alive count: \(playersIsAlive.count)")
-      }
-      playerCount = max(playerCount - 1, 0)
+  /// 能不能减少玩家：配版阶段随时可以；游戏开始后只能去掉最后一个、还没分配角色的玩家（比如中途误加的人）
+  private var canRemoveLastPlayer: Bool {
+    guard playerCount > 0, let last = playersAssignedCharacters.last else {
+      return false
     }
+    return gameState == 0 || last.name.isEmpty
+  }
+  
+  func removeLastPlayer(){
+    guard canRemoveLastPlayer else {
+      return
+    }
+    let lastIndex = playersAssignedCharacters.count - 1
+    if lastIndex < playersIsAlive.count && playersIsAlive[lastIndex] {
+      aliveCount -= 1
+    }
+    playersAssignedCharacters.removeLast()
+    if !playersStates.isEmpty { playersStates.removeLast() }
+    if !playersIsAlive.isEmpty { playersIsAlive.removeLast() }
+    if !playersHasDeathVote.isEmpty { playersHasDeathVote.removeLast() }
+    if gameState != 0, let i = allLogs.lastIndex(where: { $0.type == 7 && $0.messager == lastIndex + 1 }) {
+      // 撤掉“几号玩家加入游戏”这条记录
+      allLogs.remove(at: i)
+    }
+    playerCount = max(playerCount - 1, 0)
   }
   
   private func addPlayer() {
@@ -163,26 +174,33 @@ struct SubMenuView: View {
           Spacer()
           Button(action: removeLastPlayer) {
             Image(systemName: "minus")
-              .font(.system(size: 18, weight: .black))
-              .frame(width: 44, height: 40)
+              .font(.system(size: 24, weight: .black))
+              .frame(width: 64, height: 52)
+              .background(RoundedRectangle(cornerRadius: 12).fill(Color.mainbg.opacity(0.6)))
+              .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.black, lineWidth: 2.5))
+              .contentShape(Rectangle())
           }
           .buttonStyle(.plain)
-          .disabled(gameState != 0 || playerCount == 0)
-          .opacity(gameState != 0 || playerCount == 0 ? 0.3 : 1)
+          .disabled(!canRemoveLastPlayer)
+          .opacity(canRemoveLastPlayer ? 1 : 0.3)
           Text("\(playerCount)")
-            .font(.system(size: 22, weight: .black, design: .rounded))
-            .frame(minWidth: 36)
+            .font(.system(size: 24, weight: .black, design: .rounded))
+            .frame(minWidth: 44)
           Button(action: addPlayer) {
             Image(systemName: "plus")
-              .font(.system(size: 18, weight: .black))
-              .frame(width: 44, height: 40)
+              .font(.system(size: 24, weight: .black))
+              .frame(width: 64, height: 52)
+              .background(RoundedRectangle(cornerRadius: 12).fill(Color.mainbg.opacity(0.6)))
+              .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.black, lineWidth: 2.5))
+              .contentShape(Rectangle())
           }
           .buttonStyle(.plain)
           .disabled(playerCount >= 20)
           .opacity(playerCount >= 20 ? 0.3 : 1)
         }
         .foregroundColor(.black)
-        .padding(.vertical, 4)
+        .padding(.vertical, 8)
+        .padding(.trailing, 8)
         if gameState == 0 {
           Divider().overlay(Color.black)
           row("随机分配角色", icon: "shuffle", action: randomAssign)
@@ -222,7 +240,7 @@ struct SubMenuView: View {
           showSettings = true
         }
       }
-      .frame(width: 250)
+      .frame(width: 280)
       .background(Color.goodTextBg)
       .clipShape(RoundedRectangle(cornerRadius: 16))
       .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.black, lineWidth: 3))

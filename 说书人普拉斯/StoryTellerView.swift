@@ -527,6 +527,14 @@ struct StoryTellerView: View {
       // 开始游戏、天亮、入夜时各存一次
       saveGame()
     }
+    .onChange(of: characters.count) { _, _ in
+      // 有网的时候把这个剧本的图标都存到本机，之后断网也能显示
+      ImageCache.shared.prefetch(characters.map { $0.imageURL })
+    }
+    .task {
+      try? await Task.sleep(nanoseconds: 500_000_000)
+      ImageCache.shared.prefetch(characters.map { $0.imageURL } + selectedFabledCharacters.map { $0.imageURL })
+    }
     .onDisappear {
       saveGame()
       UndoCenter.shared.clear()

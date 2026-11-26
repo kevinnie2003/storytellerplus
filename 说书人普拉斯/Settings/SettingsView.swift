@@ -11,6 +11,8 @@ struct SettingsView: View {
   @State private var showAISettings = false
   @State private var newTag = ""
   @State private var showResetTags = false
+  @State private var iconCacheSize: (bytes: Int64, count: Int) = (0, 0)
+  @State private var showClearIcons = false
   
   /// 某个总条数下三种真假分法对应的真的条数：真的多一些、一半一半、假的多一些
   private func savantTruths(for total: Int) -> [Int] {
@@ -180,11 +182,33 @@ struct SettingsView: View {
               STChoiceRow(options: savantTrueOptions, selection: $settings.savantBatchTrue)
             }
           }
+          
+          STSection(title: "存储") {
+            STRow(title: "图标缓存", hint: iconCacheSize.count == 0 ? "空" : "\(iconCacheSize.count) 个图标，\(String(format: "%.1f", Double(iconCacheSize.bytes) / 1_048_576)) MB") {
+              STChoice(selected: false, action: { showClearIcons = true }) {
+                Text("清除").font(.system(size: 17, weight: .bold, design: .rounded))
+              }
+              .disabled(iconCacheSize.count == 0)
+              .opacity(iconCacheSize.count == 0 ? 0.4 : 1)
+            }
+          }
         }
         .padding(.bottom, 30)
       }
     }
     .padding(28)
+    .onAppear {
+      iconCacheSize = ImageCache.shared.diskUsage()
+    }
+    .alert("清除图标缓存吗？", isPresented: $showClearIcons) {
+      Button("取消", role: .cancel) {}
+      Button("清除", role: .destructive) {
+        ImageCache.shared.clearDisk()
+        iconCacheSize = ImageCache.shared.diskUsage()
+      }
+    } message: {
+      Text("清除后，没网时图标会显示成问号，下次有网开局时会重新下载。")
+    }
     .background(Color.mainbg.ignoresSafeArea())
     .preferredColorScheme(.light)
     .aiPanelSizing()

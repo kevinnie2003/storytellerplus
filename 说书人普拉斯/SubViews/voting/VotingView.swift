@@ -296,6 +296,13 @@ struct VotingView: View{
           .font(.system(size: 25, design: .monospaced))
           .fontWeight(.bold)
           .padding(.top, 10)
+          if nominatedIndex >= 0 && nominatedIndex < playerCount && playerCount > 0 {
+            // 投票从被提名者顺时针的下一位开始
+            Text("从\((nominatedIndex + 1) % playerCount + 1)号开始投票")
+              .font(.system(size: 20, design: .monospaced))
+              .fontWeight(.semibold)
+              .foregroundColor(.black.opacity(0.7))
+          }
           let columns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 5)
           if nominatedIndex < playerCount && playersAssignedCharacters[nominatedIndex].team == "traveler"{
             // for traverler nomination
