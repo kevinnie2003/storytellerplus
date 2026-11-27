@@ -110,8 +110,9 @@ struct PlayerCard: View {
                   .foregroundColor(.demon)
                   .opacity(index >= playersIsAlive.count ? 0.0 : (playersIsAlive[index] ? 0.0 : 1))
               )
-              // 按设置：点一下或者长按号码切换死亡/复活
-              .modifier(SeatNumberGesture(byTap: appSettings.deathByTap, seconds: appSettings.deathLongPressSeconds, action: requestToggleAlive))
+              // 点一下号码切换死亡/复活，按设置先确认
+              .modifier(SeatNumberGesture(action: requestToggleAlive))
+              .tutorialAnchor("card.number", enabled: index == 0)
               .alert(index < playersIsAlive.count && playersIsAlive[index] ? "让 \(index + 1) 号死亡吗？" : "让 \(index + 1) 号复活吗？", isPresented: $showDeathConfirm) {
                 Button("取消", role: .cancel) {}
                 Button("确定", role: .destructive) {
@@ -145,6 +146,7 @@ struct PlayerCard: View {
                 currentSelectedPlayerID = index
                 selectNewCharacter = true
               }
+              .tutorialAnchor("card.icon", enabled: index == 0)
           }
           .padding(.top, 20)
           Text(character.ability)
@@ -237,6 +239,7 @@ struct PlayerCard: View {
               .overlay(Circle().stroke(Color.ink, lineWidth: 3))
           }
           .contentShape(Circle())
+          .tutorialAnchor("card.plus", enabled: index == 0)
         }
         .padding(.top, 10)
         .padding(.horizontal, 5)
@@ -251,23 +254,18 @@ struct PlayerCard: View {
         )
         )
         .animation(.easeInOut(duration: 0.3), value: reminders.count)
+        .tutorialAnchor("card.tags", enabled: index == 0)
       }
       .frame(maxWidth: .infinity)
+      .tutorialAnchor("card", enabled: index == 0)
     }
   }
 }
 
-/// 号码的手势：点一下，或者长按指定秒数
+/// 点一下号码切换死亡/复活（之前还能选长按，现在统一点一下）
 struct SeatNumberGesture: ViewModifier {
-  let byTap: Bool
-  let seconds: Double
   let action: () -> Void
-  
   func body(content: Content) -> some View {
-    if byTap {
-      content.onTapGesture(perform: action)
-    } else {
-      content.onLongPressGesture(minimumDuration: seconds, perform: action)
-    }
+    content.onTapGesture(perform: action)
   }
 }

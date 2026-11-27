@@ -34,6 +34,8 @@ struct PlayersView: View {
   @Binding var globalStates: [Reminder]
   
   let numCols: Int
+  /// 新手教程的演示小镇固定用网格，方便圈出卡片
+  var forceGrid = false
   @ObservedObject private var appSettings = AppSettings.shared
   @AppStorage(hideTeamColorsKey) private var hideTeamColors: Bool = false
   func tagColor(_ team: Int) -> Color {
@@ -142,7 +144,8 @@ struct PlayersView: View {
       .overlay(RoundedRectangle(cornerRadius: 50)
         .stroke(Color.ink, lineWidth: 8))
       .clipShape(RoundedRectangle(cornerRadius: 50))
-      if appSettings.circleLayout {
+      .tutorialAnchor("globalTags")
+      if appSettings.circleLayout && !forceGrid {
         CircleTownView(
           playersAssignedCharacters: $playersAssignedCharacters,
           playersStates: $playersStates,

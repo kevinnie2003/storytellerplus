@@ -95,6 +95,7 @@ struct ExtraSetupForSetup: View {
             .contentShape(RoundedRectangle(cornerRadius: 10))
         }
       }
+      .tutorialAnchor("setup.panelButtons")
       .frame(maxWidth: .infinity)
     }
     .frame(width: 260)

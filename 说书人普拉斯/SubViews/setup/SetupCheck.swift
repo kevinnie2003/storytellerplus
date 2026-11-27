@@ -23,6 +23,7 @@ struct SetupCheck: View {
         ExtraRepeatedCharacterSelectionView(playableCharacters: $playableCharacters, extraRepeatedCharacters: $extraRepeatedCharacters, extraRepeatedCardSelected: $extraRepeatedCardSelected, showExtraCharacterSelection: $showExtraCharacterSelection)
           .zIndex(10)
       }
+      ScrollViewReader { scrollProxy in
       ScrollView{
         Text("请检查配置，已选 \(cardSelected.filter({$0}).count + extraRepeatedCardSelected.filter({$0}).count) 张")
           .font(.system(size: 50, design: .rounded))
@@ -183,10 +184,19 @@ struct SetupCheck: View {
               .overlay(RoundedRectangle(cornerRadius: 30).stroke(Color.ink, lineWidth: 3))
               .contentShape(RoundedRectangle(cornerRadius: 30))
           }
+          .tutorialAnchor("setup.deal")
+          .id("setup.deal")
           .padding(.top, 30)
         }
         .frame(maxWidth: .infinity)
       }
+      .onReceive(TourBus.shared.$scrollRequest) { id in
+        if id == "setup.deal" {
+          withAnimation(.easeInOut(duration: 0.4)) { scrollProxy.scrollTo("setup.deal", anchor: .bottom) }
+        }
+      }
+      }
+      .tutorialAnchor("setup.check")
       .padding(.horizontal, 10)
     }
     .animation(.easeInOut(duration: 0.3), value: showExtraCharacterSelection)

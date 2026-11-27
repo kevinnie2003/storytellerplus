@@ -81,7 +81,7 @@ struct CircleSeat: View {
               .opacity(isAlive ? 0 : 1)
           )
           .offset(x: -12, y: -8)
-          .modifier(SeatNumberGesture(byTap: appSettings.deathByTap, seconds: appSettings.deathLongPressSeconds, action: requestToggle))
+          .modifier(SeatNumberGesture(action: requestToggle))
           .alert(isAlive ? "让 \(index + 1) 号死亡吗？" : "让 \(index + 1) 号复活吗？", isPresented: $showDeathConfirm) {
             Button("取消", role: .cancel) {}
             Button("确定", role: .destructive) { toggle() }

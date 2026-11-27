@@ -298,7 +298,8 @@ struct VotingView: View{
           .padding(.top, 10)
           if nominatedIndex >= 0 && nominatedIndex < playerCount && playerCount > 0 {
             // 投票从被提名者顺时针的下一位开始
-            Text("从\((nominatedIndex + 1) % playerCount + 1)号开始投票")
+            // 后半句是实时票数，点一个投票的人就变
+            Text("从\((nominatedIndex + 1) % playerCount + 1)号开始投票，当前\(nominationVotes.filter({ $0 < 25 }).count - nominationVotes.filter({ $0 >= 25 }).count)票")
               .font(.system(size: 20, design: .monospaced))
               .fontWeight(.semibold)
               .foregroundColor(.ink.opacity(0.7))

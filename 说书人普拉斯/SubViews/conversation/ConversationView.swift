@@ -493,6 +493,8 @@ struct ConversationView: View {
   
   @State private var currentSelection: Int
   @State private var inputText: String = ""
+  @State private var showExportConfirm = false
+  @State private var exportedMessage = ""
   init(playersAssignedCharacters: Binding<[Character]>, showConversation: Binding<Bool>, allLogs: Binding<[GameLogEntry]>) {
     self._playersAssignedCharacters = playersAssignedCharacters
     self._showConversation = showConversation
@@ -528,6 +530,42 @@ struct ConversationView: View {
         }
       
       VStack {
+        // 顶栏：整局记录存成长图
+        HStack(spacing: 12) {
+          Text("整局记录")
+            .font(.system(size: 22, weight: .black, design: .rounded))
+          Spacer()
+          if !exportedMessage.isEmpty {
+            Text(exportedMessage)
+              .font(.system(size: 16, weight: .semibold, design: .rounded))
+              .foregroundColor(.green)
+          }
+          Button(action: { showExportConfirm = true }) {
+            HStack(spacing: 6) {
+              Image(systemName: "square.and.arrow.down")
+              Text("存成长图")
+            }
+            .font(.system(size: 18, weight: .bold, design: .rounded))
+            .foregroundColor(.ink)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.ink, lineWidth: 2))
+          }
+          .buttonStyle(.plain)
+          .tutorialAnchor("log.export")
+          .alert("把整局记录存成长图吗？", isPresented: $showExportConfirm) {
+            Button("取消", role: .cancel) {}
+            Button("保存") {
+              exportGameLog(width: 1000, playersAssignedCharacters: playersAssignedCharacters, allLogs: allLogs)
+              exportedMessage = "已存进相册"
+              DispatchQueue.main.asyncAfter(deadline: .now() + 3) { exportedMessage = "" }
+            }
+          } message: {
+            Text("会把从开局到现在的全部记录画成一张长图，存进相册。")
+          }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 20)
         ScrollView {
           ScrollViewReader{ value in
             ConversationLogView(playersAssignedCharacters: $playersAssignedCharacters, showConversation: $showConversation, allLogs: $allLogs)
@@ -607,6 +645,7 @@ struct ConversationView: View {
       }
       .frame(width: 800)
       .clipShape(RoundedRectangle(cornerRadius: 20))
+      .tutorialAnchor("log.panel")
       .overlay(
         RoundedRectangle(cornerRadius: 20)
           .stroke(.ink, lineWidth: 3)

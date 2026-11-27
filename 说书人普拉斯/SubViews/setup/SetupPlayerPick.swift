@@ -159,6 +159,7 @@ struct SetupPlayerPick: View {
         }
         .frame(maxWidth: .infinity)
         .frame(maxHeight: .infinity)
+        .tutorialAnchor("deal.cards")
         VStack{
           ScrollView{
             ForEach(playersAssignedCharacters.indices, id: \.self){ index in
@@ -210,6 +211,7 @@ struct SetupPlayerPick: View {
               }
             }
           }
+          .tutorialAnchor("deal.seats")
           
           HStack{
             Button(action: {
@@ -255,6 +257,7 @@ struct SetupPlayerPick: View {
             }
           }
           .frame(maxWidth: .infinity)
+          .tutorialAnchor("deal.buttons")
         }
         .frame(width: 260)
       }

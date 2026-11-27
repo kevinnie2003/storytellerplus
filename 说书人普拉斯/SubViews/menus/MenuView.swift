@@ -36,6 +36,7 @@ struct MenuView: View {
           .frame(width: 30, height: 30)
           .foregroundColor(.ink)
       }
+      .tutorialAnchor("menu.moon")
       .padding(.top, 30)
       .padding(.horizontal, 20)
       .padding(.bottom, 35)
@@ -54,20 +55,10 @@ struct MenuView: View {
           .frame(width: 30, height: 30)
           .foregroundColor(.ink)
       }
+      .tutorialAnchor("menu.sun")
       .padding(.horizontal, 20)
       
       Spacer()
-      Button(action: {
-        exportGameLog(width: 1000, playersAssignedCharacters: playersAssignedCharacters, allLogs: allLogs)
-      }){
-        Image(systemName: "square.and.arrow.down")
-          .resizable()
-          .scaledToFit()
-          .frame(width: 30, height: 30)
-          .foregroundColor(.ink)
-      }
-      .padding(.bottom, 35)
-      .padding(.horizontal, 20)
       Button(action: {
         showAIAdvisor = true
       }){
@@ -77,6 +68,7 @@ struct MenuView: View {
           .frame(width: 30, height: 30)
           .foregroundColor(.ink)
       }
+      .tutorialAnchor("menu.ai")
       .padding(.bottom, 35)
       .padding(.horizontal, 20)
       Button(action: {
@@ -88,6 +80,7 @@ struct MenuView: View {
           .frame(width: 30, height: 30)
           .foregroundColor(.ink)
       }
+      .tutorialAnchor("menu.infos")
       .padding(.bottom, 35)
       .padding(.horizontal, 20)
       Button(action: {
@@ -99,6 +92,7 @@ struct MenuView: View {
           .frame(width: 30, height: 30)
           .foregroundColor(.ink)
       }
+      .tutorialAnchor("menu.log")
       .padding(.bottom, 35)
       .padding(.horizontal, 20)
       Button(action: {
@@ -110,6 +104,7 @@ struct MenuView: View {
           .frame(width: 30, height: 30)
           .foregroundColor(.ink)
       }
+      .tutorialAnchor("menu.notepad")
       .padding(.bottom, 35)
       .padding(.horizontal, 20)
       Button(action: {
@@ -123,6 +118,7 @@ struct MenuView: View {
           .frame(width: 30, height: 30)
           .foregroundColor(.ink)
       }
+      .tutorialAnchor("menu.gear")
       .padding(.bottom, 35)
       .padding(.horizontal, 20)
       Button(action: {
@@ -134,6 +130,7 @@ struct MenuView: View {
           .frame(width: 30, height: 30)
           .foregroundColor(.red)
       }
+      .tutorialAnchor("menu.exit")
       .padding(.bottom, 30)
       .padding(.horizontal, 20)
       

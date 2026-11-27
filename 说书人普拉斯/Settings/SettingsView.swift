@@ -77,16 +77,8 @@ struct SettingsView: View {
           }
           
           STSection(title: "死亡和复活") {
-            STRow(title: "怎么切换") {
-              STChoiceRow(options: [(true, "点一下号码"), (false, "长按号码")], selection: $settings.deathByTap)
-            }
-            if !settings.deathByTap {
-              STRow(title: "要按多久") {
-                STChoiceRow(options: [(0.3, "0.3 秒"), (0.5, "0.5 秒"), (0.8, "0.8 秒"), (1.2, "1.2 秒")], selection: $settings.deathLongPressSeconds)
-              }
-            }
-            STRow(title: "切换前先确认") {
-              STChoiceRow(options: [(false, "不用"), (true, "要确认")], selection: $settings.confirmDeath)
+            STRow(title: "点号码切换死亡、复活前先确认") {
+              STChoiceRow(options: [(true, "要确认"), (false, "不用")], selection: $settings.confirmDeath)
             }
             STRow(title: "死亡、复活、删标签后显示撤销") {
               STChoiceRow(options: [(true, "显示"), (false, "不用")], selection: $settings.undoEnabled)
@@ -216,6 +208,7 @@ struct SettingsView: View {
     }
     .background(Color.mainbg.ignoresSafeArea())
     .stColorScheme()
+
     .aiPanelSizing()
     .sheet(isPresented: $showAISettings) {
       AISettingsView()

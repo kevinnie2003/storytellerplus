@@ -299,6 +299,7 @@ struct TagView: View{
         RoundedRectangle(cornerRadius: 20)
           .stroke(Color.ink, lineWidth: 3)
       )
+      .tutorialAnchor("tag.panel")
       .padding(.vertical, 50)
     } // end of zstack
     .animation(.easeInOut(duration: 0.3), value: showTagEditor)

@@ -17,16 +17,24 @@ struct SetupBlindPick: View {
   let teamNameEnglish = ["demon", "minion", "outsider", "townsfolk"]
   let teamColors: [Color] = [.demon, .minion, .outsider, .townsfolk]
   var body: some View {
-    let teamIndex = Int(selectionState / 3)
+    // 跳到最后一步时这一页还在淡出，阶段号会超过 11，要夹住，不然数组越界闪退
+    let teamIndex = min(max(selectionState / 3, 0), 3)
     let teamName: String = teamNames[teamIndex]
     let teamNameEnglish: String = teamNameEnglish[teamIndex]
     //      let teamCharacters: [Character] = playableCharactersShuffled.filter { $0.team == teamNameEnglish }
     let teamColor: Color = teamColors[teamIndex]
     ScrollView{
-      Text("请选择 \(selectedTeamCounts[teamIndex]) 张\(teamName)卡片\n（不需要点击确认）")
-        .font(.system(size: 35, design: .rounded))
-        .fontWeight(.bold)
-        .padding(.vertical, 20)
+      VStack(spacing: 8) {
+        Text("请玩家选择 \(selectedTeamCounts[teamIndex]) 张\(teamName)卡片")
+          .font(.system(size: 35, design: .rounded))
+          .fontWeight(.bold)
+        Text("不需要玩家参与配版就直接点确认")
+          .font(.system(size: 20, weight: .semibold, design: .rounded))
+          .foregroundColor(.ink.opacity(0.6))
+      }
+      .multilineTextAlignment(.center)
+      .frame(maxWidth: .infinity)
+      .padding(.vertical, 20)
       Text("已选择 \(selectedCount) 张\(teamName)卡片")
         .font(.system(size: 30, design: .rounded))
         .fontWeight(.bold)
@@ -52,6 +60,7 @@ struct SetupBlindPick: View {
           }
         }
       }
+      .tutorialAnchor("setup.pickCards")
       Spacer()
       HStack(spacing: 60){
         Button(action: {
@@ -81,6 +90,7 @@ struct SetupBlindPick: View {
             .contentShape(RoundedRectangle(cornerRadius: 10))
         }
       }
+      .tutorialAnchor("setup.pickButtons")
       .padding(.top, 40)
     }
     .onAppear{

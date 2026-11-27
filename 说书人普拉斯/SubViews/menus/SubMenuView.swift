@@ -232,6 +232,7 @@ struct SubMenuView: View {
         .foregroundColor(.ink)
         .padding(.vertical, 8)
         .padding(.trailing, 8)
+        .tutorialAnchor("gear.players")
         if gameState == 0 {
           Divider().overlay(Color.ink)
           row("随机分配角色", icon: "shuffle", action: randomAssign)
@@ -253,6 +254,7 @@ struct SubMenuView: View {
             .padding(.bottom, 6)
           }
           .buttonStyle(.plain)
+          .tutorialAnchor("gear.start")
           .disabled(playersAssignedCharacters.count < 5)
           .opacity(playersAssignedCharacters.count < 5 ? 0.4 : 1)
         }

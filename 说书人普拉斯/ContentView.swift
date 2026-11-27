@@ -20,6 +20,8 @@ struct ContentView: View {
   @State private var showAISettings = false
   @State private var showStartChooser = false
   @State private var showArchive = false
+  @State private var showTutorial = false
+  @AppStorage("tutorial.seen") private var tutorialSeen = false
   
   /// 上一局（“继续上一局”用）的剧本名，没有就是空
   private var lastGameName: String {
@@ -54,10 +56,41 @@ struct ContentView: View {
       
       ZStack{
         if viewNumber == 0 {
-          VStack{
+          VStack(spacing: 10){
             Spacer()
+            Button(action: { showTutorial = true }) {
+              HStack(spacing: 8) {
+                Image(systemName: "questionmark.circle.fill")
+                Text("新手教程")
+              }
+              .font(.system(size: 18, weight: .bold, design: .rounded))
+              .foregroundColor(.ink)
+              .padding(.horizontal, 20)
+              .padding(.vertical, 10)
+              .background(Capsule().fill(Color.paper))
+              .overlay(Capsule().stroke(Color.ink, lineWidth: 2.5))
+            }
+            .buttonStyle(.plain)
             HStack{
               Text("本产品仍为测试版，遇到任何bug或有需求请大胆联系作者")
+            }
+          }
+          .fullScreenCover(isPresented: $showTutorial) {
+            // 新手教程：在演示小镇里一步步圈出真实的按钮
+            StoryTellerView(
+              currentView: Binding(get: { 1 }, set: { if $0 == 0 { showTutorial = false } }),
+              loadLast: .constant(false),
+              playJSON: demoScriptJSON(),
+              demo: true,
+              onDemoFinished: { tutorialSeen = true; showTutorial = false }
+            )
+            .background(Color.mainbg.ignoresSafeArea())
+            .stColorScheme()
+          }
+          .onAppear {
+            // 第一次打开 app 时自动开始教程
+            if !tutorialSeen {
+              DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { showTutorial = true }
             }
           }
           ZStack{
@@ -238,4 +271,14 @@ struct StartChooser: View {
     .clipShape(RoundedRectangle(cornerRadius: 26))
     .overlay(RoundedRectangle(cornerRadius: 26).stroke(Color.ink, lineWidth: 4))
   }
+}
+
+/// 新手教程的演示小镇用官方剧本《暗流涌动》
+func demoScriptJSON() -> [[String: Any]] {
+  guard let url = Bundle.main.url(forResource: "demo-trouble-brewing", withExtension: "json"),
+        let data = try? Data(contentsOf: url),
+        let items = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+    return test_json
+  }
+  return items
 }

@@ -26,8 +26,6 @@ final class AppSettings: ObservableObject {
   @Published var cardFontScale: Double { didSet { defaults.set(cardFontScale, forKey: "settings.cardFontScale") } }
   
   // 死亡和复活
-  @Published var deathByTap: Bool { didSet { defaults.set(deathByTap, forKey: "settings.deathByTap") } }
-  @Published var deathLongPressSeconds: Double { didSet { defaults.set(deathLongPressSeconds, forKey: "settings.deathLongPressSeconds") } }
   @Published var confirmDeath: Bool { didSet { defaults.set(confirmDeath, forKey: "settings.confirmDeath") } }
   @Published var undoEnabled: Bool { didSet { defaults.set(undoEnabled, forKey: "settings.undoEnabled") } }
   @Published var circleLayout: Bool { didSet { defaults.set(circleLayout, forKey: "settings.circleLayout") } }
@@ -46,9 +44,8 @@ final class AppSettings: ObservableObject {
     appearance = d.string(forKey: "settings.appearance") ?? "light"
     cardsPerRow = d.object(forKey: "settings.cardsPerRow") as? Int ?? 3
     cardFontScale = d.object(forKey: "settings.cardFontScale") as? Double ?? 1.0
-    deathByTap = d.bool(forKey: "settings.deathByTap")
-    deathLongPressSeconds = d.object(forKey: "settings.deathLongPressSeconds") as? Double ?? 0.5
-    confirmDeath = d.bool(forKey: "settings.confirmDeath")
+    // 默认先确认；以前存过“不用确认”的照旧
+    confirmDeath = d.object(forKey: "settings.confirmDeath") as? Bool ?? true
     undoEnabled = d.object(forKey: "settings.undoEnabled") as? Bool ?? true
     circleLayout = d.bool(forKey: "settings.circleLayout")
     defaultPlayerCount = d.object(forKey: "settings.defaultPlayerCount") as? Int ?? 0

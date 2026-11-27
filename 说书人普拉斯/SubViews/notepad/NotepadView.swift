@@ -198,6 +198,7 @@ struct NotepadView: View {
       .frame(maxHeight: 800)
       .background(.mainbg)
       .clipShape(RoundedRectangle(cornerRadius: 20))
+      .tutorialAnchor("notepad.panel")
       .overlay(RoundedRectangle(cornerRadius: 20)
         .stroke(Color.ink, lineWidth: 3))
       .padding(.vertical, 50)

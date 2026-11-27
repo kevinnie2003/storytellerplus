@@ -240,18 +240,10 @@ extension View {
   }
 }
 
-/// 把模型思考摘要的最后一句整理成一行进度文字
+/// AI 思考阶段的进度文字
 func aiThinkingTail(_ thinking: String) -> String {
-  let lines = thinking.split(whereSeparator: { $0.isNewline }).map({ $0.trimmingCharacters(in: CharacterSet(charactersIn: " *#-·>`")) }).filter({ !$0.isEmpty })
-  guard let last = lines.last else {
-    return "正在思考…"
-  }
-  // 模型的思考摘要有时是英文，对说书人没用，这时只显示已经想了多少
-  let hasChinese = last.unicodeScalars.contains(where: { $0.value >= 0x4E00 && $0.value <= 0x9FFF })
-  if !hasChinese {
-    return "正在思考…已想了 \(thinking.count) 字"
-  }
-  return "思考：" + String(last.suffix(34))
+  // 模型的思考摘要多是英文夹着角色名，截出来是半句半句的，对说书人没用，只显示在思考
+  return "正在思考…"
 }
 
 /// 各个 AI 面板共用的进度行：转圈、当前在做什么、已经用了多少秒

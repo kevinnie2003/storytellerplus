@@ -18,6 +18,11 @@ struct SetupView: View {
   @Binding var aiSetupNotes: String
   @Binding var openAISetupOnAppear: Bool // 从主界面点“AI 配版”进来时，直接弹出 AI 配版
   @State private var showAISetup: Bool = false
+  @State private var badDeckCount: Int? = nil
+  /// 新手教程用：告诉外面现在配到哪一步，也可以从外面直接塞一套抽卡堆或者跳到某一步
+  var onStage: (Int) -> Void = { _ in }
+  var demoBag: Binding<[Character]?> = .constant(nil)
+  var demoStage: Binding<Int?> = .constant(nil)
   let startDate = Date() // for the animation effect
   @State private var selectionState: Int = 0 // 0 for choosing number of demon, 1 for letting user choose demon, 2 for show demon, 3 for selecting number of minions, 4 for letting user choose minions, 5 for show minions, 6 for selecting number of outsiders, 7 for letting user choose outsiders, 8 for show outsiders, 9 for selecting number of townsfolk, 10 for letting user choose townsfolk, 11 for show townsfolk, then 12 for letting user pick the actual characters 1 by 1
   @State private var selectedCharacters: [Character] = []
@@ -98,6 +103,7 @@ struct SetupView: View {
       }
     }
     .onAppear{
+      onStage(selectionState)
       playableCharactersShuffled = playableCharacters.shuffled()
       for _ in 0..<playableCharactersShuffled.count {
         cardSelected.append(false) // initialize the selection state
@@ -114,6 +120,35 @@ struct SetupView: View {
     }
     .animation(.easeInOut(duration: 0.5), value: selectionState)
     .animation(.easeInOut(duration: 0.5), value: showSetup)
+    .onChange(of: selectionState) { old, value in
+      // 抽卡堆的牌数要等于人数才能开抽，不然抽卡页没有牌可抽
+      if value == 12 && old != 12 {
+        let count = cardSelected.filter({ $0 }).count + extraRepeatedCardSelected.filter({ $0 }).count
+        if count != playerCount {
+          badDeckCount = count
+          selectionState = old
+          return
+        }
+      }
+      onStage(value)
+    }
+    .alert("牌数不对，还不能开抽", isPresented: Binding(get: { badDeckCount != nil }, set: { if !$0 { badDeckCount = nil } })) {
+      Button("好", role: .cancel) {}
+    } message: {
+      Text("抽卡堆现在有 \(badDeckCount ?? 0) 张牌，玩家有 \(playerCount) 人。在检查页点牌选中或去掉，让牌数和人数一样再点“玩家开抽”。")
+    }
+    .onChange(of: demoBag.wrappedValue) { _, bag in
+      if let bag = bag {
+        applyAIBag(bag, notes: "")
+        demoBag.wrappedValue = nil
+      }
+    }
+    .onChange(of: demoStage.wrappedValue) { _, stage in
+      if let stage = stage {
+        selectionState = stage
+        demoStage.wrappedValue = nil
+      }
+    }
   }
   
   // 把 AI 给的抽卡堆填进配版，然后跳到检查页让说书人确认

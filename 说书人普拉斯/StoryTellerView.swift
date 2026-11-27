@@ -12,6 +12,13 @@ struct StoryTellerView: View {
   @Binding var currentView: Int
   @Binding var loadLast: Bool // if we just load the last game
   let playJSON: [[String: Any]]
+  /// 新手教程用的演示小镇：不存档，界面上盖一层教程
+  var demo: Bool = false
+  var onDemoFinished: () -> Void = {}
+  @State private var demoScrollTarget: String? = nil
+  @State private var demoSetupStage = 0
+  @State private var demoBag: [Character]? = nil
+  @State private var demoStageRequest: Int? = nil
   @State private var showExitConfirmation = false
   @State private var showMenu = false
   @State private var playerCount: Int = 0
@@ -127,6 +134,7 @@ struct StoryTellerView: View {
   
   /// 保存当前这一局：一份作为“返回小镇”用的最近存档，分好角色或开始游戏之后再在存档列表里存一份
   private func saveGame() {
+    if demo { return }
     let saveData = makeSaveData()
     if let encoded = try? JSONEncoder().encode(saveData) {
       UserDefaults.standard.set(encoded, forKey: "SavedGameState")
@@ -192,6 +200,277 @@ struct StoryTellerView: View {
     }
   }
   
+  // MARK: 新手教程的演示小镇
+  
+  /// 演示局用的 8 个角色（暗流涌动 8 人：5 镇民、1 外来者、1 爪牙、1 恶魔）
+  private var demoRoster: [Character] {
+    let wanted = ["共情者", "占卜师", "酒鬼", "投毒者", "洗衣妇", "小恶魔", "送葬者", "僧侣"]
+    var seats: [Character] = wanted.compactMap { name in playableCharacters.first(where: { $0.name == name }) }
+    for c in playableCharacters where seats.count < 8 && !seats.contains(where: { $0.name == c.name }) && ["townsfolk", "outsider", "minion", "demon"].contains(c.team) {
+      seats.append(c)
+    }
+    return seats
+  }
+  
+  private var demoAllDealt: Bool {
+    !playersAssignedCharacters.isEmpty && !playersAssignedCharacters.contains(where: { $0.name.isEmpty })
+  }
+  
+  /// 演示从一个空的 8 人小镇开始：还没配版、没发角色
+  private func setupDemo() {
+    let count = 8
+    playersAssignedCharacters = Array(repeating: defaultCharacter, count: count)
+    playerCount = count
+    aliveCount = count
+    playersIsAlive = Array(repeating: true, count: count)
+    playersHasDeathVote = Array(repeating: true, count: count)
+    playersStates = Array(repeating: [Reminder](), count: count)
+    notPresentedGoodCharacters = []
+    gameState = 0
+  }
+  
+  /// 跳过发角色时，直接按演示阵容发好，配好恶魔伪装
+  private func demoEnsureDealt() {
+    showSetup = false
+    if !demoAllDealt {
+      playersAssignedCharacters = demoRoster
+    }
+    if notPresentedGoodCharacters.filter({ !$0.name.isEmpty }).count < 3 {
+      let inPlay = Set(playersAssignedCharacters.map { $0.name })
+      notPresentedGoodCharacters = Array(playableCharacters.filter { $0.team == "townsfolk" && !inPlay.contains($0.name) }.prefix(3))
+    }
+  }
+  
+  private func demoEnsureStarted() {
+    demoEnsureDealt()
+    if gameState == 0 {
+      gameState = 1
+      allLogs.append(GameLogEntry(message: "游戏开始", messager: 0, source: "说书人", type: 8, characterName: ""))
+      allLogs.append(GameLogEntry(message: "第一夜", messager: 0, source: "说书人", type: 9, characterName: ""))
+    }
+  }
+  
+  private func demoGoNight() {
+    demoEnsureStarted()
+    if gameState != 3 {
+      gameState = 3
+      firstNightOrder = false
+      allLogs.append(GameLogEntry(message: "夜晚", messager: 0, source: "说书人", type: 11, characterName: ""))
+    }
+  }
+  
+  private func demoGoDay() {
+    demoEnsureStarted()
+    if gameState != 2 {
+      gameState = 2
+      allLogs.append(GameLogEntry(message: "白天", messager: 0, source: "说书人", type: 10, characterName: ""))
+    }
+  }
+  
+  /// 打开配版并且停在某一步；跳过配版时直接塞一套抽卡堆
+  private func demoOpenSetup(stage: Int? = nil, fillBag: Bool = false) {
+    showMenu = false
+    selectNewReminder = false
+    showNotepad = false
+    if gameState != 0 { return }
+    if !showSetup { showSetup = true }
+    // 跳过配版时塞一套演示阵容，塞完再跳到要去的那一步
+    let filling = fillBag && demoSetupStage < 12
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+      if filling {
+        demoBag = demoRoster
+      }
+    }
+    DispatchQueue.main.asyncAfter(deadline: .now() + (filling ? 0.8 : 0.4)) {
+      if let stage = stage, demoSetupStage != stage {
+        demoStageRequest = stage
+      }
+    }
+  }
+  
+  private func demoClosePanels(menu: Bool = false, scroll: String = "demo.top") {
+    demoScrollTarget = scroll
+    showMenu = menu
+    selectNewReminder = false
+    showNotepad = false
+    showConversation = false
+  }
+  
+  private func finishDemo() {
+    appSettings.gameIsNight = false
+    onDemoFinished()
+  }
+  
+  /// 教程的每一步：圈哪里、怎么操作。动手的步骤做完自动下一步，点“帮我做”由下一步的 prepare 补上结果
+  private var tourSteps: [TourStep] {
+    let minionSeats = playersAssignedCharacters.indices.filter { playersAssignedCharacters[$0].team == "minion" }.map { "“\($0 + 1)号”" }
+    let minionText = minionSeats.isEmpty ? "爪牙的座位号" : minionSeats.joined()
+    let demonText = playersAssignedCharacters.firstIndex(where: { $0.team == "demon" }).map { "“\($0 + 1)号”" } ?? "恶魔的座位号"
+    return [
+      TourStep(title: "带你完整走一局", lines: [
+        "这是一个用《暗流涌动》开的 8 人演示局，从配版、玩家抽卡一直走到夜里。",
+        "演示不会存档，也不会影响你的上一局，随时可以点“退出教程”。",
+        "有“照着做”的步骤，请直接在圈出来的地方操作；不想动手就点“帮我做”。",
+        "开新局时：开始页点“开始游戏”，上传剧本 JSON，或者用“图片生成剧本”让 AI 读剧本图。"
+      ], prepare: { demoClosePanels() }),
+      TourStep(targets: ["menu.gear", "gear.players"], title: "先定人数", lines: [
+        "点左边的齿轮打开面板（再点一下收起），用 + − 调玩家人数。",
+        "演示局已经是 8 人。面板里还有随机分配角色、隐藏阵营颜色、存档和设置。"
+      ], prepare: { demoClosePanels(menu: true) }),
+      TourStep(targets: ["setup.buttons"], title: "开始配版", lines: [
+        "玩家卡片下面有三个按钮：",
+        "说书人配版：自己定数量、抽牌。",
+        "AI配版：让 AI 按剧本和人数直接配好（要先填 AI Key）。",
+        "AI补完配版：发完角色后，让 AI 安排醉酒、红鲱鱼、恶魔伪装。",
+        "现在点“说书人配版”。"
+      ], prepare: { demoClosePanels(scroll: "demo.setup") }, interactive: true, done: { showSetup }),
+      TourStep(targets: ["setup.count", "setup.panelButtons"], title: "配版 1：各阵营数量", lines: [
+        "不需要玩家参与配版，就直接点右下角“确认”。",
+        "这里的数量只在“让玩家自己抽角色”时有用：想让玩家参与，就先定每个阵营抽几张。"
+      ], prepare: { demoOpenSetup(stage: 0) }, interactive: true, done: { showSetup && demoSetupStage >= 1 }, skipSteps: 3, skipLabel: "帮我配好"),
+      TourStep(targets: ["setup.pickCards", "setup.pickButtons"], title: "配版 2：让玩家抽（可跳过）", lines: [
+        "不需要玩家参与配版，就直接点“确认”，到下一页由你自己选角色。",
+        "想让玩家参与时，把 iPad 递给玩家，让他在背面朝上的牌里点几张，选够数量就行。"
+      ], prepare: { demoOpenSetup(stage: 1) }, interactive: true, done: { showSetup && demoSetupStage >= 2 }, skipSteps: 2, skipLabel: "帮我配好"),
+      TourStep(targets: ["setup.check"], title: "配版 3：自己选角色", lines: [
+        "这一页四个阵营的牌都翻开了，点一下牌选中，再点一下去掉。按每个阵营标题写的“应选几张”选够：8 人局是 1 恶魔、1 爪牙、1 外来者、5 镇民。",
+        "要放两张同样的角色就点 ⊕。最上面会显示已经选了几张。",
+        "选够 8 张后往下滑，点最下面的“玩家开抽”。牌数和人数不一样时开不了抽，会提示你。右下角的“确认”会去下一个阵营的数量页，这里不用点。"
+      ], prepare: { demoOpenSetup(stage: 2) }, interactive: true, done: { showSetup && demoSetupStage == 12 }, skipLabel: "帮我配好"),
+      TourStep(targets: ["deal.seats", "deal.cards"], title: "抽卡：第一位玩家", lines: [
+        "双击右边列表里的“1号”，选中他。",
+        "然后让 1 号长按一张牌，牌会翻开，显示他的角色。看完把 iPad 传给下一位。",
+        "长按列表里的号码，可以提前给这个座位指定一张牌，比如想让酒鬼坐某个位置。"
+      ], prepare: { demoOpenSetup(stage: 12, fillBag: true) }, interactive: true, done: { playersAssignedCharacters.first.map { !$0.name.isEmpty } ?? false }),
+      TourStep(targets: ["deal.seats", "deal.cards", "deal.buttons"], title: "抽卡：其他玩家", lines: [
+        "其他人照样：双击号码，再长按一张牌。号码后面变成 ✓ 就是抽好了。",
+        "全部抽完点“确认”回到小镇。"
+      ], prepare: { demoOpenSetup(stage: 12) }, interactive: true, done: { !showSetup && demoAllDealt }),
+      TourStep(targets: ["card.icon"], title: "直接给座位换角色", lines: [
+        "回到小镇，每张卡片就是一个座位。",
+        "要改某个座位的角色，点卡片右上角的头像，在弹出的列表里点一下新角色。",
+        "这类弹出的面板，都是双击空白的地方关掉。"
+      ], prepare: { demoEnsureDealt(); demoClosePanels() }),
+      TourStep(targets: ["bluffs"], title: "恶魔伪装", lines: [
+        "首夜给恶魔看的三个不在场的善良角色。",
+        "点一个格子，在列表里选角色。用 AI补完配版的话，AI 会帮你选好。"
+      ], prepare: { demoEnsureDealt(); demoClosePanels() }),
+      TourStep(targets: ["menu.gear", "gear.start"], title: "开始游戏", lines: [
+        "所有人都有角色后，打开齿轮面板，点“开始游戏”，进入第一夜。",
+        "分好角色就会自动存档，不用手动保存。现在点“开始游戏”。"
+      ], prepare: { demoEnsureDealt(); demoClosePanels(menu: true) }, interactive: true, done: { gameState != 0 }),
+      TourStep(targets: ["rightPanel"], title: "首夜：按顺序唤醒", lines: [
+        "右边按顺序列出今晚要唤醒的角色和该说的话，已死亡的会标出来。顶部可以切换“第一晚”“其他晚”。",
+        "现在双击列表里的一项，表示正在唤醒他，会记进整局记录。"
+      ], prepare: { demoEnsureStarted(); demoClosePanels() }, interactive: true, done: { allLogs.contains(where: { $0.type == 2 }) }),
+      TourStep(targets: ["menu.notepad"], title: "给玩家看信息：打开记事本", lines: [
+        "首夜先唤醒爪牙，告诉他们谁是恶魔；再唤醒恶魔，告诉他谁是爪牙，再给他三个不在场的角色当伪装。这种时候用记事本拼出来举给玩家看。",
+        "点左边的记事本图标。"
+      ], prepare: { demoEnsureStarted(); demoClosePanels() }, interactive: true, done: { showNotepad }),
+      TourStep(targets: ["notepad.panel"], title: "给玩家看信息：拼一句话", lines: [
+        "左边是词块：座位号、恶魔伪装、其他角色、常用词，点一下就加到大字区。",
+        "给爪牙看：点恶魔的座位号\(demonText)就够了。",
+        "给恶魔看：点“清空”，再依次点\(minionText)“是”“爪牙”，再点恶魔伪装那一栏的三个角色。",
+        "举给玩家看之前，先点下面的“收起”把左边的词块藏起来，免得他看到伪装和其他角色。",
+        "用完双击记事本外面的空白处关掉，然后点“下一步”。"
+      ], prepare: {
+        demoEnsureStarted()
+        selectNewReminder = false
+        showMenu = false
+        if !showNotepad { showNotepad = true }
+      }, interactive: true, cardCorner: .topTrailing),
+      TourStep(targets: ["card.plus"], title: "加标签", lines: [
+        "夜里有人中毒、醉酒，就给他挂标签。",
+        "点 1 号卡片下方的 ⊕。"
+      ], prepare: { demoEnsureStarted(); demoClosePanels() }, interactive: true, done: { selectNewReminder }),
+      TourStep(targets: ["tag.panel"], title: "选一个标签", lines: [
+        "这里是这个剧本所有的提醒标签，前面的号码和图标是它来自哪个角色。",
+        "点一下选中一个标签，再点“确认”加上。点“返回”不加。"
+      ], prepare: {
+        demoEnsureStarted()
+        showNotepad = false
+        if !selectNewReminder {
+          currentSelectedPlayerIDForReminder = 0
+          selectedReminderIndex = -1
+          selectNewReminder = true
+        }
+      }, interactive: true, done: { !selectNewReminder }),
+      TourStep(targets: ["card.tags"], title: "删除和倒置标签", lines: [
+        "标签显示在卡片下方。",
+        "双击一个标签：删掉它。长按一个标签 1 秒：把它倒置，表示效果暂时失效之类。",
+        "删错了点屏幕底部的“撤销”。"
+      ], prepare: { demoEnsureStarted(); demoClosePanels() }),
+      TourStep(targets: ["globalTags"], title: "全局标签", lines: [
+        "左边这一栏给全场的效果挂标签。点 ⊕ 添加，双击删除，长按 1 秒倒置。"
+      ], prepare: { demoEnsureStarted(); demoClosePanels() }),
+      TourStep(targets: ["menu.sun"], title: "天亮", lines: [
+        "夜里的事都做完了，点太阳天亮。",
+        "第一夜恶魔不杀人（能力里带 * 的表示首夜不发动），所以第一天早上没有人死。"
+      ], prepare: { demoEnsureStarted(); demoClosePanels() }, interactive: true, done: { gameState == 2 }),
+      TourStep(targets: ["rightPanel"], title: "提名", lines: [
+        "白天右边是投票面板。先点提名者的号码，点“确认”；再点被提名者的号码，点“确认”。",
+        "已经提名过、被提名过的人会被分到下面，同一天不能再提名。"
+      ], prepare: {
+        demoGoDay(); demoClosePanels()
+        nominationPhase = 0
+        votingPhase = 0
+      }, interactive: true, done: { votingPhase == 1 }),
+      TourStep(targets: ["rightPanel"], title: "投票", lines: [
+        "从提示的座位开始，逐个点举手的人，再点一下取消。死人投票会用掉他的死人票。",
+        "上面“从几号开始投票”后面会实时显示当前几票。点“投票”记下这次提名。"
+      ], prepare: { demoGoDay(); demoClosePanels() }, interactive: true, done: { votingPhase == 2 }),
+      TourStep(targets: ["rightPanel"], title: "处决", lines: [
+        "“处决”页列出今天所有提名和票数，票数最高且过半的会反色显示，就是今天要处决的人。",
+        "要处决谁，就点一下他的座位号让他死亡，白天处决和夜里被杀都是这样标记。"
+      ], prepare: { demoGoDay(); demoClosePanels(); votingPhase = 2 }),
+      TourStep(targets: ["timer"], title: "计时器", lines: [
+        "上面是整局和当前白天或夜晚的时长。",
+        "下面的计时器：点一下暂停或继续，双击归零。",
+        "长按计时器：选 1 到 10 分钟倒计时或者自定义，选好直接开始，时间到会闪红。"
+      ], prepare: { demoClosePanels() }),
+      TourStep(targets: ["info", "extraCare"], title: "局势和相克", lines: [
+        "上面是剧本名、各阵营应有和实有的数量、存活人数。",
+        "下面自动列出相克规则，以及和提名、被提、投票、处决有关的能力，点顶部切换。"
+      ], prepare: { demoClosePanels() }),
+      TourStep(targets: ["fabled"], title: "传奇角色", lines: [
+        "点 ⊕ 选这局用的传奇角色，双击已选的移除。"
+      ], prepare: { demoClosePanels() }),
+      TourStep(targets: ["menu.ai"], title: "AI 说书", lines: [
+        "局中随时问 AI，比如“给占卜师编今晚的信息”“今晚怎么安排”，它会结合魔典和整局记录回答。",
+        "要先在设置里填好自己的 AI Key。"
+      ], prepare: { demoClosePanels() }),
+      TourStep(targets: ["menu.infos"], title: "角色能力", lines: [
+        "这里能看到剧本里所有角色的能力，双击空白处关掉。"
+      ], prepare: { demoClosePanels() }),
+      TourStep(targets: ["menu.log"], title: "整局记录", lines: [
+        "发角色、标签、死亡、提名投票都会自动记下来。点这个图标打开看看。"
+      ], prepare: { demoClosePanels() }, interactive: true, done: { showConversation }),
+      TourStep(targets: ["log.panel"], title: "记发言、存长图", lines: [
+        "下面选一个玩家，输入他说的话点“发送”，就会记进去，比如他声称的身份。",
+        "右上角“存成长图”：确认后把整局记录画成一张长图存进相册。",
+        "双击记录外面的空白处关掉。"
+      ], prepare: {
+        demoClosePanels()
+        showConversation = true
+      }, interactive: true),
+      TourStep(targets: ["menu.moon"], title: "入夜", lines: [
+        "一天结束，点月亮入夜。右边会换成“其他晚”的唤醒顺序。"
+      ], prepare: { demoGoDay(); demoClosePanels() }, interactive: true, done: { gameState == 3 }),
+      TourStep(targets: ["card.number"], title: "夜里有人死了", lines: [
+        "从第二夜开始恶魔每晚杀一个人。",
+        appSettings.confirmDeath
+          ? "点一下被杀那人的座位号，在弹出的确认框里点“确定”，他就死了，卡片会变暗。复活也是一样。"
+          : "点一下被杀那人的座位号，他就死了，卡片会变暗。再点一下就复活。",
+        "设置里可以开关确认框。试试让 1 号死亡，天亮时就宣布他的死讯。"
+      ], prepare: { demoGoNight(); demoClosePanels() }, interactive: true, done: { playersIsAlive.contains(false) }),
+      TourStep(targets: ["menu.gear", "menu.exit"], title: "存档、复盘和离开", lines: [
+        "齿轮面板里的“存档”能看到所有局，可以载入继续；点“复盘”看整局时间线，还能让 AI 生成复盘长图发给玩家。",
+        "右下角的 ✕ 回到开始页。分好角色的局都会自动存档。",
+        "大部分操作之后屏幕底部会出现“撤销”，点错了不用慌。教程到这里结束，祝你带局顺利。"
+      ], prepare: { demoClosePanels() })
+    ]
+  }
+  
   // FOR TIMER
   
   
@@ -233,7 +512,7 @@ struct StoryTellerView: View {
       }
       
       if showSetup{
-        SetupView(playableCharacters: $playableCharacters, playersAssignedCharacters: $playersAssignedCharacters, playerCount: $playerCount, showSetup: $showSetup, aiSetupNotes: $aiSetupNotes, openAISetupOnAppear: $openAISetupOnAppear)
+        SetupView(playableCharacters: $playableCharacters, playersAssignedCharacters: $playersAssignedCharacters, playerCount: $playerCount, showSetup: $showSetup, aiSetupNotes: $aiSetupNotes, openAISetupOnAppear: $openAISetupOnAppear, onStage: { demoSetupStage = $0 }, demoBag: $demoBag, demoStage: $demoStageRequest)
           .zIndex(17)
       }
         
@@ -252,7 +531,9 @@ struct StoryTellerView: View {
           .background(RoundedRectangle(cornerRadius: 10).fill(Color.mainbg))
           .overlay(RoundedRectangle(cornerRadius: 10)
             .stroke(Color.ink.opacity(1), lineWidth: 3))
+        ScrollViewReader { scrollProxy in
         ScrollView(showsIndicators: false) {
+          Color.clear.frame(height: 0).id("demo.top")
           PlayersView(playersAssignedCharacters: $playersAssignedCharacters,
                       playersStates: $playersStates,
                       characters: $characters,
@@ -267,7 +548,8 @@ struct StoryTellerView: View {
                       gameState: $gameState,
                       allLogs: $allLogs,
                       globalStates: $globalStates,
-                      numCols: appSettings.cardsPerRow
+                      numCols: demo ? 3 : appSettings.cardsPerRow,
+                      forceGrid: demo
           )
           if (gameState == 0){
             HStack{
@@ -322,12 +604,20 @@ struct StoryTellerView: View {
               .padding(.top, 30)
               .padding(.leading, 20)
             }
+            .tutorialAnchor("setup.buttons")
             .frame(maxWidth: .infinity)
+            .id("demo.setup")
           }
         }
         .frame(maxWidth: .infinity)
 //        .padding(.horizontal, 10)
         .animation(.easeInOut(duration: 0.3), value: playersAssignedCharacters)
+        .onChange(of: demoScrollTarget) { _, target in
+          if let target = target {
+            withAnimation(.easeInOut(duration: 0.35)) { scrollProxy.scrollTo(target, anchor: target == "demo.top" ? .top : .bottom) }
+          }
+        }
+        }
         .shadow(color: .black.opacity(0.2), radius: 5, x: 3, y: 5)
         //        Spacer()
         VStack{
@@ -342,6 +632,7 @@ struct StoryTellerView: View {
               RoundedRectangle(cornerRadius: 10)
                 .stroke(Color.ink.opacity(1), lineWidth: 3)
             )
+            .tutorialAnchor("fabled")
           TimerView(gameState: $gameState)
             .animation(.easeInOut(duration: 0.3), value: gameState)
             .frame(width: 110)
@@ -351,6 +642,7 @@ struct StoryTellerView: View {
               RoundedRectangle(cornerRadius: 10)
                 .stroke(Color.ink.opacity(1), lineWidth: 3)
             )
+            .tutorialAnchor("timer")
 ////            .frame(maxHeight: .infinity)
           FakeCover(playersAssignedCharacters: $playersAssignedCharacters, notPresentedGoodCharacters: $notPresentedGoodCharacters, selectNewCharacter: $selectNewCharacter, currentSelectedPlayerID: $currentSelectedPlayerID)
             .animation(.easeInOut(duration: 0.3), value: notPresentedGoodCharacters)
@@ -362,6 +654,7 @@ struct StoryTellerView: View {
               RoundedRectangle(cornerRadius: 10)
                 .stroke(Color.ink.opacity(1), lineWidth: 3)
             )
+            .tutorialAnchor("bluffs")
 //            .padding(.top, 10)
         }
         .zIndex(1)
@@ -393,6 +686,7 @@ struct StoryTellerView: View {
             RoundedRectangle(cornerRadius: 10)
               .stroke(Color.ink.opacity(1), lineWidth: 3)
           )
+          .tutorialAnchor("info")
           ExtraCareView(jinxList: $jinxList, playersAssignedCharacters: $playersAssignedCharacters, playersIsAlive: $playersIsAlive, votingPhase: $votingPhase, nominationPhase: $nominationPhase, gameState: $gameState)
             .frame(maxHeight: .infinity)
             .frame(maxWidth: .infinity)
@@ -401,6 +695,7 @@ struct StoryTellerView: View {
               RoundedRectangle(cornerRadius: 10)
                 .stroke(Color.ink.opacity(1), lineWidth: 3)
             )
+            .tutorialAnchor("extraCare")
             .padding(.top, 10)
           Group{
             if (gameState == 0){
@@ -419,6 +714,7 @@ struct StoryTellerView: View {
               .stroke(Color.ink.opacity(1), lineWidth: 3)
           )
           .transition(.move(edge: .trailing))
+          .tutorialAnchor("rightPanel")
           .padding(.top, 10)
         } // end of v stack for meta information
         .frame(width: 260)
@@ -429,6 +725,11 @@ struct StoryTellerView: View {
       
     } // end of the outer zstack
     .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .overlayPreferenceValue(TutorialAnchorKey.self) { anchors in
+      if demo {
+        TourOverlay(steps: tourSteps, anchors: anchors, onFinish: finishDemo)
+      }
+    }
     .alert(isPresented: $showAlert) {
       Alert(title: Text("错误"), message: Text(alertMessage), dismissButton: .default(Text("确定")))
     }
@@ -464,6 +765,10 @@ struct StoryTellerView: View {
           alertMessage: &alertMessage,
           showAlert: &showAlert
         )
+        if demo {
+          setupDemo()
+          return
+        }
         // 按设置预设玩家人数
         let count = appSettings.defaultPlayerCount
         if count > 0 && playersAssignedCharacters.isEmpty {
