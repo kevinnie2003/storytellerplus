@@ -25,8 +25,12 @@ struct RecapData: Codable {
   var turningPoints: [RecapTurningPoint] = []
   var evil: String = ""
   var good: String = ""
-  var mvpPlayer: String = ""
+  var mvpPlayer: String = ""   // 旧版只有一个本局最佳
   var mvpReason: String = ""
+  var mvpWinPlayer: String = ""
+  var mvpWinReason: String = ""
+  var mvpLosePlayer: String = ""
+  var mvpLoseReason: String = ""
   var keyInfo: [RecapKeyInfo] = []
   
   init() {}
@@ -41,6 +45,10 @@ struct RecapData: Codable {
     good = try c.decodeIfPresent(String.self, forKey: .good) ?? ""
     mvpPlayer = try c.decodeIfPresent(String.self, forKey: .mvpPlayer) ?? ""
     mvpReason = try c.decodeIfPresent(String.self, forKey: .mvpReason) ?? ""
+    mvpWinPlayer = try c.decodeIfPresent(String.self, forKey: .mvpWinPlayer) ?? ""
+    mvpWinReason = try c.decodeIfPresent(String.self, forKey: .mvpWinReason) ?? ""
+    mvpLosePlayer = try c.decodeIfPresent(String.self, forKey: .mvpLosePlayer) ?? ""
+    mvpLoseReason = try c.decodeIfPresent(String.self, forKey: .mvpLoseReason) ?? ""
     keyInfo = try c.decodeIfPresent([RecapKeyInfo].self, forKey: .keyInfo) ?? []
   }
   
@@ -57,6 +65,14 @@ struct RecapData: Codable {
     if let mvp = object["mvp"] as? [String: Any] {
       r.mvpPlayer = mvp["player"] as? String ?? ""
       r.mvpReason = mvp["reason"] as? String ?? ""
+    }
+    if let mvp = object["mvp_win"] as? [String: Any] {
+      r.mvpWinPlayer = mvp["player"] as? String ?? ""
+      r.mvpWinReason = mvp["reason"] as? String ?? ""
+    }
+    if let mvp = object["mvp_lose"] as? [String: Any] {
+      r.mvpLosePlayer = mvp["player"] as? String ?? ""
+      r.mvpLoseReason = mvp["reason"] as? String ?? ""
     }
     r.keyInfo = (object["key_info"] as? [Any] ?? []).compactMap { item in
       guard let d = item as? [String: Any], let info = d["info"] as? String else { return nil }
@@ -103,6 +119,29 @@ struct RecapPoster: View {
     .padding(20)
     .frame(maxWidth: .infinity, alignment: .leading)
     .background(fill)
+    .clipShape(RoundedRectangle(cornerRadius: 20))
+    .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.black, lineWidth: 3))
+  }
+  
+  private func mvpCard(title: String, player: String, reason: String, star: Color) -> some View {
+    VStack(alignment: .leading, spacing: 6) {
+      HStack(spacing: 8) {
+        Image(systemName: "star.fill")
+          .font(.system(size: 22))
+          .foregroundColor(star)
+        Text(title)
+          .font(.system(size: 18, weight: .black, design: .rounded))
+          .foregroundColor(.black.opacity(0.6))
+      }
+      Text(player)
+        .font(.system(size: 24, weight: .black, design: .rounded))
+      Text(reason)
+        .font(.system(size: 17, design: .rounded))
+        .foregroundColor(.black.opacity(0.7))
+    }
+    .padding(20)
+    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    .background(Color.goodTextBg)
     .clipShape(RoundedRectangle(cornerRadius: 20))
     .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.black, lineWidth: 3))
   }
@@ -237,25 +276,19 @@ struct RecapPoster: View {
       }
       .fixedSize(horizontal: false, vertical: true)
       
-      // MVP
-      if !recap.mvpPlayer.isEmpty {
-        HStack(spacing: 14) {
-          Image(systemName: "star.fill")
-            .font(.system(size: 30))
-            .foregroundColor(.fabled)
-          VStack(alignment: .leading, spacing: 4) {
-            Text("本局最佳  \(recap.mvpPlayer)")
-              .font(.system(size: 22, weight: .black, design: .rounded))
-            Text(recap.mvpReason)
-              .font(.system(size: 17, design: .rounded))
-              .foregroundColor(.black.opacity(0.7))
+      // MVP：新版分胜方和败方，旧版只有一个本局最佳
+      if !recap.mvpWinPlayer.isEmpty || !recap.mvpLosePlayer.isEmpty {
+        HStack(alignment: .top, spacing: 14) {
+          if !recap.mvpWinPlayer.isEmpty {
+            mvpCard(title: winnerIsGood == nil ? "善良方 MVP" : "胜方 MVP", player: recap.mvpWinPlayer, reason: recap.mvpWinReason, star: .fabled)
           }
-          Spacer(minLength: 0)
+          if !recap.mvpLosePlayer.isEmpty {
+            mvpCard(title: winnerIsGood == nil ? "邪恶方 MVP" : "败方 MVP", player: recap.mvpLosePlayer, reason: recap.mvpLoseReason, star: Color.black.opacity(0.35))
+          }
         }
-        .padding(20)
-        .background(Color.goodTextBg)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.black, lineWidth: 3))
+        .fixedSize(horizontal: false, vertical: true)
+      } else if !recap.mvpPlayer.isEmpty {
+        mvpCard(title: "本局最佳", player: recap.mvpPlayer, reason: recap.mvpReason, star: .fabled)
       }
       
       Text("说书人普拉斯 · AI 复盘")

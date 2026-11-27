@@ -88,6 +88,18 @@ enum ReviewStore {
       try? data.write(to: folder.appendingPathComponent("\(id).json"), options: .atomic)
     }
   }
+  /// 画好的复盘图存一份，下次打开直接用，内容不会变
+  static func loadPoster(_ id: String) -> UIImage? {
+    UIImage(contentsOfFile: folder.appendingPathComponent("\(id).png").path)
+  }
+  static func deletePoster(_ id: String) {
+    try? FileManager.default.removeItem(at: folder.appendingPathComponent("\(id).png"))
+  }
+  static func savePoster(_ image: UIImage, id: String) {
+    if let data = image.pngData() {
+      try? data.write(to: folder.appendingPathComponent("\(id).png"), options: .atomic)
+    }
+  }
 }
 
 struct ReviewView: View {
@@ -108,21 +120,47 @@ struct ReviewView: View {
       game = try? JSONDecoder().decode(GameSaveData.self, from: data)
     }
     recap = ReviewStore.load(gameID)
-    renderPoster()
+    if recap != nil, let saved = ReviewStore.loadPoster(gameID) {
+      poster = saved
+    } else {
+      renderPoster()
+    }
   }
   
+  /// 先用本机已有的图标马上画出来，再花几秒补下载缺的图标，补到了就重画。画好的图存起来
   private func renderPoster() {
     guard let game = game, let recap = recap else {
       poster = nil
       return
     }
-    // 先把图标都存到本机，海报上才画得出来
-    ImageCache.shared.prefetch(game.playersAssignedCharacters.map { $0.imageURL })
+    let urls = Array(Set(game.playersAssignedCharacters.map { $0.imageURL }.filter { !$0.isEmpty }))
+    let missing = urls.filter { ImageCache.shared.image(for: $0) == nil }
+    poster = renderRecapPoster(game: game, recap: recap)
+    if missing.isEmpty {
+      if let image = poster { ReviewStore.savePoster(image, id: gameID) }
+      return
+    }
     Task {
-      for url in game.playersAssignedCharacters.map({ $0.imageURL }) where !url.isEmpty {
-        _ = await ImageCache.shared.fetch(url)
+      // 有的图标站很慢或者连不上，最多等 8 秒
+      await withTaskGroup(of: Bool.self) { group in
+        for url in missing {
+          group.addTask { _ = await ImageCache.shared.fetch(url); return false }
+        }
+        group.addTask { try? await Task.sleep(nanoseconds: 8_000_000_000); return true }
+        var done = 0
+        while let timedOut = await group.next() {
+          if timedOut { break }
+          done += 1
+          if done == missing.count { break }
+        }
+        group.cancelAll()
       }
-      poster = renderRecapPoster(game: game, recap: recap)
+      let image = renderRecapPoster(game: game, recap: recap)
+      poster = image
+      // 图标都齐了才存，缺图标的下次打开再补画（文字内容来自存好的复盘，不会变）
+      if let image = image, missing.allSatisfy({ ImageCache.shared.image(for: $0) != nil }) {
+        ReviewStore.savePoster(image, id: gameID)
+      }
     }
   }
   
@@ -160,6 +198,7 @@ struct ReviewView: View {
         let result = RecapData.from(object)
         recap = result
         ReviewStore.save(result, id: gameID)
+        ReviewStore.deletePoster(gameID)
         renderPoster()
       } catch {
         errorText = error.localizedDescription
