@@ -33,7 +33,7 @@ jobs:
       - run: npm run build
         env:
           BASE_PATH: /${{ github.event.repository.name }}/
-          # 说书人普肉的联机中转地址（relay/ 部署到 Cloudflare 后，在仓库的 Variables 里设 RELAY_URL）
+          # 说书人联机的中转地址（relay/ 部署到 Cloudflare 后，在仓库的 Variables 里设 RELAY_URL）
           VITE_RELAY_URL: ${{ vars.RELAY_URL }}
       - uses: actions/upload-pages-artifact@v3
         with:

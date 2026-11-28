@@ -8,10 +8,6 @@ export type MessageKind =
   | 'choose'
   /** 告诉玩家他的角色 */
   | 'role'
-  /** 全员同步：这一步没有你的事，点一下确认就行 */
-  | 'idle'
-  /** 白天投票：轮到你了，投还是不投 */
-  | 'vote'
   /** 说书人要你发动能力：打字告诉说书人你的选择 */
   | 'ask'
 
@@ -31,7 +27,7 @@ export interface RoomMessage {
   /** 选几个人 */
   count?: number
   role?: RoleInfo
-  /** 同一次唤醒发出去的一批（包括全员同步的 idle）用同一个 step */
+  /** 同一次唤醒发出去的一批用同一个 step */
   step?: string
   /** 第几夜、第几天，发的时候说书人那边的阶段 */
   phase: string
@@ -39,11 +35,7 @@ export interface RoomMessage {
   readAt?: number
   /** 玩家选的座位（从 0 开始） */
   picks?: number[]
-  /** 投票：补充说明（比如死人票） */
-  note?: string
-  /** 投票：true 投，false 不投 */
-  answer?: boolean
-  /** 说书人收回了（比如跳过这一位），玩家那边不再显示 */
+  /** 说书人收回了，玩家那边不再显示 */
   cancelled?: boolean
   /** 发动能力：玩家写的回复 */
   reply?: string
@@ -78,11 +70,21 @@ export interface RoomInfo {
   phase: string
   night: boolean
   hostOnline: boolean
-  /** 所有人都看得到的一行进度（比如投票到谁了），没有就是空 */
-  banner: string
   /** 谁活着、谁还有死人票（公开信息，说书人那边同步过来） */
   alive?: boolean[]
   deadVote?: boolean[]
+}
+
+/** 这一局的剧本：玩家在手机上能看所有角色的能力 */
+export interface ScriptInfo {
+  name: string
+  characters: RoleInfo[]
+}
+
+/** 浏览器给的推送订阅（PushSubscription.toJSON()） */
+export interface PushSub {
+  endpoint: string
+  keys: { p256dh: string; auth: string }
 }
 
 // ——— 网页发给中转 ———
@@ -94,16 +96,19 @@ export type ClientMessage =
   // 玩家
   | { type: 'ack'; id: string }
   | { type: 'respond'; id: string; picks: number[] }
-  | { type: 'answer'; id: string; yes: boolean }
   | { type: 'whisper'; id: string; kind: WhisperKind; text: string }
   | { type: 'reply'; id: string; text: string }
   | { type: 'leave' }
+  /** 开通知：说书人找你、你又不在看这个页面时，推送一条提醒；null 是关掉 */
+  | { type: 'push'; sub: PushSub | null }
+  /** 页面在不在前台（在看就不推送） */
+  | { type: 'visible'; visible: boolean }
   // 说书人
   | { type: 'seats'; count: number }
   | { type: 'phase'; phase: string; night: boolean }
-  | { type: 'send'; messages: Omit<RoomMessage, 'sentAt' | 'readAt' | 'picks' | 'phase' | 'answer' | 'cancelled' | 'reply'>[] }
+  | { type: 'send'; messages: Omit<RoomMessage, 'sentAt' | 'readAt' | 'picks' | 'phase' | 'cancelled' | 'reply'>[] }
   | { type: 'cancel'; ids: string[] }
-  | { type: 'banner'; text: string }
+  | { type: 'script'; script: ScriptInfo }
   | { type: 'whisperRead'; ids: string[] }
   | { type: 'status'; alive: boolean[]; deadVote: boolean[] }
   | { type: 'kick'; seat: number }
@@ -114,6 +119,7 @@ export type ServerMessage =
   | { type: 'room'; room: RoomInfo }
   | { type: 'error'; code: 'no-room' | 'bad-token' | 'seat-taken' | 'bad-seat' | 'closed'; message: string }
   | { type: 'pong' }
+  | { type: 'script'; script: ScriptInfo | null }
   // 给玩家
   | { type: 'seated'; seat: number; name: string; seatToken: string }
   | { type: 'inbox'; messages: RoomMessage[]; sent?: Whisper[] }

@@ -1,4 +1,4 @@
-// 记事本下面的“发到手机”：开着说书人普肉房间时，把拼好的这句话发给某个座位
+// 记事本下面的“发到手机”：开着说书人联机房间时，把拼好的这句话发给某个座位
 import { useEffect, useState } from 'react'
 import { useGame } from '../game/store'
 import { rounded } from '../ui/kit'

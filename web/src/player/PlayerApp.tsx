@@ -1,8 +1,9 @@
-// 说书人普肉（玩家端）：输入房间号、选座位，夜里看手机收说书人的信息、选人回传
+// 说书人联机（玩家端）：输入房间号、选座位，夜里看手机收说书人的信息、选人回传
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CODE_LENGTH, normalizeCode, type RoomMessage } from '../net/protocol'
-import { ackMessage, answerVote, claimSeat, joinRoom, leaveRoom, replyMessage, respondMessage, savedPlayerRoom, sendWhisper, usePlayer } from '../net/player'
+import { ackMessage, claimSeat, joinRoom, leaveRoom, replyMessage, respondMessage, savedPlayerRoom, sendWhisper, syncPush, usePlayer } from '../net/player'
 import { relayURL } from '../net/relay'
+import { askPermission, pushState, type PushState } from '../net/push'
 import { CachedImage } from '../ui/CachedImage'
 import { SFIcon } from '../ui/SFIcon'
 import { mono, rounded } from '../ui/kit'
@@ -26,6 +27,15 @@ const bigButton = (filled = true, disabled = false): React.CSSProperties => ({
   background: filled ? 'var(--ink)' : 'transparent', color: filled ? 'var(--mainbg)' : 'var(--ink)',
   border: '3px solid var(--ink)', opacity: disabled ? 0.35 : 1, flexShrink: 0,
 })
+/** 说书人现在会发的几种（以前的“全员同步”“手机投票”不再显示） */
+const KINDS: string[] = ['text', 'choose', 'role', 'ask']
+const shownKind = (m: RoomMessage) => KINDS.includes(m.kind)
+
+const headerButton: React.CSSProperties = {
+  width: 40, height: 40, borderRadius: '50%', border: '2.5px solid var(--ink)', color: 'var(--ink)',
+  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+}
+
 const field: React.CSSProperties = {
   ...rounded(17, 700), width: '100%', padding: '12px 14px', borderRadius: 14, border: '3px solid var(--ink)',
   background: 'var(--paper)', color: 'var(--ink)', outline: 'none',
@@ -91,7 +101,7 @@ function JoinScreen() {
   return (
     <div className="dot-bg" style={{ ...page, justifyContent: 'center', gap: 22 }}>
       <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <div style={rounded(36, 900)}>说书人普肉</div>
+        <div style={rounded(36, 900)}>说书人联机</div>
         <div style={{ ...rounded(15, 600), opacity: 0.65 }}>血染钟楼线下联机：夜里用手机收说书人的信息</div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 420, alignSelf: 'center' }}>
@@ -111,6 +121,11 @@ function JoinScreen() {
         {error ? <div style={{ ...rounded(15, 700), color: 'var(--warningRed)' }}>{error}</div> : null}
         {noRelay ? <div style={{ ...rounded(15, 700), color: 'var(--warningRed)' }}>联机服务还没有设置好，暂时用不了</div> : null}
         <button style={bigButton(true, !ready)} disabled={!ready} onClick={() => joinRoom(value)}>进入房间</button>
+        {pushState() === 'ios-install' ? (
+          <div style={{ ...rounded(14, 600), opacity: 0.7, lineHeight: 1.45, textAlign: 'center' }}>
+            iPhone 想在别的 app 里也收到说书人的提醒：先点 Safari 的分享按钮，选“添加到主屏幕”，再从主屏幕打开说书人联机加入房间
+          </div>
+        ) : null}
       </div>
     </div>
   )
@@ -122,7 +137,7 @@ function StatusDot() {
   const ok = status === 'online'
   const label = !ok ? (status === 'connecting' ? '连接中' : '断线重连中') : hostOnline ? '已连接' : '说书人不在线'
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, ...rounded(13, 700), opacity: 0.8 }}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, ...rounded(13, 700), opacity: 0.8, whiteSpace: 'nowrap' }}>
       <span style={{ width: 9, height: 9, borderRadius: '50%', background: ok && hostOnline ? '#34c759' : ok ? '#ff9f0a' : '#ff3b30' }} />
       {label}
     </span>
@@ -200,12 +215,12 @@ function SeatedScreen() {
   const [showHistory, setShowHistory] = useState(false)
   const [showWhisper, setShowWhisper] = useState(false)
   const [showPlayers, setShowPlayers] = useState(false)
+  const [showScript, setShowScript] = useState(false)
   const unreadSent = usePlayer((s) => s.sent.filter((w) => !w.readAt).length)
 
   // 还没回复的，最早的那条先处理
-  // 投票要马上回，排在最前面
-  const pending = useMemo(() => inbox.find((m) => !m.readAt && m.kind === 'vote') ?? inbox.find((m) => !m.readAt), [inbox])
-  const role = useMemo(() => [...inbox].reverse().find((m) => m.kind === 'role')?.role, [inbox])
+  const pending = useMemo(() => inbox.find((m) => !m.readAt && !m.cancelled && shownKind(m)), [inbox])
+  const role = useMemo(() => [...inbox].reverse().find((m) => m.kind === 'role' && !m.cancelled)?.role, [inbox])
   // 说书人发来新东西：关掉私信页和记录页，免得挡住
   const pendingId = pending?.id
   useEffect(() => {
@@ -213,13 +228,14 @@ function SeatedScreen() {
     setShowWhisper(false)
     setShowHistory(false)
     setShowPlayers(false)
+    setShowScript(false)
   }, [pendingId])
 
   return (
     <div style={{ ...page, gap: 12 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
         <div style={{
-          width: 48, height: 48, borderRadius: '50%', background: 'var(--ink)', color: 'var(--mainbg)', flexShrink: 0,
+          width: 44, height: 44, borderRadius: '50%', background: 'var(--ink)', color: 'var(--mainbg)', flexShrink: 0,
           display: 'flex', alignItems: 'center', justifyContent: 'center', ...rounded(24, 900),
         }}>{seat + 1}</div>
         <div style={{ flex: 1, minWidth: 0, lineHeight: 1.2 }}>
@@ -227,31 +243,34 @@ function SeatedScreen() {
             {seat + 1}号{name ? ` · ${name}` : ''}{room?.phase ? ` · ${room.phase}` : ''}
           </div>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            <span style={{ ...rounded(13, 700), opacity: 0.6 }}>房间 {code}</span>
+            <span style={{ ...rounded(13, 700), opacity: 0.6, whiteSpace: 'nowrap' }}>房间 {code}</span>
             <StatusDot />
           </div>
         </div>
         <button
           aria-label="玩家列表"
           onClick={() => setShowPlayers(true)}
-          style={{ width: 44, height: 44, borderRadius: '50%', border: '2.5px solid var(--ink)', color: 'var(--ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+          style={headerButton}
         >
-          <SFIcon name="person.2" size={22} />
+          <SFIcon name="person.2" size={20} />
+        </button>
+        <button
+          aria-label="全部角色"
+          onClick={() => setShowScript(true)}
+          style={headerButton}
+        >
+          <SFIcon name="person.2.crop.square.stack" size={20} />
         </button>
         <button
           aria-label="记录"
           onClick={() => setShowHistory(true)}
-          style={{ width: 44, height: 44, borderRadius: '50%', border: '2.5px solid var(--ink)', color: 'var(--ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+          style={headerButton}
         >
-          <SFIcon name="list.bullet.clipboard" size={22} />
+          <SFIcon name="list.bullet.clipboard" size={20} />
         </button>
       </div>
 
-      {room?.banner ? (
-        <div style={{ ...rounded(15, 800), lineHeight: 1.35, padding: '8px 12px', borderRadius: 12, background: 'var(--ink)', color: 'var(--mainbg)', flexShrink: 0, whiteSpace: 'pre-line' }}>
-          {room.banner}
-        </div>
-      ) : null}
+      {!pending ? <PushPrompt /> : null}
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         {pending ? <PendingMessage key={pending.id} message={pending} /> : <Waiting night={!!room?.night} setup={!room?.phase || room.phase === '配版'} />}
       </div>
@@ -265,6 +284,7 @@ function SeatedScreen() {
       {showWhisper ? <WhisperPage onClose={() => setShowWhisper(false)} /> : null}
       {showHistory ? <History onClose={() => setShowHistory(false)} /> : null}
       {showPlayers ? <PlayersPage onClose={() => setShowPlayers(false)} /> : null}
+      {showScript ? <ScriptPage onClose={() => setShowScript(false)} /> : null}
     </div>
   )
 }
@@ -283,9 +303,11 @@ function Waiting({ night, setup }: { night: boolean; setup: boolean }) {
   )
 }
 
-/** 一条要处理的：信息、选人、角色、全员同步的确认 */
+/** 一条要处理的：信息、选人、角色、发动能力 */
 function PendingMessage({ message: m }: { message: RoomMessage }) {
   const room = usePlayer((s) => s.room)
+  // 之前已经发过角色：这是换了的新角色（比如舞蛇人换了恶魔）
+  const renewed = usePlayer((s) => s.inbox.some((x) => x.kind === 'role' && x.id !== m.id && !x.cancelled && x.sentAt <= m.sentAt))
   const seats = room?.seats.length ?? 0
   const seatNames = (room?.seats ?? []).map((x) => x.name)
   const alive = room?.alive ?? []
@@ -338,7 +360,8 @@ function PendingMessage({ message: m }: { message: RoomMessage }) {
   if (m.kind === 'role' && m.role) {
     return (
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16, justifyContent: 'center' }}>
-        <div style={{ ...rounded(24, 900), textAlign: 'center' }}>说书人发来了你的角色</div>
+        <div style={{ ...rounded(24, 900), textAlign: 'center' }}>{renewed ? '你的角色变了' : '说书人发来了你的角色'}</div>
+        {renewed ? <div style={{ ...rounded(16, 800), textAlign: 'center' }}>说书人发来了你现在的角色，以这个为准</div> : null}
         <div style={{ ...rounded(15, 600), textAlign: 'center', opacity: 0.65, lineHeight: 1.4 }}>别让旁边的人看到。长按下面的按钮，进度条满了才显示，松手就藏起来</div>
         <RoleHold role={m.role} />
         <button style={bigButton()} onClick={() => ackMessage(m.id)}>记住了</button>
@@ -362,32 +385,6 @@ function PendingMessage({ message: m }: { message: RoomMessage }) {
         <div style={{ flex: 1 }} />
         <button style={bigButton(true, !reply.trim())} disabled={!reply.trim()} onClick={() => replyMessage(m.id, reply.trim())}>发给说书人</button>
         <button style={bigButton(false)} onClick={() => replyMessage(m.id, '')}>这次不发动</button>
-      </div>
-    )
-  }
-
-  if (m.kind === 'vote') {
-    return (
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16, justifyContent: 'center', textAlign: 'center' }}>
-        <div style={{ ...rounded(16, 800), opacity: 0.6 }}>轮到你投票了</div>
-        <div style={{ ...rounded(34, 900), lineHeight: 1.25 }}>{m.text}</div>
-        {m.note ? (
-          <div style={{ ...rounded(16, 800), lineHeight: 1.4, color: 'var(--warningRed)', padding: '10px 12px', borderRadius: 14, border: '2.5px solid var(--warningRed)' }}>{m.note}</div>
-        ) : null}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 16 }}>
-          <button style={bigButton()} onClick={() => answerVote(m.id, true)}>举手投票</button>
-          <button style={bigButton(false)} onClick={() => answerVote(m.id, false)}>不投</button>
-        </div>
-      </div>
-    )
-  }
-
-  if (m.kind === 'idle') {
-    return (
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16, justifyContent: 'center', textAlign: 'center' }}>
-        <div style={rounded(24, 900)}>这一步没有你的信息</div>
-        <div style={{ ...rounded(16, 600), opacity: 0.6, lineHeight: 1.4 }}>大家同时点确认，别人就看不出谁被唤醒了</div>
-        <button style={{ ...bigButton(), marginTop: 20 }} onClick={() => ackMessage(m.id)}>确认</button>
       </div>
     )
   }
@@ -564,8 +561,7 @@ function PlayersPage({ onClose }: { onClose: () => void }) {
 
 function History({ onClose }: { onClose: () => void }) {
   const inbox = usePlayer((s) => s.inbox)
-  // 投票不进记录：谁投了票要靠玩家自己记
-  const list = inbox.filter((m) => m.kind !== 'idle' && m.kind !== 'vote' && !m.cancelled).reverse()
+  const list = inbox.filter((m) => shownKind(m) && !m.cancelled).reverse()
   return (
     <div style={{ ...page, zIndex: 40, gap: 12 }}>
       <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -591,6 +587,83 @@ function History({ onClose }: { onClose: () => void }) {
           title: '离开座位？', message: '离开后别人可以坐这个位置，你要重新选座位。',
           buttons: [{ label: '取消', role: 'cancel' }, { label: '离开', role: 'destructive', action: () => { leaveRoom(true); onClose() } }],
         })} style={{ ...bigButton(false), marginTop: 20 }}>离开座位</button>
+      </div>
+    </div>
+  )
+}
+
+/** 开通知：说书人找你时，就算切到别的 app 也会弹提醒 */
+function PushPrompt() {
+  const [state, setState] = useState<PushState>(() => pushState())
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [hidden, setHidden] = useState(() => { try { return localStorage.getItem('RoomPushHint') === state } catch { return false } })
+  if (hidden || state === 'granted' || state === 'unsupported') return null
+  const dismiss = () => {
+    try { localStorage.setItem('RoomPushHint', state) } catch { /* 存不了就算了 */ }
+    setHidden(true)
+  }
+  const enable = async () => {
+    setBusy(true)
+    setError('')
+    const next = await askPermission()
+    if (next === 'granted' && !(await syncPush())) setError('没开成，等一下再试')
+    setBusy(false)
+    setState(next)
+  }
+  const text = state === 'ios-install'
+    ? 'iPhone 要先添加到主屏幕才能收提醒：点 Safari 的分享按钮，选“添加到主屏幕”，从主屏幕打开说书人联机重新进房间（先在这里离开座位）'
+    : state === 'denied'
+      ? '通知被关掉了。想收提醒的话，去系统设置里给这个网页打开通知'
+      : '开启通知：说书人找你时，就算你切到别的 app 也会提醒你'
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 14, border: '2.5px solid var(--ink)', flexShrink: 0 }}>
+      <div style={{ flex: 1, ...rounded(14, 700), lineHeight: 1.4 }}>
+        {text}
+        {error ? <div style={{ color: 'var(--warningRed)' }}>{error}</div> : null}
+      </div>
+      {state === 'default' ? (
+        <button disabled={busy} onClick={() => { void enable() }} style={{ ...rounded(15, 900), padding: '8px 12px', borderRadius: 999, background: 'var(--ink)', color: 'var(--mainbg)', flexShrink: 0, opacity: busy ? 0.5 : 1 }}>开启</button>
+      ) : null}
+      <button aria-label="不再提示" onClick={dismiss} style={{ width: 30, height: 30, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'var(--ink)' }}>
+        <SFIcon name="xmark" size={16} weight="bold" />
+      </button>
+    </div>
+  )
+}
+
+const TEAM_ORDER = ['townsfolk', 'outsider', 'minion', 'demon', 'traveler', 'fabled']
+
+/** 这一局剧本里的全部角色和能力 */
+function ScriptPage({ onClose }: { onClose: () => void }) {
+  const script = usePlayer((s) => s.script)
+  const groups = TEAM_ORDER.map((team) => ({ team, list: (script?.characters ?? []).filter((c) => c.team === team) })).filter((g) => g.list.length)
+  return (
+    <div style={{ ...page, zIndex: 40, gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        <div style={{ ...rounded(22, 900), flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{script?.name || '全部角色'}</div>
+        <button aria-label="关闭" onClick={onClose} style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--ink)', color: 'var(--mainbg)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <SFIcon name="xmark" size={22} weight="bold" />
+        </button>
+      </div>
+      <div className="scroll-hidden" style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {groups.length === 0 ? <div style={{ ...rounded(16, 600), opacity: 0.6 }}>说书人还没选剧本</div> : null}
+        {groups.map(({ team, list }) => (
+          <div key={team} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ ...rounded(17, 900), color: teamColor[team] }}>{teamName[team]}</div>
+            {list.map((c) => (
+              <div key={c.name} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                <div style={{ width: 48, height: 48, borderRadius: '50%', flexShrink: 0, background: 'var(--paper)' }}>
+                  <CachedImage url={c.imageURL} size={48} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <div style={{ ...rounded(17, 900), color: teamColor[team] }}>{c.name}</div>
+                  <div style={{ ...rounded(15, 600), lineHeight: 1.4 }}>{c.ability}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ))}
       </div>
     </div>
   )

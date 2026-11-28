@@ -171,7 +171,7 @@ export function TownScreen() {
   // onAppear / onDisappear，以及各种时候存档
   useLayoutEffect(() => {
     initTown()
-    // 说书人普肉：这一局开过房间就连回去
+    // 说书人联机：这一局开过房间就连回去
     resumeHost()
     const s0 = useGame.getState()
     settings().set('gameIsNight', s0.gameState === 1 || s0.gameState === 3)

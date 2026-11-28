@@ -7,7 +7,7 @@ import { team2Int } from '../game/loadScript'
 import type { Character, GameLogEntry } from '../game/types'
 import { uuid } from '../game/uuid'
 import { createRoom, RoomSocket, type SocketStatus } from './relay'
-import type { RoleInfo, RoomInfo, RoomMessage, ServerMessage, Whisper } from './protocol'
+import type { RoleInfo, RoomInfo, RoomMessage, ScriptInfo, ServerMessage, Whisper } from './protocol'
 import { showAlert } from '../ui/Alert'
 
 interface HostState {
@@ -18,8 +18,8 @@ interface HostState {
   /** 玩家主动发来的 */
   whispers: Whisper[]
   error: string
-  /** 全员同步：发给一个人时，其他已入座的人也收到一条“点确认” */
-  syncAll: boolean
+  /** 发角色时每个座位的真实角色（座位号 → 角色名）。真实角色变了，说书人要重新发 */
+  dealt: Record<number, string>
   /** 说书人的联机面板开着没有 */
   showPanel: boolean
   /** 记事本里“发给”默认选的座位（从夜晚顺序点“发信息”打开时） */
@@ -27,13 +27,21 @@ interface HostState {
 }
 
 const SAVE_KEY = 'RoomHost'
-const SYNC_KEY = 'RoomSyncAll'
-
-const readSync = () => { try { return localStorage.getItem(SYNC_KEY) !== '0' } catch { return true } }
+const DEALT_KEY = 'RoomHostDealt'
 
 export const useHost = create<HostState>(() => ({
-  code: '', status: 'off', room: null, messages: [], whispers: [], error: '', syncAll: readSync(), showPanel: false, notepadTarget: -1,
+  code: '', status: 'off', room: null, messages: [], whispers: [], error: '', dealt: {}, showPanel: false, notepadTarget: -1,
 }))
+
+function readDealt(code: string): Record<number, string> {
+  try {
+    const v = JSON.parse(localStorage.getItem(DEALT_KEY) ?? 'null') as { code: string; dealt: Record<number, string> } | null
+    return v && v.code === code ? v.dealt : {}
+  } catch { return {} }
+}
+function writeDealt(code: string, dealt: Record<number, string>) {
+  try { localStorage.setItem(DEALT_KEY, JSON.stringify({ code, dealt })) } catch { /* 存不了就算了 */ }
+}
 const set = (patch: Partial<HostState>) => useHost.setState(patch)
 
 interface Saved { code: string; hostToken: string; gameID: string }
@@ -162,11 +170,26 @@ function onMessage(msg: ServerMessage) {
 
 const isNight = (gameState: number) => gameState === 1 || gameState === 3
 
-/** 跟着小镇：座位数、第几天第几夜 */
+/** 这一局的剧本（玩家手机上看全部角色能力） */
+function scriptInfo(): ScriptInfo {
+  const s = game()
+  const all = [...s.playableCharacters, ...s.travelers, ...s.selectedFabledCharacters].filter((c) => c.name)
+  return { name: s.playName, characters: [...new Map(all.map((c) => [c.name, roleInfo(c)])).values()] }
+}
+
+/** 跟着小镇：座位数、第几天第几夜、剧本 */
 function watchGame() {
   unsubGame?.()
+  let lastScript = ''
+  const pushScript = (force = false) => {
+    const script = scriptInfo()
+    const key = JSON.stringify(script)
+    if (!force && key === lastScript) return
+    if (socket?.send({ type: 'script', script })) lastScript = key
+  }
   const push = () => {
     const s = game()
+    pushScript(true)
     socket?.send({ type: 'seats', count: s.playersAssignedCharacters.length })
     socket?.send({ type: 'phase', phase: phaseLabel(s.gameState, s.allLogs), night: s.gameState === 1 || s.gameState === 3 })
     // 谁死了、谁还有死人票是公开的，玩家的座位列表里要显示。
@@ -174,13 +197,13 @@ function watchGame() {
     if (!isNight(s.gameState)) socket?.send({ type: 'status', alive: s.playersIsAlive, deadVote: s.playersHasDeathVote })
   }
   let last = ''
-  let lastPhase = ''
+  let lastChars: unknown[] = []
   unsubGame = useGame.subscribe((s) => {
     const phase = phaseLabel(s.gameState, s.allLogs)
     const key = `${s.playersAssignedCharacters.length}|${phase}|${s.playersIsAlive.join()}|${s.playersHasDeathVote.join()}`
     if (key !== last) { last = key; push() }
-    // 换了白天黑夜，投票进度那一行清掉
-    if (phase !== lastPhase) { if (lastPhase) socket?.send({ type: 'banner', text: '' }); lastPhase = phase }
+    const chars = [s.playableCharacters, s.travelers, s.selectedFabledCharacters, s.playName]
+    if (chars.some((c, i) => c !== lastChars[i])) { lastChars = chars; pushScript() }
   })
   return push
 }
@@ -188,7 +211,7 @@ function watchGame() {
 function connect(code: string, hostToken: string) {
   socket?.stop()
   primed = false
-  set({ code, error: '' })
+  set({ code, error: '', dealt: readDealt(code) })
   const push = watchGame()
   socket = new RoomSocket(
     code,
@@ -241,30 +264,14 @@ export function kickSeat(seat: number) {
   socket?.send({ type: 'kick', seat })
 }
 
-export function setSyncAll(v: boolean) {
-  try { localStorage.setItem(SYNC_KEY, v ? '1' : '0') } catch { /* 存不了就算了 */ }
-  set({ syncAll: v })
-}
-
 export const hostOnline = () => useHost.getState().status === 'online'
-
-/** 已经入座的座位 */
-function takenSeats(): number[] {
-  return (useHost.getState().room?.seats ?? []).map((s, i) => (s.taken ? i : -1)).filter((i) => i >= 0)
-}
 
 type Outgoing = Omit<RoomMessage, 'sentAt' | 'readAt' | 'picks' | 'phase'>
 
-/** 发给一个或几个人（算一步）；开着全员同步时，其他入座的人也收到一条“点确认” */
+/** 发给一个或几个人（算一步） */
 function sendStep(targets: Outgoing | Outgoing[]): boolean {
   const step = uuid()
   const list: Outgoing[] = (Array.isArray(targets) ? targets : [targets]).map((t) => ({ ...t, step }))
-  if (useHost.getState().syncAll) {
-    const busy = new Set(list.map((t) => t.seat))
-    for (const seat of takenSeats()) {
-      if (!busy.has(seat)) list.push({ id: uuid(), seat, kind: 'idle', text: '', step })
-    }
-  }
   return !!socket?.send({ type: 'send', messages: list })
 }
 
@@ -306,35 +313,44 @@ export function sendAsk(seat: number, prompt: string): boolean {
 
 export const roleInfo = (c: Character): RoleInfo => ({ name: c.name, ability: c.ability, imageURL: c.imageURL, team: c.team })
 
-/** 把角色发到玩家手机上：每个座位一条，不用全员同步 */
-export function sendRoles(roles: { seat: number; role: RoleInfo }[]): boolean {
+/**
+ * 把角色发到玩家手机上：可以只发给一个人（比如舞蛇人换了恶魔）。
+ * actual 是这个座位现在的真实角色，记下来，之后真实角色变了就提醒说书人重新发
+ */
+export function sendRoles(roles: { seat: number; role: RoleInfo; actual: string }[]): boolean {
+  if (!roles.length) return false
   const step = uuid()
-  return !!socket?.send({ type: 'send', messages: roles.map(({ seat, role }) => ({ id: uuid(), seat, kind: 'role', text: '', role, step })) })
+  const ok = !!socket?.send({ type: 'send', messages: roles.map(({ seat, role }) => ({ id: uuid(), seat, kind: 'role', text: '', role, step })) })
+  if (ok) {
+    const { code, dealt } = useHost.getState()
+    const next = { ...dealt }
+    for (const r of roles) next[r.seat] = r.actual
+    writeDealt(code, next)
+    set({ dealt: next })
+    for (const r of roles) logSent(r.seat, r.role.name === r.actual ? `角色：${r.role.name}` : `角色：${r.role.name}（真实是${r.actual}）`)
+  }
+  return ok
 }
 
-// ——— 白天投票（online/phoneVote.ts 用） ———
-
-/** 问一个人投不投，返回这条的 id；没连上返回空 */
-export function sendVote(seat: number, text: string, note: string): string {
-  const id = uuid()
-  return socket?.send({ type: 'send', messages: [{ id, seat, kind: 'vote', text, note }] }) ? id : ''
+/** 某个座位最近发过的角色（手机上显示的那个） */
+export function lastRoleFor(messages: RoomMessage[], seat: number): RoleInfo | undefined {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i]
+    if (m.seat === seat && m.kind === 'role' && !m.cancelled) return m.role
+  }
+  return undefined
 }
 
-/** 收回还没回复的（跳过这一位、投票提前结束） */
-export function cancelMessages(ids: string[]) {
-  if (ids.length) socket?.send({ type: 'cancel', ids })
+/** 真实角色和发角色时不一样的座位（已入座的才算） */
+export function changedRoleSeats(dealt: Record<number, string>, players: Character[], room: RoomInfo | null): number[] {
+  return players.map((c, i) => (room?.seats[i]?.taken && dealt[i] !== undefined && dealt[i] !== c.name ? i : -1)).filter((i) => i >= 0)
 }
 
-/** 所有玩家手机上都显示的一行进度 */
-export function setBanner(text: string) {
-  socket?.send({ type: 'banner', text })
-}
-
-/** 某个座位最近一条说书人发的（不算 idle） */
+/** 某个座位最近一条说书人发的 */
 export function lastMessageFor(messages: RoomMessage[], seat: number): RoomMessage | undefined {
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i]
-    if (m.seat === seat && m.kind !== 'idle' && m.kind !== 'vote') return m
+    if (m.seat === seat && !m.cancelled) return m
   }
   return undefined
 }

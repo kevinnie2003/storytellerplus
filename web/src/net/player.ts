@@ -1,8 +1,9 @@
 // 玩家这边的联机：用房间号连上，选座位，收说书人的信息，回复已读和选择
 import { create } from 'zustand'
 import { RoomSocket, type SocketStatus } from './relay'
-import type { RoomInfo, RoomMessage, ServerMessage, Whisper, WhisperKind } from './protocol'
+import type { RoomInfo, RoomMessage, ScriptInfo, ServerMessage, Whisper, WhisperKind } from './protocol'
 import { uuid } from '../game/uuid'
+import { getSubscription } from './push'
 
 interface PlayerState {
   code: string
@@ -14,6 +15,8 @@ interface PlayerState {
   inbox: RoomMessage[]
   /** 自己发给说书人的 */
   sent: Whisper[]
+  /** 这一局的剧本（看全部角色能力） */
+  script: ScriptInfo | null
   error: string
 }
 
@@ -26,7 +29,7 @@ function writeSaved(v: Saved | null) {
   try { if (v) localStorage.setItem(SAVE_KEY, JSON.stringify(v)); else localStorage.removeItem(SAVE_KEY) } catch { /* 存不了就算了 */ }
 }
 
-export const usePlayer = create<PlayerState>(() => ({ code: '', status: 'off', room: null, seat: -1, name: '', inbox: [], sent: [], error: '' }))
+export const usePlayer = create<PlayerState>(() => ({ code: '', status: 'off', room: null, seat: -1, name: '', inbox: [], sent: [], script: null, error: '' }))
 const set = (patch: Partial<PlayerState>) => usePlayer.setState(patch)
 
 let socket: RoomSocket | null = null
@@ -44,6 +47,11 @@ function onMessage(msg: ServerMessage) {
       seatToken = msg.seatToken
       writeSaved({ code: usePlayer.getState().code, seatToken })
       set({ seat: msg.seat, name: msg.name, error: '' })
+      sendVisible()
+      void syncPush()
+      return
+    case 'script':
+      set({ script: msg.script })
       return
     case 'inbox':
       set({ inbox: msg.messages, sent: msg.sent ?? [] })
@@ -72,7 +80,7 @@ export function joinRoom(code: string) {
   socket?.stop()
   const saved = readSaved()
   seatToken = saved && saved.code === code ? saved.seatToken : ''
-  set({ code, room: null, seat: -1, inbox: [], sent: [], error: '' })
+  set({ code, room: null, seat: -1, inbox: [], sent: [], script: null, error: '' })
   socket = new RoomSocket(
     code,
     () => (seatToken ? { type: 'hello', seatToken } : { type: 'hello' }),
@@ -90,8 +98,22 @@ export function ackMessage(id: string) {
   socket?.send({ type: 'ack', id })
 }
 
-export function answerVote(id: string, yes: boolean) {
-  socket?.send({ type: 'answer', id, yes })
+/** 页面在前台就不用推送；切到别的 app 时告诉中转 */
+function sendVisible() {
+  socket?.send({ type: 'visible', visible: document.visibilityState === 'visible' })
+}
+document.addEventListener('visibilitychange', () => { if (usePlayer.getState().seat >= 0) sendVisible() })
+
+/** 开了通知的话，把推送订阅交给中转（每次入座都交一次，换座位也跟着走） */
+export async function syncPush(): Promise<boolean> {
+  try {
+    const sub = await getSubscription()
+    if (!sub) return false
+    return !!socket?.send({ type: 'push', sub })
+  } catch (e) {
+    console.warn('push', e)
+    return false
+  }
 }
 
 /** 发给说书人：文字、申请发动能力、申请私聊 */
@@ -114,5 +136,5 @@ export function leaveRoom(freeSeat = false) {
   window.setTimeout(() => { socket?.stop(); socket = null }, freeSeat ? 150 : 0)
   seatToken = ''
   writeSaved(null)
-  set({ code: "", status: "off", room: null, seat: -1, inbox: [], sent: [] })
+  set({ code: '', status: 'off', room: null, seat: -1, inbox: [], sent: [], script: null })
 }

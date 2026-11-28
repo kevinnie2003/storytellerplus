@@ -1,4 +1,4 @@
-// 说书人普肉：玩家用的联机页面（pro/index.html）
+// 说书人联机：玩家用的联机页面（online/index.html）
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import '../index.css'

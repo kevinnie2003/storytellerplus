@@ -1,20 +1,19 @@
-// 说书人普肉（说书人这边）：开房间、看谁入座、全员同步、把角色发到手机、关房间
+// 说书人联机（说书人这边）：开房间、看谁入座、私聊、把角色发到手机（可以只发给一个人）、关房间
 import { useState } from 'react'
-import { useGame } from '../game/store'
+import { game, useGame } from '../game/store'
 import type { Character } from '../game/types'
 import { Sheet } from '../ui/Sheet'
 import { showAlert } from '../ui/Alert'
 import { SFIcon } from '../ui/SFIcon'
 import { useCompact } from '../ui/compact'
-import { mono, rounded, STChoice, STChoiceRow, STPageHeader, STRow, STSection } from '../ui/kit'
+import { mono, rounded, STChoice, STPageHeader, STRow, STSection } from '../ui/kit'
 import { CachedImage } from '../ui/CachedImage'
-import { closeRoom, kickSeat, markWhispersRead, openRoom, replyTo, roleInfo, sendRoles, setSyncAll, useHost, whisperLabel } from '../net/host'
+import { changedRoleSeats, closeRoom, kickSeat, lastRoleFor, markWhispersRead, openRoom, replyTo, roleInfo, sendRoles, useHost, whisperLabel } from '../net/host'
 import { relayURL } from '../net/relay'
-import { askAbility } from './OrderActions'
 
 /** 玩家打开的网址 */
 export function playerURL(code?: string): string {
-  const url = new URL(`${import.meta.env.BASE_URL}pro/`, location.href)
+  const url = new URL(`${import.meta.env.BASE_URL}online/`, location.href)
   if (code) url.searchParams.set('room', code)
   return url.href
 }
@@ -39,9 +38,10 @@ function RoomContent({ onClose }: { onClose: () => void }) {
   const status = useHost((s) => s.status)
   const room = useHost((s) => s.room)
   const error = useHost((s) => s.error)
-  const syncAll = useHost((s) => s.syncAll)
+  const dealt = useHost((s) => s.dealt)
   const players = useGame((s) => s.playersAssignedCharacters)
   const [dealing, setDealing] = useState(false)
+  const changed = new Set(changedRoleSeats(dealt, players, room))
   const [copied, setCopied] = useState(false)
 
   const copy = () => {
@@ -62,11 +62,11 @@ function RoomContent({ onClose }: { onClose: () => void }) {
 
   return (
     <div style={{ flex: 1, minHeight: 0, padding: compact ? '12px 16px 0' : '28px 28px 0', display: 'flex', flexDirection: 'column', gap: compact ? 12 : 18 }}>
-      <STPageHeader title="说书人普肉" onClose={onClose} />
+      <STPageHeader title="说书人联机" onClose={onClose} />
       <div className="scroll-hidden" style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: compact ? 20 : 26, paddingBottom: 30 }}>
         {!code ? (
           <STSection title="线下联机">
-            <STRow title="夜里用手机发信息" hint="开一个房间，玩家用手机打开普肉网址、输入房间号、选自己的座位。夜里你在夜晚顺序里点“发信息”“让他选”，信息直接出现在他的手机上，大家不用闭眼，你也不用走动。" />
+            <STRow title="夜里用手机发信息" hint="开一个房间，玩家用手机打开联机网址、输入房间号、选自己的座位。夜里你在夜晚顺序里点“发信息”“让他选”，信息直接出现在他的手机上，大家不用闭眼，你也不用走动。" />
             {!relayURL() ? <div style={{ ...rounded(15, 700), color: 'var(--warningRed)' }}>联机服务还没有设置好，暂时用不了</div> : null}
             {error ? <div style={{ ...rounded(15, 700), color: 'var(--warningRed)' }}>{error}</div> : null}
             <div>
@@ -101,8 +101,9 @@ function RoomContent({ onClose }: { onClose: () => void }) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {seats.map((s, i) => {
                   const c = players[i]
+                  const chip: React.CSSProperties = { ...rounded(14, 800), padding: '6px 11px', borderRadius: 999, border: '2px solid var(--ink)', flexShrink: 0 }
                   return (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: compact ? 'wrap' : 'nowrap' }}>
                       <span style={{
                         width: 36, height: 36, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
                         background: c?.name ? team[c.team] ?? 'var(--ink)' : 'var(--ink)', color: 'var(--goodTextBg)', ...rounded(17, 900),
@@ -113,21 +114,24 @@ function RoomContent({ onClose }: { onClose: () => void }) {
                         <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', opacity: s.taken ? 1 : 0.5 }}>
                           {s.taken ? `${s.name || '已入座'}${s.online ? '' : '（掉线）'}` : '空座位'}
                         </span>
+                        {changed.has(i) ? <span style={{ ...rounded(13, 900), color: 'var(--warningRed)', flexShrink: 0 }}>角色变了</span> : null}
                       </span>
                       {s.taken ? (
-                        <button
-                          onClick={() => askAbility(i, c?.name ?? '')}
-                          style={{ ...rounded(14, 800), padding: '6px 12px', borderRadius: 999, border: '2px solid var(--ink)', flexShrink: 0 }}
-                        >要他发动</button>
-                      ) : null}
-                      {s.taken ? (
-                        <button
-                          onClick={() => showAlert({
-                            title: `清空 ${i + 1}号座位？`, message: '这个玩家要重新选座位。坐错位置时用。',
-                            buttons: [{ label: '取消', role: 'cancel' }, { label: '清空', role: 'destructive', action: () => kickSeat(i) }],
-                          })}
-                          style={{ ...rounded(14, 800), padding: '6px 12px', borderRadius: 999, border: '2px solid var(--ink)', flexShrink: 0 }}
-                        >清空</button>
+                        <span style={{ display: 'flex', gap: 6, marginLeft: compact ? 46 : 0 }}>
+                          <button onClick={() => replyTo(i)} style={chip}>私聊</button>
+                          <button
+                            onClick={() => dealOne(i)}
+                            disabled={!c?.name}
+                            style={{ ...chip, opacity: c?.name ? 1 : 0.35, ...(changed.has(i) ? { borderColor: 'var(--warningRed)', color: 'var(--warningRed)' } : {}) }}
+                          >发角色</button>
+                          <button
+                            onClick={() => showAlert({
+                              title: `清空 ${i + 1}号座位？`, message: '这个玩家要重新选座位。坐错位置时用。',
+                              buttons: [{ label: '取消', role: 'cancel' }, { label: '清空', role: 'destructive', action: () => kickSeat(i) }],
+                            })}
+                            style={chip}
+                          >清空</button>
+                        </span>
                       ) : null}
                     </div>
                   )
@@ -137,14 +141,8 @@ function RoomContent({ onClose }: { onClose: () => void }) {
 
             <Whispers />
 
-            <STSection title="夜里">
-              <STRow title="全员同步" hint="发给一个人时，其他入座的人也弹出“这一步没有你的信息”，大家同时点确认，看不出谁被唤醒。">
-                <STChoiceRow options={[[true, '开'], [false, '关']]} value={syncAll} onChange={setSyncAll} />
-              </STRow>
-            </STSection>
-
             <STSection title="角色">
-              <STRow title="把角色发到玩家手机" hint="分好角色后发一次，玩家在手机上按住就能看自己的角色。酒鬼这类看到的和真实不一样的，在这里改成要显示的角色。">
+              <STRow title="把角色发到玩家手机" hint="分好角色后发一次，玩家在手机上长按就能看自己的角色。酒鬼这类看到的和真实不一样的，在这里改成要显示的角色。之后谁的角色变了（比如舞蛇人换了恶魔），座位上会标“角色变了”，点那个座位的“发角色”只发给他一个人。">
                 <div>
                   <STChoice selected={false} disabled={players.some((p) => !p.name) || joined === 0} onClick={() => setDealing(true)}>
                     <span style={rounded(16, 800)}>发角色…</span>
@@ -164,6 +162,37 @@ function RoomContent({ onClose }: { onClose: () => void }) {
       {dealing ? <DealRoles onClose={() => setDealing(false)} /> : null}
     </div>
   )
+
+  /** 只给一个座位发角色：默认发他现在的角色（酒鬼默认显示成镇民），也可以去发角色页面换一个 */
+  function dealOne(seat: number) {
+    const actual = players[seat]
+    const shown = defaultRoleFor(seat)
+    showAlert({
+      title: `把角色发给 ${seat + 1}号？`,
+      message: shown.name === actual.name ? `他的手机上会显示：${shown.name}` : `真实是${actual.name}，他的手机上会显示：${shown.name}`,
+      sheet: true,
+      buttons: [
+        { label: `发：${shown.name}`, action: () => { sendRoles([{ seat, role: roleInfo(shown), actual: actual.name }]) } },
+        { label: '换成别的角色…', action: () => setDealing(true) },
+        { label: '取消', role: 'cancel' },
+      ],
+    })
+  }
+}
+
+/** 一个座位默认显示的角色：真实角色没变就沿用上次发的，变了或者没发过就用他现在的角色（酒鬼显示成镇民） */
+function defaultRoleFor(seat: number): Character {
+  const s = game()
+  const actual = s.playersAssignedCharacters[seat]
+  const { dealt, messages } = useHost.getState()
+  const all = [...s.playableCharacters, ...s.travelers]
+  if (dealt[seat] === actual.name) {
+    const last = lastRoleFor(messages, seat)
+    const found = last && (all.find((c) => c.name === last.name) ?? s.playersAssignedCharacters.find((c) => c.name === last.name))
+    if (found) return found
+  }
+  const used = new Set([...s.playersAssignedCharacters, ...s.notPresentedGoodCharacters].map((c) => c.name))
+  return defaultShown(actual, s.playableCharacters, used)
 }
 
 /** 酒鬼默认显示成一个不在场、也不是恶魔伪装的镇民，其他人显示自己的角色 */
@@ -175,32 +204,41 @@ function defaultShown(c: Character, all: Character[], used: Set<string>): Charac
 function DealRoles({ onClose }: { onClose: () => void }) {
   const players = useGame((s) => s.playersAssignedCharacters)
   const playable = useGame((s) => s.playableCharacters)
-  const bluffs = useGame((s) => s.notPresentedGoodCharacters)
+  const travelers = useGame((s) => s.travelers)
   const room = useHost((s) => s.room)
-  const [shown, setShown] = useState<string[]>(() => {
-    const used = new Set([...players, ...bluffs].map((c) => c.name))
-    return players.map((c) => defaultShown(c, playable, used).name)
-  })
-  const options = [...new Map([...playable, ...players].filter((c) => c.name).map((c) => [c.name, c])).values()]
+  const messages = useHost((s) => s.messages)
+  const dealt = useHost((s) => s.dealt)
+  const [shown, setShown] = useState<string[]>(() => players.map((_, seat) => defaultRoleFor(seat).name))
+  const options = [...new Map([...playable, ...travelers, ...players].filter((c) => c.name).map((c) => [c.name, c])).values()]
   const byName = new Map(options.map((c) => [c.name, c]))
+  const changed = new Set(changedRoleSeats(dealt, players, room))
 
-  const send = () => {
-    const list = players.map((_, seat) => ({ seat, role: roleInfo(byName.get(shown[seat]) ?? players[seat]) }))
-      .filter(({ seat }) => room?.seats[seat]?.taken)
+  const entry = (seat: number) => ({ seat, role: roleInfo(byName.get(shown[seat]) ?? players[seat]), actual: players[seat].name })
+  const sendAll = () => {
+    const list = players.map((_, seat) => entry(seat)).filter(({ seat }) => room?.seats[seat]?.taken)
     if (sendRoles(list)) {
       onClose()
-      showAlert({ title: '角色已发出', message: `发给了 ${list.length} 名已入座的玩家。没入座的人入座后，可以再发一次。`, buttons: [{ label: '好' }] })
+      showAlert({ title: '角色已发出', message: `发给了 ${list.length} 名已入座的玩家。没入座的人入座后，可以单独发给他。`, buttons: [{ label: '好' }] })
+    }
+  }
+  const [flash, setFlash] = useState(-1)
+  const sendOne = (seat: number) => {
+    if (sendRoles([entry(seat)])) {
+      setFlash(seat)
+      window.setTimeout(() => setFlash((f) => (f === seat ? -1 : f)), 1500)
     }
   }
 
   return (
     <div style={{ position: 'absolute', inset: 0, background: 'var(--mainbg)', display: 'flex', flexDirection: 'column', padding: 'inherit', gap: 14, zIndex: 5 }}>
       <STPageHeader title="发角色" onClose={onClose} />
-      <div style={{ ...rounded(15), opacity: 0.7 }}>右边是玩家手机上会看到的角色。只发给已经入座的人。</div>
+      <div style={{ ...rounded(15), opacity: 0.7 }}>右边是玩家手机上会看到的角色。可以点“发”只发给一个人，也可以在最下面全部发。</div>
       <div className="scroll-hidden" style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
         {players.map((c, i) => {
           const s = byName.get(shown[i])
           const taken = room?.seats[i]?.taken
+          const last = lastRoleFor(messages, i)
+          const state = !taken ? '没入座' : flash === i ? '已发出' : changed.has(i) ? '角色变了' : last ? `已发：${last.name}` : '还没发'
           return (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, opacity: taken ? 1 : 0.45 }}>
               <span style={{ ...rounded(17, 900), width: 34, flexShrink: 0 }}>{i + 1}号</span>
@@ -214,13 +252,21 @@ function DealRoles({ onClose }: { onClose: () => void }) {
               >
                 {options.map((o) => <option key={o.name} value={o.name}>{o.name}</option>)}
               </select>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, flexShrink: 0, width: 64 }}>
+                <button
+                  disabled={!taken}
+                  onClick={() => sendOne(i)}
+                  style={{ ...rounded(14, 800), padding: '5px 14px', borderRadius: 999, border: '2px solid var(--ink)', ...(changed.has(i) ? { borderColor: 'var(--warningRed)', color: 'var(--warningRed)' } : {}) }}
+                >发</button>
+                <span style={{ ...rounded(11, 700), opacity: 0.7, whiteSpace: 'nowrap', maxWidth: 64, overflow: 'hidden', textOverflow: 'ellipsis', color: changed.has(i) ? 'var(--warningRed)' : undefined }}>{state}</span>
+              </div>
             </div>
           )
         })}
       </div>
       <div style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}>
-        <STChoice selected onClick={send} style={{ width: '100%' }}>
-          <span style={rounded(18, 900)}>发到玩家手机</span>
+        <STChoice selected onClick={sendAll} style={{ width: '100%' }}>
+          <span style={rounded(18, 900)}>全部发到玩家手机</span>
         </STChoice>
       </div>
     </div>

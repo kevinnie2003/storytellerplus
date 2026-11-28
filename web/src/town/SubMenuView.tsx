@@ -5,7 +5,7 @@ import { addPlayer, canRemoveLastPlayer, randomAssign, removeLastPlayer, startGa
 import { SFIcon } from '../ui/SFIcon'
 import { rounded } from '../ui/kit'
 import { useCompact } from '../ui/compact'
-import { useHost } from '../net/host'
+import { changedRoleSeats, useHost } from '../net/host'
 
 function Row({ title, icon, onClick }: { title: string; icon: string; onClick: () => void }) {
   return (
@@ -39,6 +39,10 @@ export function SubMenuView() {
   const compact = useCompact()
   const roomCode = useHost((s) => s.code)
   const unread = useHost((s) => s.whispers.filter((w) => !w.readAt).length)
+  const dealt = useHost((s) => s.dealt)
+  const room = useHost((s) => s.room)
+  const players = useGame((s) => s.playersAssignedCharacters)
+  const changed = roomCode ? changedRoleSeats(dealt, players, room).length : 0
 
   return (
     <>
@@ -93,7 +97,7 @@ export function SubMenuView() {
           icon={hideTeamColors ? 'eye' : 'eye.slash'}
           onClick={() => settings().set('hideTeamColors', !hideTeamColors)}
         />
-        <Row title={roomCode ? `说书人普肉 · ${roomCode}${unread ? ` · ${unread}条私信` : ''}` : '说书人普肉（联机）'} icon="person.2" onClick={() => { setGame({ showMenu: false }); useHost.setState({ showPanel: true }) }} />
+        <Row title={roomCode ? `说书人联机 · ${roomCode}${unread ? ` · ${unread}条私信` : ''}${changed ? ` · ${changed}人角色变了` : ''}` : '说书人联机'} icon="person.2" onClick={() => { setGame({ showMenu: false }); useHost.setState({ showPanel: true }) }} />
         <Row title="存档" icon="tray.full" onClick={() => setGame({ showMenu: false, showArchive: true })} />
         <Row title="设置" icon="gearshape" onClick={() => setGame({ showMenu: false, showSettings: true })} />
       </div>

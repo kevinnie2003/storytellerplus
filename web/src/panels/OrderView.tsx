@@ -38,7 +38,7 @@ function NightRow({ info, isAlive, opacity, scale }: { info: OrderInfo; isAlive:
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
           <div style={{ ...rounded(20, 700), whiteSpace: 'pre-wrap' }}>{`${idText}${isAlive ? '' : '  已死亡'}  ${info.characterName}`}</div>
           <div style={{ ...rounded(15, 600), letterSpacing: -0.3 }}>{info.reminder}</div>
-          {/* 说书人普肉：开着房间时，发信息、让他选 */}
+          {/* 说书人联机：开着房间时，发信息、让他选 */}
           <OrderActions info={info} />
         </div>
       </div>

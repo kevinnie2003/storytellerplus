@@ -4,11 +4,15 @@
 import { DurableObject } from 'cloudflare:workers'
 import {
   CODE_CHARS, CODE_LENGTH, normalizeCode,
-  type ClientMessage, type RoomInfo, type RoomMessage, type ServerMessage, type Whisper,
+  type ClientMessage, type MessageKind, type PushSub, type RoomInfo, type RoomMessage, type ScriptInfo, type ServerMessage, type Whisper,
 } from '../../web/src/net/protocol'
+import { pushAllowed, sendPush } from './push'
 
 export interface Env {
   ROOM: DurableObjectNamespace<Room>
+  /** 推送用的 VAPID 公钥（base64url），私钥是 secret VAPID_PRIVATE_JWK */
+  VAPID_PUBLIC?: string
+  VAPID_PRIVATE_JWK?: string
 }
 
 const MAX_SEATS = 20
@@ -61,19 +65,22 @@ export default {
       return info ? json(info) : json({ error: '没有这个房间' }, 404)
     }
 
+    // 玩家开通知时要用的公钥
+    if (url.pathname === '/push-key') return env.VAPID_PUBLIC ? json({ key: env.VAPID_PUBLIC }) : json({ error: '没有设置推送' }, 404)
+
     if (url.pathname === '/') return new Response('storyteller relay ok', { headers: cors })
     return json({ error: 'not found' }, 404)
   },
 } satisfies ExportedHandler<Env>
 
-interface SeatData { token: string | null; name: string }
+interface SeatData { token: string | null; name: string; push?: PushSub }
 interface RoomData {
   code: string
   hostToken: string
   seats: SeatData[]
   phase: string
   night: boolean
-  banner?: string
+  script?: ScriptInfo
   alive?: boolean[]
   deadVote?: boolean[]
   messages: RoomMessage[]
@@ -82,7 +89,10 @@ interface RoomData {
 }
 
 /** 每条连接自己记着是谁 */
-type Who = { role: 'guest' } | { role: 'host' } | { role: 'player'; seat: number }
+type Who = { role: 'guest' } | { role: 'host' } | { role: 'player'; seat: number; hidden?: boolean }
+
+/** 通知上统一显示这一句，不说是什么事（锁屏上旁边的人也看得到） */
+const PUSH_TEXT = '说书人拍了拍你'
 
 export class Room extends DurableObject<Env> {
   private data: RoomData | null | undefined
@@ -166,7 +176,6 @@ export class Room extends DurableObject<Env> {
       code: data.code,
       phase: data.phase,
       night: data.night,
-      banner: data.banner ?? '',
       alive: data.alive ?? [],
       deadVote: data.deadVote ?? [],
       hostOnline,
@@ -217,6 +226,29 @@ export class Room extends DurableObject<Env> {
     }
   }
 
+  /** 这个座位的人现在有没有在看页面（在看就不用推送） */
+  private watching(seat: number): boolean {
+    return this.sockets().some((ws) => {
+      const w = this.who(ws)
+      return w.role === 'player' && w.seat === seat && !w.hidden
+    })
+  }
+
+  /** 给不在看页面的人推送一条提醒；订阅失效了就删掉 */
+  private notify(data: RoomData, seat: number) {
+    const sub = data.seats[seat]?.push
+    if (!sub || this.watching(seat) || !this.env.VAPID_PUBLIC || !this.env.VAPID_PRIVATE_JWK) return
+    const task = sendPush(sub, { title: '说书人联机', body: PUSH_TEXT }, this.env.VAPID_PUBLIC, this.env.VAPID_PRIVATE_JWK)
+      .then(async (gone) => {
+        if (gone && data.seats[seat]?.push?.endpoint === sub.endpoint) {
+          delete data.seats[seat].push
+          await this.save()
+        }
+      })
+      .catch((e) => console.log('push failed', String(e)))
+    this.ctx.waitUntil(task)
+  }
+
   private closeAll() {
     for (const ws of this.sockets()) {
       this.send(ws, { type: 'error', code: 'closed', message: '说书人关掉了房间' })
@@ -262,6 +294,7 @@ export class Room extends DurableObject<Env> {
           ws.serializeAttachment({ role: 'player', seat } satisfies Who)
           this.send(ws, { type: 'seated', seat, name: data.seats[seat].name, seatToken: msg.seatToken })
           this.send(ws, this.inboxMsg(data, seat))
+          this.send(ws, { type: 'script', script: data.script ?? null })
           this.broadcastRoom(data)
           return
         }
@@ -289,14 +322,14 @@ export class Room extends DurableObject<Env> {
         ws.serializeAttachment({ role: 'player', seat } satisfies Who)
         this.send(ws, { type: 'seated', seat, name: data.seats[seat].name, seatToken })
         this.send(ws, this.inboxMsg(data, seat))
+        this.send(ws, { type: 'script', script: data.script ?? null })
         this.broadcastRoom(data)
         return
       }
 
       case 'ack':
       case 'respond':
-      case 'reply':
-      case 'answer': {
+      case 'reply': {
         if (who.role !== 'player') return
         const m = data.messages.find((x) => x.id === msg.id && x.seat === who.seat)
         if (!m || m.cancelled) return
@@ -304,7 +337,6 @@ export class Room extends DurableObject<Env> {
         if (msg.type === 'respond') {
           m.picks = msg.picks.map((p) => Math.floor(p)).filter((p) => p >= 0 && p < data.seats.length).slice(0, MAX_SEATS)
         }
-        if (msg.type === 'answer' && m.kind === 'vote' && m.answer === undefined) m.answer = !!msg.yes
         if (msg.type === 'reply' && m.kind === 'ask') m.reply = String(msg.text ?? '').slice(0, 500)
         await this.save()
         this.pushInbox(data, who.seat)
@@ -322,6 +354,24 @@ export class Room extends DurableObject<Env> {
         await this.save()
         this.pushInbox(data, who.seat)
         this.pushHost(data)
+        return
+      }
+
+      case 'push': {
+        if (who.role !== 'player') return
+        const sub = msg.sub
+        if (sub && pushAllowed(sub)) {
+          data.seats[who.seat].push = { endpoint: sub.endpoint, keys: { p256dh: sub.keys.p256dh, auth: sub.keys.auth } }
+        } else {
+          delete data.seats[who.seat].push
+        }
+        await this.save()
+        return
+      }
+
+      case 'visible': {
+        if (who.role !== 'player') return
+        ws.serializeAttachment({ ...who, hidden: !msg.visible } satisfies Who)
         return
       }
 
@@ -357,19 +407,37 @@ export class Room extends DurableObject<Env> {
       case 'send': {
         if (who.role !== 'host') return
         const now = Date.now()
-        const seats = new Set<number>()
+        const seats = new Map<number, MessageKind>()
         for (const m of msg.messages.slice(0, MAX_SEATS * 2)) {
           if (!(m.seat >= 0 && m.seat < data.seats.length)) continue
           data.messages.push({
             id: String(m.id).slice(0, 64), seat: m.seat, kind: m.kind, text: String(m.text ?? '').slice(0, 2000),
-            count: m.count, role: m.role, step: m.step, note: m.note ? String(m.note).slice(0, 200) : undefined, phase: data.phase, sentAt: now,
+            count: m.count, role: m.role, step: m.step, phase: data.phase, sentAt: now,
           })
-          seats.add(m.seat)
+          seats.set(m.seat, m.kind)
         }
         if (data.messages.length > MAX_MESSAGES) data.messages = data.messages.slice(-MAX_MESSAGES)
         await this.save()
-        for (const seat of seats) this.pushInbox(data, seat)
+        for (const seat of seats.keys()) this.pushInbox(data, seat)
         this.pushHost(data)
+        for (const seat of seats.keys()) this.notify(data, seat)
+        return
+      }
+
+      case 'script': {
+        if (who.role !== 'host') return
+        const s = msg.script
+        data.script = {
+          name: String(s?.name ?? '').slice(0, 60),
+          characters: (s?.characters ?? []).slice(0, 120).map((c) => ({
+            name: String(c.name ?? '').slice(0, 30), ability: String(c.ability ?? '').slice(0, 400),
+            imageURL: String(c.imageURL ?? '').slice(0, 300), team: String(c.team ?? '').slice(0, 20),
+          })),
+        }
+        await this.save()
+        for (const ws of this.sockets()) {
+          if (this.who(ws).role === 'player') this.send(ws, { type: 'script', script: data.script })
+        }
         return
       }
 
@@ -404,14 +472,6 @@ export class Room extends DurableObject<Env> {
         const n = data.seats.length
         data.alive = Array.from({ length: n }, (_, i) => msg.alive?.[i] !== false)
         data.deadVote = Array.from({ length: n }, (_, i) => msg.deadVote?.[i] !== false)
-        await this.save()
-        this.broadcastRoom(data)
-        return
-      }
-
-      case 'banner': {
-        if (who.role !== 'host') return
-        data.banner = String(msg.text ?? '').slice(0, 200)
         await this.save()
         this.broadcastRoom(data)
         return
