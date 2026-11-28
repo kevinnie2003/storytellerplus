@@ -55,6 +55,8 @@ struct TourStep {
   var skipLabel = "帮我做"
   /// 圈出来的地方太大、旁边放不下时，指定说明卡片放在屏幕哪个角
   var cardCorner: Alignment? = nil
+  /// 整个屏幕都能点（比如要教“双击面板外面的空白处关掉”）
+  var freeTaps = false
 }
 
 // MARK: - 遮罩和说明卡片
@@ -96,6 +98,8 @@ struct TourOverlay: View {
           // 动手的一步：圈出来的地方可以点，其他地方拦住
           .contentShape(SpotlightShape(holes: step.interactive ? rects : []), eoFill: true)
           .onTapGesture {}
+          // 要教“双击外面关掉”的那几步，遮罩不拦点击
+          .allowsHitTesting(!step.freeTaps)
         ForEach(rects.indices, id: \.self) { i in
           RoundedRectangle(cornerRadius: 14)
             .stroke(Color.fabled, lineWidth: 4)

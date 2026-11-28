@@ -372,13 +372,13 @@ struct StoryTellerView: View {
         "给爪牙看：点恶魔的座位号\(demonText)就够了。",
         "给恶魔看：点“清空”，再依次点\(minionText)“是”“爪牙”，再点恶魔伪装那一栏的三个角色。",
         "举给玩家看之前，先点下面的“收起”把左边的词块藏起来，免得他看到伪装和其他角色。",
-        "用完双击记事本外面的空白处关掉，然后点“下一步”。"
+        "用完双击记事本外面的空白处关掉，会自动进入下一步。"
       ], prepare: {
         demoEnsureStarted()
         selectNewReminder = false
         showMenu = false
         if !showNotepad { showNotepad = true }
-      }, interactive: true, cardCorner: .topTrailing),
+      }, interactive: true, done: { !showNotepad }, skipLabel: "下一步", cardCorner: .topTrailing, freeTaps: true),
       TourStep(targets: ["card.plus"], title: "加标签", lines: [
         "夜里有人中毒、醉酒，就给他挂标签。",
         "点 1 号卡片下方的 ⊕。"
@@ -448,11 +448,11 @@ struct StoryTellerView: View {
       TourStep(targets: ["log.panel"], title: "记发言、存长图", lines: [
         "下面选一个玩家，输入他说的话点“发送”，就会记进去，比如他声称的身份。",
         "右上角“存成长图”：确认后把整局记录画成一张长图存进相册。",
-        "双击记录外面的空白处关掉。"
+        "看完双击记录外面的空白处关掉，会自动进入下一步。"
       ], prepare: {
         demoClosePanels()
         showConversation = true
-      }, interactive: true),
+      }, interactive: true, done: { !showConversation }, skipLabel: "下一步", freeTaps: true),
       TourStep(targets: ["menu.moon"], title: "入夜", lines: [
         "一天结束，点月亮入夜。右边会换成“其他晚”的唤醒顺序。"
       ], prepare: { demoGoDay(); demoClosePanels() }, interactive: true, done: { gameState == 3 }),

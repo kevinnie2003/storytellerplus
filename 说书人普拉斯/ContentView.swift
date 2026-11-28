@@ -87,12 +87,6 @@ struct ContentView: View {
             .background(Color.mainbg.ignoresSafeArea())
             .stColorScheme()
           }
-          .onAppear {
-            // 第一次打开 app 时自动开始教程
-            if !tutorialSeen {
-              DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { showTutorial = true }
-            }
-          }
           ZStack{
             VStack(spacing: 18){
               Spacer()
