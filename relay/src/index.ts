@@ -4,7 +4,7 @@
 import { DurableObject } from 'cloudflare:workers'
 import {
   CODE_CHARS, CODE_LENGTH, normalizeCode,
-  type ClientMessage, type RoomInfo, type RoomMessage, type ServerMessage,
+  type ClientMessage, type RoomInfo, type RoomMessage, type ServerMessage, type Whisper,
 } from '../../web/src/net/protocol'
 
 export interface Env {
@@ -75,6 +75,7 @@ interface RoomData {
   night: boolean
   banner?: string
   messages: RoomMessage[]
+  whispers?: Whisper[]
   updatedAt: number
 }
 
@@ -178,17 +179,26 @@ export class Room extends DurableObject<Env> {
     return data.messages.filter((m) => m.seat === seat)
   }
 
+  private inboxMsg(data: RoomData, seat: number): ServerMessage {
+    return { type: 'inbox', messages: this.inbox(data, seat), sent: (data.whispers ?? []).filter((w) => w.seat === seat) }
+  }
+
+  private hostMsg(data: RoomData): ServerMessage {
+    return { type: 'host', messages: data.messages, whispers: data.whispers ?? [] }
+  }
+
   private pushInbox(data: RoomData, seat: number) {
-    const messages = this.inbox(data, seat)
+    const msg = this.inboxMsg(data, seat)
     for (const ws of this.sockets()) {
       const w = this.who(ws)
-      if (w.role === 'player' && w.seat === seat) this.send(ws, { type: 'inbox', messages })
+      if (w.role === 'player' && w.seat === seat) this.send(ws, msg)
     }
   }
 
   private pushHost(data: RoomData) {
+    const msg = this.hostMsg(data)
     for (const ws of this.sockets()) {
-      if (this.who(ws).role === 'host') this.send(ws, { type: 'host', messages: data.messages })
+      if (this.who(ws).role === 'host') this.send(ws, msg)
     }
   }
 
@@ -234,7 +244,7 @@ export class Room extends DurableObject<Env> {
             return
           }
           ws.serializeAttachment({ role: 'host' } satisfies Who)
-          this.send(ws, { type: 'host', messages: data.messages })
+          this.send(ws, this.hostMsg(data))
           this.broadcastRoom(data)
           return
         }
@@ -247,7 +257,7 @@ export class Room extends DurableObject<Env> {
           }
           ws.serializeAttachment({ role: 'player', seat } satisfies Who)
           this.send(ws, { type: 'seated', seat, name: data.seats[seat].name, seatToken: msg.seatToken })
-          this.send(ws, { type: 'inbox', messages: this.inbox(data, seat) })
+          this.send(ws, this.inboxMsg(data, seat))
           this.broadcastRoom(data)
           return
         }
@@ -274,7 +284,7 @@ export class Room extends DurableObject<Env> {
         await this.save()
         ws.serializeAttachment({ role: 'player', seat } satisfies Who)
         this.send(ws, { type: 'seated', seat, name: data.seats[seat].name, seatToken })
-        this.send(ws, { type: 'inbox', messages: this.inbox(data, seat) })
+        this.send(ws, this.inboxMsg(data, seat))
         this.broadcastRoom(data)
         return
       }
@@ -290,6 +300,19 @@ export class Room extends DurableObject<Env> {
           m.picks = msg.picks.map((p) => Math.floor(p)).filter((p) => p >= 0 && p < data.seats.length).slice(0, MAX_SEATS)
         }
         if (msg.type === 'answer' && m.kind === 'vote' && m.answer === undefined) m.answer = !!msg.yes
+        await this.save()
+        this.pushInbox(data, who.seat)
+        this.pushHost(data)
+        return
+      }
+
+      case 'whisper': {
+        if (who.role !== 'player') return
+        const list = data.whispers ?? (data.whispers = [])
+        if (list.some((w) => w.id === msg.id)) return
+        const kind = msg.kind === 'ability' || msg.kind === 'talk' ? msg.kind : 'text'
+        list.push({ id: String(msg.id).slice(0, 64), seat: who.seat, kind, text: String(msg.text ?? '').slice(0, 500), phase: data.phase, sentAt: Date.now() })
+        if (list.length > MAX_MESSAGES) data.whispers = list.slice(-MAX_MESSAGES)
         await this.save()
         this.pushInbox(data, who.seat)
         this.pushHost(data)
@@ -350,6 +373,19 @@ export class Room extends DurableObject<Env> {
         const seats = new Set<number>()
         for (const m of data.messages) {
           if (ids.has(m.id) && !m.readAt) { m.cancelled = true; m.readAt = Date.now(); seats.add(m.seat) }
+        }
+        await this.save()
+        for (const seat of seats) this.pushInbox(data, seat)
+        this.pushHost(data)
+        return
+      }
+
+      case 'whisperRead': {
+        if (who.role !== 'host') return
+        const ids = new Set(msg.ids)
+        const seats = new Set<number>()
+        for (const w of data.whispers ?? []) {
+          if (ids.has(w.id) && !w.readAt) { w.readAt = Date.now(); seats.add(w.seat) }
         }
         await this.save()
         for (const seat of seats) this.pushInbox(data, seat)

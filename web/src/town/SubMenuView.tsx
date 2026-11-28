@@ -38,6 +38,7 @@ export function SubMenuView() {
   const close = () => setGame({ showMenu: false })
   const compact = useCompact()
   const roomCode = useHost((s) => s.code)
+  const unread = useHost((s) => s.whispers.filter((w) => !w.readAt).length)
 
   return (
     <>
@@ -92,7 +93,7 @@ export function SubMenuView() {
           icon={hideTeamColors ? 'eye' : 'eye.slash'}
           onClick={() => settings().set('hideTeamColors', !hideTeamColors)}
         />
-        <Row title={roomCode ? `说书人普肉 · ${roomCode}` : '说书人普肉（联机）'} icon="person.2" onClick={() => { setGame({ showMenu: false }); useHost.setState({ showPanel: true }) }} />
+        <Row title={roomCode ? `说书人普肉 · ${roomCode}${unread ? ` · ${unread}条私信` : ''}` : '说书人普肉（联机）'} icon="person.2" onClick={() => { setGame({ showMenu: false }); useHost.setState({ showPanel: true }) }} />
         <Row title="存档" icon="tray.full" onClick={() => setGame({ showMenu: false, showArchive: true })} />
         <Row title="设置" icon="gearshape" onClick={() => setGame({ showMenu: false, showSettings: true })} />
       </div>

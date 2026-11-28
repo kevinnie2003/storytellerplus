@@ -1,7 +1,7 @@
 // 说书人普肉（玩家端）：输入房间号、选座位，夜里看手机收说书人的信息、选人回传
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { CODE_LENGTH, normalizeCode, type RoomMessage } from '../net/protocol'
-import { ackMessage, answerVote, claimSeat, joinRoom, leaveRoom, respondMessage, savedPlayerRoom, usePlayer } from '../net/player'
+import { ackMessage, answerVote, claimSeat, joinRoom, leaveRoom, respondMessage, savedPlayerRoom, sendWhisper, usePlayer } from '../net/player'
 import { relayURL } from '../net/relay'
 import { CachedImage } from '../ui/CachedImage'
 import { SFIcon } from '../ui/SFIcon'
@@ -100,7 +100,7 @@ function JoinScreen() {
           value={value}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && ready) joinRoom(value) }}
-          placeholder="K7Q2"
+          placeholder="4位房间号"
           autoCapitalize="characters"
           autoCorrect="off"
           autoComplete="off"
@@ -195,11 +195,20 @@ function SeatedScreen() {
   const room = usePlayer((s) => s.room)
   const inbox = usePlayer((s) => s.inbox)
   const [showHistory, setShowHistory] = useState(false)
+  const [showWhisper, setShowWhisper] = useState(false)
+  const unreadSent = usePlayer((s) => s.sent.filter((w) => !w.readAt).length)
 
   // 还没回复的，最早的那条先处理
   // 投票要马上回，排在最前面
   const pending = useMemo(() => inbox.find((m) => !m.readAt && m.kind === 'vote') ?? inbox.find((m) => !m.readAt), [inbox])
   const role = useMemo(() => [...inbox].reverse().find((m) => m.kind === 'role')?.role, [inbox])
+  // 说书人发来新东西：关掉私信页和记录页，免得挡住
+  const pendingId = pending?.id
+  useEffect(() => {
+    if (!pendingId) return
+    setShowWhisper(false)
+    setShowHistory(false)
+  }, [pendingId])
 
   return (
     <div style={{ ...page, gap: 12 }}>
@@ -227,7 +236,7 @@ function SeatedScreen() {
       </div>
 
       {room?.banner ? (
-        <div style={{ ...rounded(15, 800), lineHeight: 1.35, padding: '8px 12px', borderRadius: 12, background: 'var(--ink)', color: 'var(--mainbg)', flexShrink: 0 }}>
+        <div style={{ ...rounded(15, 800), lineHeight: 1.35, padding: '8px 12px', borderRadius: 12, background: 'var(--ink)', color: 'var(--mainbg)', flexShrink: 0, whiteSpace: 'pre-line' }}>
           {room.banner}
         </div>
       ) : null}
@@ -236,6 +245,12 @@ function SeatedScreen() {
       </div>
 
       {!pending && role ? <RoleHold role={role} /> : null}
+      {!pending ? (
+        <button style={bigButton(false)} onClick={() => setShowWhisper(true)}>
+          私信说书人{unreadSent ? ` · ${unreadSent} 条未读` : ''}
+        </button>
+      ) : null}
+      {showWhisper ? <WhisperPage onClose={() => setShowWhisper(false)} /> : null}
       {showHistory ? <History onClose={() => setShowHistory(false)} /> : null}
     </div>
   )
@@ -300,8 +315,9 @@ function PendingMessage({ message: m }: { message: RoomMessage }) {
   if (m.kind === 'role' && m.role) {
     return (
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16, justifyContent: 'center' }}>
-        <div style={{ ...rounded(18, 800), textAlign: 'center', opacity: 0.7 }}>你的角色（别让旁边的人看到）</div>
-        <RoleCard role={m.role} />
+        <div style={{ ...rounded(24, 900), textAlign: 'center' }}>说书人发来了你的角色</div>
+        <div style={{ ...rounded(15, 600), textAlign: 'center', opacity: 0.65, lineHeight: 1.4 }}>别让旁边的人看到。长按下面的按钮，进度条满了才显示，松手就藏起来</div>
+        <RoleHold role={m.role} />
         <button style={bigButton()} onClick={() => ackMessage(m.id)}>记住了</button>
       </div>
     )
@@ -360,31 +376,114 @@ function RoleCard({ role }: { role: NonNullable<RoomMessage['role']> }) {
   )
 }
 
-/** 按住才显示自己的角色，松手就藏起来 */
-function RoleHold({ role }: { role: NonNullable<RoomMessage['role']> }) {
+const HOLD_MS = 800
+
+/** 长按满进度条才显示自己的角色，松手就藏起来；碰一下不会显示 */
+function RoleHold({ role, label = '长按查看我的角色' }: { role: NonNullable<RoomMessage['role']>; label?: string }) {
+  const [holding, setHolding] = useState(false)
   const [show, setShow] = useState(false)
+  const timer = useRef(0)
+  const start = (e: React.PointerEvent) => {
+    // 手指稍微挪一下也不算松手
+    try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* 有的浏览器不支持 */ }
+    setHolding(true)
+    window.clearTimeout(timer.current)
+    timer.current = window.setTimeout(() => setShow(true), HOLD_MS)
+  }
+  const stop = () => {
+    window.clearTimeout(timer.current)
+    setHolding(false)
+    setShow(false)
+  }
+  useEffect(() => () => window.clearTimeout(timer.current), [])
   return (
     <>
       <button
-        onPointerDown={() => setShow(true)}
-        onPointerUp={() => setShow(false)}
-        onPointerLeave={() => setShow(false)}
-        onPointerCancel={() => setShow(false)}
+        onPointerDown={start}
+        onPointerUp={stop}
+        onPointerCancel={stop}
+        onLostPointerCapture={stop}
         onContextMenu={(e) => e.preventDefault()}
-        style={{ ...bigButton(false), userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}
-      >按住查看我的角色</button>
+        style={{
+          ...bigButton(false), position: 'relative', overflow: 'hidden', touchAction: 'none',
+          userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none',
+        }}
+      >
+        {/* 进度条：按住时从左往右涨满，松手立刻清零 */}
+        <span style={{
+          position: 'absolute', left: 0, top: 0, bottom: 0, width: holding ? '100%' : '0%', background: 'var(--ink)', opacity: 0.2,
+          transition: holding ? `width ${HOLD_MS}ms linear` : 'none',
+        }} />
+        <span style={{ position: 'relative' }}>{holding ? '继续按住…' : label}</span>
+      </button>
       {show ? (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'var(--mainbg)', display: 'flex', alignItems: 'center', padding: 20, pointerEvents: 'none' }}>
-          <div style={{ width: '100%' }}><RoleCard role={role} /></div>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'var(--mainbg)', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 14, padding: 20, pointerEvents: 'none' }}>
+          <RoleCard role={role} />
+          <div style={{ ...rounded(15, 700), opacity: 0.6, textAlign: 'center' }}>松手就会藏起来</div>
         </div>
       ) : null}
     </>
   )
 }
 
+const whisperLabel = { ability: '申请发动能力', talk: '申请私聊', text: '' } as const
+
+/** 私信说书人：申请发动能力、申请私聊，或者打字 */
+function WhisperPage({ onClose }: { onClose: () => void }) {
+  const sent = usePlayer((s) => s.sent)
+  const [text, setText] = useState('')
+  const [flash, setFlash] = useState('')
+  const send = (kind: 'text' | 'ability' | 'talk') => {
+    const body = text.trim()
+    if (kind === 'text' && !body) return
+    if (sendWhisper(kind, body)) {
+      setText('')
+      setFlash(kind === 'text' ? '已发给说书人' : `已${whisperLabel[kind]}，等说书人回应`)
+      window.setTimeout(() => setFlash(''), 2500)
+    } else {
+      setFlash('没连上，等一下再发')
+    }
+  }
+  return (
+    <div style={{ ...page, zIndex: 40, gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        <div style={{ ...rounded(22, 900), flex: 1 }}>私信说书人</div>
+        <button aria-label="关闭" onClick={onClose} style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--ink)', color: 'var(--mainbg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <SFIcon name="xmark" size={22} weight="bold" />
+        </button>
+      </div>
+      <div style={{ ...rounded(14, 600), opacity: 0.65, lineHeight: 1.4 }}>只有说书人能看到。打字时注意别让旁边的人看到屏幕。</div>
+      <div style={{ display: 'flex', gap: 10 }}>
+        <button style={{ ...bigButton(false), flex: 1 }} onClick={() => send('ability')}>申请发动能力</button>
+        <button style={{ ...bigButton(false), flex: 1 }} onClick={() => send('talk')}>申请私聊</button>
+      </div>
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.target.value.slice(0, 500))}
+        placeholder="想说的话，可以附在申请上，也可以单独发。比如赌徒：我猜 3 号是小恶魔"
+        rows={3}
+        style={{ ...field, resize: 'none', lineHeight: 1.4, flexShrink: 0 }}
+      />
+      <button style={bigButton(true, !text.trim())} disabled={!text.trim()} onClick={() => send('text')}>发送文字</button>
+      {flash ? <div style={{ ...rounded(15, 800), textAlign: 'center' }}>{flash}</div> : null}
+      <div style={{ ...rounded(16, 800), marginTop: 4 }}>发过的</div>
+      <div className="scroll-hidden" style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {sent.length === 0 ? <div style={{ ...rounded(15, 600), opacity: 0.6 }}>还没发过</div> : null}
+        {[...sent].reverse().map((w) => (
+          <div key={w.id} style={{ padding: '8px 12px', borderRadius: 12, border: '2px solid var(--ink)', display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <div style={{ ...rounded(13, 700), opacity: 0.6 }}>{w.phase || ' '} · {w.readAt ? '说书人已读' : '未读'}</div>
+            <div style={{ ...rounded(16, 800), whiteSpace: 'pre-wrap' }}>{[whisperLabel[w.kind], w.text].filter(Boolean).join('：')}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function History({ onClose }: { onClose: () => void }) {
   const inbox = usePlayer((s) => s.inbox)
-  const list = inbox.filter((m) => m.kind !== 'idle' && !m.cancelled).reverse()
+  // 投票不进记录：谁投了票要靠玩家自己记
+  const list = inbox.filter((m) => m.kind !== 'idle' && m.kind !== 'vote' && !m.cancelled).reverse()
   return (
     <div style={{ ...page, zIndex: 40, gap: 12 }}>
       <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -401,8 +500,7 @@ function History({ onClose }: { onClose: () => void }) {
             <div style={{ ...rounded(18, 800), lineHeight: 1.35, whiteSpace: 'pre-wrap' }}>
               {m.kind === 'text' ? m.text
                 : m.kind === 'choose' ? `选 ${m.count ?? 1} 人${m.text ? `：${m.text}` : ''}${m.picks ? ` → ${m.picks.map((p) => `${p + 1}号`).join('、')}` : '（还没选）'}`
-                : m.kind === 'role' ? `你的角色：${m.role?.name ?? ''}`
-                : m.kind === 'vote' ? `${m.text.replace(/吗？$/, '')}：${m.answer ? '投了' : '没投'}` : ''}
+                : m.kind === 'role' ? '说书人发来了你的角色（在主页面长按查看）' : ''}
             </div>
           </div>
         ))}

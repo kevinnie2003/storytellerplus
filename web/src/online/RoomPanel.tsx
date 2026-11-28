@@ -8,7 +8,7 @@ import { SFIcon } from '../ui/SFIcon'
 import { useCompact } from '../ui/compact'
 import { mono, rounded, STChoice, STChoiceRow, STPageHeader, STRow, STSection } from '../ui/kit'
 import { CachedImage } from '../ui/CachedImage'
-import { closeRoom, kickSeat, openRoom, roleInfo, sendRoles, setSyncAll, useHost } from '../net/host'
+import { closeRoom, kickSeat, markWhispersRead, openRoom, replyTo, roleInfo, sendRoles, setSyncAll, useHost, whisperLabel } from '../net/host'
 import { relayURL } from '../net/relay'
 
 /** 玩家打开的网址 */
@@ -128,6 +128,8 @@ function RoomContent({ onClose }: { onClose: () => void }) {
               </div>
             </STSection>
 
+            <Whispers />
+
             <STSection title="夜里">
               <STRow title="全员同步" hint="发给一个人时，其他入座的人也弹出“这一步没有你的信息”，大家同时点确认，看不出谁被唤醒。">
                 <STChoiceRow options={[[true, '开'], [false, '关']]} value={syncAll} onChange={setSyncAll} />
@@ -215,5 +217,40 @@ function DealRoles({ onClose }: { onClose: () => void }) {
         </STChoice>
       </div>
     </div>
+  )
+}
+
+/** 玩家发来的私信、申请发动能力、申请私聊 */
+function Whispers() {
+  const whispers = useHost((s) => s.whispers)
+  const players = useGame((s) => s.playersAssignedCharacters)
+  const unread = whispers.filter((w) => !w.readAt).map((w) => w.id)
+  return (
+    <STSection title="玩家私信">
+      {whispers.length === 0 ? <div style={{ ...rounded(15), opacity: 0.6 }}>玩家可以在手机上私信你、申请发动能力或者申请私聊，会显示在这里</div> : null}
+      {unread.length ? (
+        <div><STChoice selected={false} onClick={() => markWhispersRead(unread)}><span style={rounded(15, 800)}>全部标为已读</span></STChoice></div>
+      ) : null}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {[...whispers].reverse().slice(0, 30).map((w) => (
+          <div key={w.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+            <span style={{
+              width: 32, height: 32, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: team[players[w.seat]?.team ?? ''] ?? 'var(--ink)', color: 'var(--goodTextBg)', ...rounded(15, 900),
+            }}>{w.seat + 1}</span>
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <span style={{ ...rounded(13, 700), opacity: 0.6 }}>{`${w.phase || ''} · ${w.readAt ? '已读' : '未读'}`}</span>
+              <span style={{ ...rounded(16, w.readAt ? 600 : 900), whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                {`${whisperLabel[w.kind]}${w.text ? `：${w.text}` : ''}`}
+              </span>
+            </div>
+            <button
+              onClick={() => { markWhispersRead([w.id]); replyTo(w.seat) }}
+              style={{ ...rounded(14, 800), padding: '6px 12px', borderRadius: 999, border: '2px solid var(--ink)', flexShrink: 0 }}
+            >回复</button>
+          </div>
+        ))}
+      </div>
+    </STSection>
   )
 }

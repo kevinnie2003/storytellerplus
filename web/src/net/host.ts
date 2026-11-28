@@ -7,13 +7,16 @@ import { team2Int } from '../game/loadScript'
 import type { Character, GameLogEntry } from '../game/types'
 import { uuid } from '../game/uuid'
 import { createRoom, RoomSocket, type SocketStatus } from './relay'
-import type { RoleInfo, RoomInfo, RoomMessage, ServerMessage } from './protocol'
+import type { RoleInfo, RoomInfo, RoomMessage, ServerMessage, Whisper } from './protocol'
+import { showAlert } from '../ui/Alert'
 
 interface HostState {
   code: string
   status: SocketStatus | 'off'
   room: RoomInfo | null
   messages: RoomMessage[]
+  /** 玩家主动发来的 */
+  whispers: Whisper[]
   error: string
   /** 全员同步：发给一个人时，其他已入座的人也收到一条“点确认” */
   syncAll: boolean
@@ -29,7 +32,7 @@ const SYNC_KEY = 'RoomSyncAll'
 const readSync = () => { try { return localStorage.getItem(SYNC_KEY) !== '0' } catch { return true } }
 
 export const useHost = create<HostState>(() => ({
-  code: '', status: 'off', room: null, messages: [], error: '', syncAll: readSync(), showPanel: false, notepadTarget: -1,
+  code: '', status: 'off', room: null, messages: [], whispers: [], error: '', syncAll: readSync(), showPanel: false, notepadTarget: -1,
 }))
 const set = (patch: Partial<HostState>) => useHost.setState(patch)
 
@@ -69,22 +72,73 @@ function logResponses(prev: RoomMessage[], next: RoomMessage[]) {
   if (logs.length) setGame((s) => ({ allLogs: [...s.allLogs, ...logs] }))
 }
 
+export const whisperLabel = { ability: '申请发动能力', talk: '申请私聊', text: '私信' } as const
+
+/** 打开记事本，发到某个座位 */
+export function replyTo(seat: number) {
+  useHost.setState({ notepadTarget: seat, showPanel: false })
+  setGame({ showNotepad: true })
+}
+
+export function markWhispersRead(ids: string[]) {
+  if (ids.length) socket?.send({ type: 'whisperRead', ids })
+}
+
+/** 已经弹过、记过的私信（存在本机，刷新也不重复） */
+const ANNOUNCED_KEY = 'RoomHostAnnounced'
+function announced(): Set<string> {
+  try { return new Set(JSON.parse(localStorage.getItem(ANNOUNCED_KEY) ?? '[]') as string[]) } catch { return new Set() }
+}
+
+/** 玩家发来新私信：弹出来，记进整局记录 */
+function announceWhispers(next: Whisper[]) {
+  const done = announced()
+  const fresh = next.filter((w) => !done.has(w.id))
+  if (!fresh.length) return
+  try { localStorage.setItem(ANNOUNCED_KEY, JSON.stringify([...done, ...fresh.map((w) => w.id)].slice(-500))) } catch { /* 存不了就算了 */ }
+  const players = game().playersAssignedCharacters
+  setGame((s) => ({
+    allLogs: [...s.allLogs, ...fresh.map((w) => {
+      const name = players[w.seat]?.name ?? ''
+      return makeLog({
+        message: `（手机）${whisperLabel[w.kind]}${w.text ? `：${w.text}` : ''}`,
+        messager: w.seat + 1, type: 3, characterName: name, playerCharacters: [name],
+        playerTeams: [team2Int(players[w.seat]?.team ?? '')],
+      })
+    })],
+  }))
+  for (const w of fresh) {
+    const name = players[w.seat]?.name ?? ''
+    showAlert({
+      title: `${w.seat + 1}号${name ? ` ${name}` : ''}：${whisperLabel[w.kind]}`,
+      message: w.text || (w.kind === 'talk' ? '他想单独和你说话' : w.kind === 'ability' ? '他想发动能力' : ''),
+      buttons: [
+        { label: '稍后', role: 'cancel', action: () => markWhispersRead([w.id]) },
+        { label: '回复', action: () => { markWhispersRead([w.id]); replyTo(w.seat) } },
+      ],
+    })
+  }
+}
+
 function onMessage(msg: ServerMessage) {
   switch (msg.type) {
     case 'room':
       set({ room: msg.room, error: '' })
       return
     case 'host': {
+      const whispers = msg.whispers ?? []
       if (primed) logResponses(useHost.getState().messages, msg.messages)
+      // 私信：说书人掉线时发来的，重新连上也要弹出来、记进记录（记过的不重复记）
+      announceWhispers(whispers)
       primed = true
-      set({ messages: msg.messages })
+      set({ messages: msg.messages, whispers })
       return
     }
     case 'error':
       if (msg.code === 'closed' || msg.code === 'no-room' || msg.code === 'bad-token') {
         stopHost()
         writeSaved(null)
-        set({ code: '', room: null, messages: [], error: msg.code === 'closed' ? '' : '房间已经不在了（可能过期了），可以重新开一个' })
+        set({ code: '', room: null, messages: [], whispers: [], error: msg.code === 'closed' ? '' : '房间已经不在了（可能过期了），可以重新开一个' })
       } else {
         set({ error: msg.message })
       }
@@ -153,7 +207,7 @@ export function stopHost() {
   socket = null
   unsubGame?.()
   unsubGame = null
-  set({ status: 'off', room: null, messages: [], code: '' })
+  set({ status: 'off', room: null, messages: [], whispers: [], code: '' })
 }
 
 /** 关掉房间：所有玩家都会被请出去 */

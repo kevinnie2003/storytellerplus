@@ -91,10 +91,10 @@ export function usePhoneVote({ active, nominator, nominee, isTraveler, votes, ad
   useEffect(() => {
     if (!key || order.length === 0) return
     const head = `${seatText(nominator, n)}${isTraveler ? '流放' : '提名'}${seatText(nominee, n)}`
-    setBanner(done
-      ? `${head} · 手机投票结束 · ${count} 票（需要 ${need} 票）`
-      : `${head} · 轮到 ${asking + 1}号 投票 · 当前 ${count} 票（需要 ${need} 票）`)
-  }, [key, order.length, done, asking, count, need, nominator, nominee, isTraveler, n])
+    // 谁投了：大家当场都看得到，所以也显示出来；只在投票进行时显示，不进玩家的记录
+    const voters = votes.map((v) => (v < 21 ? `${v + 1}号` : v === 21 ? '说书人' : v < 25 ? '+1' : '-1')).join(' ')
+    setBanner(`${head} · ${done ? '手机投票结束' : `轮到 ${asking + 1}号`}\n当前 ${count} 票（需要 ${need} 票）${voters ? `：${voters}` : ''}`)
+  }, [key, order.length, done, asking, count, need, nominator, nominee, isTraveler, n, votes])
 
   const skip = () => { if (askId) cancelMessages([askId]) }
 

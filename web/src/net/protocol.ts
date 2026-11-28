@@ -45,6 +45,20 @@ export interface RoomMessage {
   cancelled?: boolean
 }
 
+/** 玩家主动发给说书人的：文字、申请发动能力、申请私聊 */
+export type WhisperKind = 'text' | 'ability' | 'talk'
+
+export interface Whisper {
+  id: string
+  seat: number
+  kind: WhisperKind
+  text: string
+  phase: string
+  sentAt: number
+  /** 说书人看过了 */
+  readAt?: number
+}
+
 export interface SeatInfo {
   /** 有人坐了 */
   taken: boolean
@@ -74,6 +88,7 @@ export type ClientMessage =
   | { type: 'ack'; id: string }
   | { type: 'respond'; id: string; picks: number[] }
   | { type: 'answer'; id: string; yes: boolean }
+  | { type: 'whisper'; id: string; kind: WhisperKind; text: string }
   | { type: 'leave' }
   // 说书人
   | { type: 'seats'; count: number }
@@ -81,6 +96,7 @@ export type ClientMessage =
   | { type: 'send'; messages: Omit<RoomMessage, 'sentAt' | 'readAt' | 'picks' | 'phase' | 'answer' | 'cancelled'>[] }
   | { type: 'cancel'; ids: string[] }
   | { type: 'banner'; text: string }
+  | { type: 'whisperRead'; ids: string[] }
   | { type: 'kick'; seat: number }
   | { type: 'close' }
 
@@ -91,10 +107,10 @@ export type ServerMessage =
   | { type: 'pong' }
   // 给玩家
   | { type: 'seated'; seat: number; name: string; seatToken: string }
-  | { type: 'inbox'; messages: RoomMessage[] }
+  | { type: 'inbox'; messages: RoomMessage[]; sent?: Whisper[] }
   | { type: 'kicked' }
   // 给说书人
-  | { type: 'host'; messages: RoomMessage[] }
+  | { type: 'host'; messages: RoomMessage[]; whispers?: Whisper[] }
 
 /** 房间号用的字符：去掉了 0 O 1 I L 这些容易看错的 */
 export const CODE_CHARS = '23456789ABCDEFGHJKMNPQRSTUVWXYZ'

@@ -1,9 +1,9 @@
 // 夜晚顺序每一行下面的联机按钮：发信息、让他选，首夜的爪牙信息和恶魔信息可以一键发
-import { setGame, useGame } from '../game/store'
+import { useGame } from '../game/store'
 import type { OrderInfo } from '../game/types'
 import { rounded } from '../ui/kit'
 import { showAlert } from '../ui/Alert'
-import { lastMessageFor, sendChoose, sendTexts, useHost } from '../net/host'
+import { lastMessageFor, replyTo, sendChoose, sendTexts, useHost } from '../net/host'
 
 const chip: React.CSSProperties = {
   ...rounded(14, 800), padding: '5px 11px', borderRadius: 999, border: '2px solid var(--ink)', color: 'var(--ink)', flexShrink: 0,
@@ -59,10 +59,7 @@ export function OrderActions({ info }: { info: OrderInfo }) {
     : last.kind === 'choose' ? (last.picks ? `选了 ${last.picks.map((p) => `${p + 1}号`).join('、') || '没有人'}` : '等他选')
     : last.readAt ? '已读' : '还没读'
 
-  const openNotepad = () => {
-    useHost.setState({ notepadTarget: seat })
-    setGame({ showNotepad: true })
-  }
+  const openNotepad = () => replyTo(seat)
   const choose = () => {
     const guess = guessCount(info.reminder)
     const counts = [guess, ...[1, 2, 3].filter((n) => n !== guess)]

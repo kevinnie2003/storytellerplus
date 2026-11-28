@@ -1,7 +1,8 @@
 // 玩家这边的联机：用房间号连上，选座位，收说书人的信息，回复已读和选择
 import { create } from 'zustand'
 import { RoomSocket, type SocketStatus } from './relay'
-import type { RoomInfo, RoomMessage, ServerMessage } from './protocol'
+import type { RoomInfo, RoomMessage, ServerMessage, Whisper, WhisperKind } from './protocol'
+import { uuid } from '../game/uuid'
 
 interface PlayerState {
   code: string
@@ -11,6 +12,8 @@ interface PlayerState {
   seat: number
   name: string
   inbox: RoomMessage[]
+  /** 自己发给说书人的 */
+  sent: Whisper[]
   error: string
 }
 
@@ -23,7 +26,7 @@ function writeSaved(v: Saved | null) {
   try { if (v) localStorage.setItem(SAVE_KEY, JSON.stringify(v)); else localStorage.removeItem(SAVE_KEY) } catch { /* 存不了就算了 */ }
 }
 
-export const usePlayer = create<PlayerState>(() => ({ code: '', status: 'off', room: null, seat: -1, name: '', inbox: [], error: '' }))
+export const usePlayer = create<PlayerState>(() => ({ code: '', status: 'off', room: null, seat: -1, name: '', inbox: [], sent: [], error: '' }))
 const set = (patch: Partial<PlayerState>) => usePlayer.setState(patch)
 
 let socket: RoomSocket | null = null
@@ -43,18 +46,18 @@ function onMessage(msg: ServerMessage) {
       set({ seat: msg.seat, name: msg.name, error: '' })
       return
     case 'inbox':
-      set({ inbox: msg.messages })
+      set({ inbox: msg.messages, sent: msg.sent ?? [] })
       return
     case 'kicked':
       seatToken = ''
       writeSaved(null)
-      set({ seat: -1, inbox: [], error: '说书人清空了你的座位，请重新选座位' })
+      set({ seat: -1, inbox: [], sent: [], error: '说书人清空了你的座位，请重新选座位' })
       return
     case 'error':
       if (msg.code === 'bad-token') {
         seatToken = ''
         writeSaved(null)
-        set({ seat: -1, inbox: [], error: msg.message })
+        set({ seat: -1, inbox: [], sent: [], error: msg.message })
       } else if (msg.code === 'no-room' || msg.code === 'closed') {
         leaveRoom()
         set({ error: msg.message })
@@ -69,7 +72,7 @@ export function joinRoom(code: string) {
   socket?.stop()
   const saved = readSaved()
   seatToken = saved && saved.code === code ? saved.seatToken : ''
-  set({ code, room: null, seat: -1, inbox: [], error: '' })
+  set({ code, room: null, seat: -1, inbox: [], sent: [], error: '' })
   socket = new RoomSocket(
     code,
     () => (seatToken ? { type: 'hello', seatToken } : { type: 'hello' }),
@@ -91,6 +94,11 @@ export function answerVote(id: string, yes: boolean) {
   socket?.send({ type: 'answer', id, yes })
 }
 
+/** 发给说书人：文字、申请发动能力、申请私聊 */
+export function sendWhisper(kind: WhisperKind, text: string): boolean {
+  return !!socket?.send({ type: 'whisper', id: uuid(), kind, text })
+}
+
 export function respondMessage(id: string, picks: number[]) {
   socket?.send({ type: 'respond', id, picks })
 }
@@ -101,5 +109,5 @@ export function leaveRoom(freeSeat = false) {
   window.setTimeout(() => { socket?.stop(); socket = null }, freeSeat ? 150 : 0)
   seatToken = ''
   writeSaved(null)
-  set({ code: '', status: 'off', room: null, seat: -1, inbox: [] })
+  set({ code: "", status: "off", room: null, seat: -1, inbox: [], sent: [] })
 }
