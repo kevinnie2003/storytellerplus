@@ -1,5 +1,5 @@
 // 说书人联机（说书人这边）：开房间、看谁入座、私聊、把角色发到手机（可以只发给一个人）、关房间
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { game, useGame } from '../game/store'
 import type { Character } from '../game/types'
 import { Sheet } from '../ui/Sheet'
@@ -8,7 +8,7 @@ import { SFIcon } from '../ui/SFIcon'
 import { useCompact } from '../ui/compact'
 import { mono, rounded, STChoice, STPageHeader, STRow, STSection } from '../ui/kit'
 import { CachedImage } from '../ui/CachedImage'
-import { changedRoleSeats, closeRoom, kickSeat, lastRoleFor, markWhispersRead, openRoom, replyTo, roleInfo, sendRoles, syncHostPush, useHost, whisperLabel } from '../net/host'
+import { changedRoleSeats, closeRoom, kickSeat, lastRoleFor, markWhispersRead, openRoom, previousRoom, reuseRoom, replyTo, roleInfo, sendRoles, syncHostPush, useHost, whisperLabel } from '../net/host'
 import { relayURL } from '../net/relay'
 import { askPermission, pushState, type PushState } from '../net/push'
 
@@ -44,6 +44,14 @@ function RoomContent({ onClose }: { onClose: () => void }) {
   const [dealing, setDealing] = useState(false)
   const changed = new Set(changedRoleSeats(dealt, players, room))
   const [copied, setCopied] = useState(false)
+  // 上一局的房间还在的话，这一局可以接着用
+  const [prev, setPrev] = useState('')
+  useEffect(() => {
+    if (code) return
+    let alive = true
+    void previousRoom().then((c) => { if (alive) setPrev(c) })
+    return () => { alive = false }
+  }, [code])
 
   const copy = () => {
     void navigator.clipboard?.writeText(playerURL(code)).then(() => {
@@ -70,9 +78,21 @@ function RoomContent({ onClose }: { onClose: () => void }) {
             <STRow title="夜里用手机发信息" hint="开一个房间，玩家用手机打开联机网址、输入房间号、选自己的座位。夜里你在夜晚顺序里点“发信息”“让他选”，信息直接出现在他的手机上，大家不用闭眼，你也不用走动。" />
             {!relayURL() ? <div style={{ ...rounded(15, 700), color: 'var(--warningRed)' }}>联机服务还没有设置好，暂时用不了</div> : null}
             {error ? <div style={{ ...rounded(15, 700), color: 'var(--warningRed)' }}>{error}</div> : null}
+            {prev ? (
+              <STRow title={`接着用上一局的房间 ${prev}`} hint="玩家不用重新输房间号，上一局的信息和结果会清掉。换了座位或者人数变了，就让大家重新选座位（昵称会记住）。">
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  <STChoice selected disabled={players.length === 0} onClick={() => reuseRoom(false)}>
+                    <span style={rounded(16, 800)}>座位不变</span>
+                  </STChoice>
+                  <STChoice selected={false} disabled={players.length === 0} onClick={() => reuseRoom(true)}>
+                    <span style={rounded(16, 800)}>大家重新选座位</span>
+                  </STChoice>
+                </div>
+              </STRow>
+            ) : null}
             <div>
-              <STChoice selected disabled={status === 'connecting' || players.length === 0} onClick={() => { void openRoom() }}>
-                <span style={rounded(17, 800)}>{status === 'connecting' ? '正在开房间…' : '开房间'}</span>
+              <STChoice selected={!prev} disabled={status === 'connecting' || players.length === 0} onClick={() => { void openRoom() }}>
+                <span style={rounded(17, 800)}>{status === 'connecting' ? '正在开房间…' : prev ? '开一个新房间' : '开房间'}</span>
               </STChoice>
             </div>
             {players.length === 0 ? <div style={{ ...rounded(15), opacity: 0.6 }}>先在齿轮面板里定好玩家人数</div> : null}

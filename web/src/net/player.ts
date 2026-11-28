@@ -19,6 +19,8 @@ interface PlayerState {
   script: ScriptInfo | null
   /** 游戏结束后的复盘（整局记录和 AI 复盘） */
   final: FinalInfo | null
+  /** 中转的时钟比本机快多少毫秒（计时用） */
+  clockOffset: number
   error: string
 }
 
@@ -31,7 +33,7 @@ function writeSaved(v: Saved | null) {
   try { if (v) localStorage.setItem(SAVE_KEY, JSON.stringify(v)); else localStorage.removeItem(SAVE_KEY) } catch { /* 存不了就算了 */ }
 }
 
-export const usePlayer = create<PlayerState>(() => ({ code: '', status: 'off', room: null, seat: -1, name: '', inbox: [], sent: [], script: null, final: null, error: '' }))
+export const usePlayer = create<PlayerState>(() => ({ code: '', status: 'off', room: null, seat: -1, name: '', inbox: [], sent: [], script: null, final: null, clockOffset: 0, error: '' }))
 const set = (patch: Partial<PlayerState>) => usePlayer.setState(patch)
 
 let socket: RoomSocket | null = null
@@ -58,8 +60,13 @@ async function loadFinal(code: string, version: number) {
 function onMessage(msg: ServerMessage) {
   switch (msg.type) {
     case 'room':
-      set({ room: msg.room })
+      set({ room: msg.room, ...(msg.room.serverTime ? { clockOffset: msg.room.serverTime - Date.now() } : null) })
       if (msg.room.ended) void loadFinal(msg.room.code, msg.room.ended.version)
+      else if (usePlayer.getState().final) {
+        // 说书人开了新的一局（沿用这个房间）
+        finalVersion = 0
+        set({ final: null })
+      }
       return
     case 'seated':
       seatToken = msg.seatToken
@@ -77,7 +84,7 @@ function onMessage(msg: ServerMessage) {
     case 'kicked':
       seatToken = ''
       writeSaved(null)
-      set({ seat: -1, inbox: [], sent: [], error: '说书人清空了你的座位，请重新选座位' })
+      set({ seat: -1, inbox: [], sent: [], error: msg.reason === 'reset' ? '新的一局开始了，请重新选座位' : '说书人清空了你的座位，请重新选座位' })
       return
     case 'error':
       if (msg.code === 'bad-token') {

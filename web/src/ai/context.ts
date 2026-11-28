@@ -17,6 +17,8 @@ export interface AIGameContext {
   logs: GameLogEntry[]
   allReminders: Reminder[]
   setupNotes: string
+  /** 结束游戏时说书人选的胜利方：good / evil，没结束是空 */
+  winner?: string
 }
 
 /** 从小镇现在的状态拼出上下文 */
@@ -57,5 +59,6 @@ export function contextFromSave(game: GameSaveData): AIGameContext {
     logs: game.allLogs,
     allReminders: game.allReminders,
     setupNotes: '',
+    winner: game.winner ?? '',
   }
 }

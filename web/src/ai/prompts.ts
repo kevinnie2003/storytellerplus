@@ -277,7 +277,13 @@ export function recapUser(ctx: AIGameContext): string {
   const logs = ctx.logs.slice(-500).map((entry) =>
     entry.logText.split('\n').filter((l) => !l.startsWith('====')).join(' '),
   ).join('\n')
-  return `【剧本角色】
+  const ending = ctx.winner === 'good' || ctx.winner === 'evil'
+    ? `【结局】
+说书人判定：${ctx.winner === 'evil' ? '邪恶' : '善良'}阵营胜利。winner 必须填“${ctx.winner === 'evil' ? '邪恶' : '善良'}”，复盘也按这个结局来写。
+
+`
+    : ''
+  return `${ending}【剧本角色】
 ${scriptText(ctx.playableCharacters, true)}
 
 【最后的魔典】

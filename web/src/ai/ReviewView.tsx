@@ -127,6 +127,8 @@ function ReviewBody({ onClose, gameID, autoGenerate = false, onRecap }: ReviewPr
       const object = await aiRequestJSON(withHouseRules(recapSystem), recapUser(ctx), '正在写复盘…', setProgress)
       // 生成时说书人关掉了复盘页也照样存下来、发给玩家
       const result = recapFrom(object)
+      // 说书人结束游戏时选了胜利方，就以说书人的为准
+      if (g.winner === 'good' || g.winner === 'evil') result.winner = g.winner === 'evil' ? '邪恶' : '善良'
       setRecap(result)
       await recapSave(gameID, result)
       await recapPosterDelete(gameID)

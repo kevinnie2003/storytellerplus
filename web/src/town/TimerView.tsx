@@ -1,6 +1,7 @@
 // 游戏时长、白天/夜晚时长、计时器（可倒计时）。对应 iPad 版 SubViews/timer/TimerView.swift
 import { useEffect, useRef, useState } from 'react'
-import { useGame } from '../game/store'
+import { game, useGame } from '../game/store'
+import { bumpTimer, timerState } from './timer'
 import { useSettings, settings } from '../settings/store'
 import { usePress } from '../ui/gestures'
 import { alertInputValue, showAlert } from '../ui/Alert'
@@ -28,18 +29,11 @@ export function TimerView({ compact = false }: { compact?: boolean } = {}) {
 
   // 和 Swift 里的 @State 一样，用 ref 存，靠每秒一次的 now 刷新
   const [now, setNow] = useState(() => Date.now())
-  const st = useRef({
-    gameStartTime: Date.now(),
-    dayTimeStart: Date.now(),
-    nightTimeStart: Date.now(),
-    timerTimeStart: Date.now(),
-    previousTimerElapsed: 0,
-    timerStopped: true,
-  })
+  const st = { current: timerState }
   const [timeUp, setTimeUp] = useState(false)
   const [flash, setFlash] = useState(false)
   const [, force] = useState(0)
-  const rerender = () => force((x) => x + 1)
+  const rerender = () => { force((x) => x + 1); bumpTimer() }
   const timeUpRef = useRef(false)
   timeUpRef.current = timeUp
   const pressInCountdown = useRef(false)
@@ -65,16 +59,20 @@ export function TimerView({ compact = false }: { compact?: boolean } = {}) {
     rerender()
   }
 
-  // onAppear
+  // onAppear：换了一局才重新开始算（手机、大屏布局来回切换时接着算）
   useEffect(() => {
-    const gs = useGame.getState().gameState
+    const { gameState: gs, gameID } = game()
+    if (timerState.gameID === gameID) return
+    timerState.gameID = gameID
+    const t = Date.now()
     if (gs !== 0) {
-      const t = Date.now()
-      st.current.gameStartTime = t
-      if (gs === 1 || gs === 3) st.current.nightTimeStart = t
-      else st.current.dayTimeStart = t
+      timerState.gameStartTime = t
+      if (gs === 1 || gs === 3) timerState.nightTimeStart = t
+      else timerState.dayTimeStart = t
     }
-    st.current.timerStopped = true
+    timerState.timerStopped = true
+    timerState.previousTimerElapsed = 0
+    bumpTimer()
   }, [])
 
   // 每秒一次
@@ -182,6 +180,12 @@ export function TimerView({ compact = false }: { compact?: boolean } = {}) {
     const t: React.CSSProperties = { ...mono(15, 700), lineHeight: 1.2 }
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        {night || gameState === 2 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+            <span style={small}>本局</span>
+            <span style={t}>{formatted((now - st.current.gameStartTime) / 1000)}</span>
+          </div>
+        ) : null}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
           <span style={small}>{night ? '夜晚' : gameState === 2 ? '白天' : '游戏'}</span>
           <span style={t}>{gameState === 0 ? '00:00:00' : formatted((now - (night ? st.current.nightTimeStart : gameState === 2 ? st.current.dayTimeStart : st.current.gameStartTime)) / 1000)}</span>

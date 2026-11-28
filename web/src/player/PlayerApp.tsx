@@ -185,23 +185,27 @@ function SeatScreen() {
             <div style={{ ...rounded(15, 600), opacity: 0.7 }}>说书人还没定人数，请稍等</div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(72px, 1fr))', gap: 10 }}>
-              {room.seats.map((s, i) => (
-                <button
-                  key={i}
-                  disabled={s.taken || !named}
-                  onClick={() => pick(i)}
-                  style={{
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
-                    height: 72, borderRadius: 16, border: '3px solid var(--ink)', color: 'var(--ink)',
-                    background: s.taken ? 'transparent' : 'var(--paper)', opacity: s.taken ? 0.4 : named ? 1 : 0.6,
-                  }}
-                >
-                  <span style={rounded(24, 900)}>{i + 1}</span>
-                  <span style={{ ...rounded(12, 700), maxWidth: '90%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {s.taken ? (s.name || '有人') : '空'}
-                  </span>
-                </button>
-              ))}
+              {room.seats.map((s, i) => {
+                // 昵称和你一样、那台手机又不在线：是你自己的座位，可以坐回去（比如从 Safari 换到主屏幕）
+                const mine = s.taken && named && !s.online && s.name.trim() === name.trim()
+                return (
+                  <button
+                    key={i}
+                    disabled={(s.taken && !mine) || !named}
+                    onClick={() => pick(i)}
+                    style={{
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
+                      height: 72, borderRadius: 16, border: '3px solid var(--ink)', color: 'var(--ink)',
+                      background: s.taken && !mine ? 'transparent' : 'var(--paper)', opacity: s.taken && !mine ? 0.4 : named ? 1 : 0.6,
+                    }}
+                  >
+                    <span style={rounded(24, 900)}>{i + 1}</span>
+                    <span style={{ ...rounded(12, 700), maxWidth: '90%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {mine ? '是我，坐回去' : s.taken ? (s.name || '有人') : '空'}
+                    </span>
+                  </button>
+                )
+              })}
             </div>
           )}
           {error ? <div style={{ ...rounded(15, 700), color: 'var(--warningRed)' }}>{error}</div> : null}
@@ -277,6 +281,8 @@ function SeatedScreen() {
         </button>
       </div>
 
+      {!ended ? <TimerBar /> : null}
+      {!pending && !ended ? <FirstHint /> : null}
       {!pending && !ended ? <PushPrompt /> : null}
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         {ended ? <EndView /> : pending ? <PendingMessage key={pending.id} message={pending} /> : <Waiting night={!!room?.night} setup={!room?.phase || room.phase === '配版'} />}
@@ -753,6 +759,63 @@ function EndView() {
           </div>
         </>
       )}
+    </div>
+  )
+}
+
+const clock = (seconds: number) => {
+  const t = Math.max(0, Math.floor(seconds))
+  const two = (n: number) => String(n).padStart(2, '0')
+  return `${two(Math.floor(t / 3600))}:${two(Math.floor((t % 3600) / 60))}:${two(t % 60)}`
+}
+
+/** 说书人那边的计时：本局时长、白天/夜晚时长、计时器（正计时或倒计时），每秒自己走 */
+function TimerBar() {
+  const timer = usePlayer((s) => s.room?.timer)
+  const offset = usePlayer((s) => s.clockOffset)
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(id)
+  }, [])
+  if (!timer) return null
+  const server = now + offset
+  const value = timer.timerElapsed + (timer.running ? Math.floor((server - timer.timerAt) / 1000) : 0)
+  const countdown = timer.countdown > 0
+  const shown = countdown ? Math.max(0, timer.countdown - value) : value
+  const timeUp = countdown && value >= timer.countdown
+  const cell = (label: string, text: string, alert = false) => (
+    <div style={{
+      flex: '1 1 0', minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '4px 0', borderRadius: 10,
+      background: alert ? 'var(--demon)' : 'transparent', color: alert ? '#fff' : 'var(--ink)',
+    }}>
+      <span style={{ ...rounded(12, 700), opacity: 0.65 }}>{label}</span>
+      <span style={{ ...mono(16, 700), lineHeight: 1.2 }}>{text}</span>
+    </div>
+  )
+  return (
+    <div style={{ display: 'flex', gap: 4, padding: 3, borderRadius: 14, border: '2px solid color-mix(in srgb, var(--ink) 35%, transparent)', flexShrink: 0 }}>
+      {cell('本局', clock((server - timer.gameStart) / 1000))}
+      {cell(timer.night ? '夜晚' : '白天', clock((server - timer.phaseStart) / 1000))}
+      {cell(countdown ? '倒计时' : '计时器', clock(shown), timeUp && now % 2000 < 1000)}
+    </div>
+  )
+}
+
+/** 第一次入座时的说明，看过点掉就不再出现 */
+function FirstHint() {
+  const [hidden, setHidden] = useState(() => { try { return localStorage.getItem('RoomFirstHint') === '1' } catch { return false } })
+  if (hidden) return null
+  const close = () => {
+    try { localStorage.setItem('RoomFirstHint', '1') } catch { /* 存不了就算了 */ }
+    setHidden(true)
+  }
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', borderRadius: 14, background: 'var(--paper)', border: '2.5px solid var(--ink)', flexShrink: 0 }}>
+      <div style={{ flex: 1, ...rounded(14, 700), lineHeight: 1.5 }}>
+        第一次用？说书人发来的信息会直接显示在这个页面，看完点确认。看自己的角色要长按下面的按钮。右上角三个按钮是玩家列表、全部角色能力和收到的信息。想找说书人就点“私信说书人”。
+      </div>
+      <button aria-label="知道了" onClick={close} style={{ ...rounded(14, 900), padding: '6px 10px', borderRadius: 999, background: 'var(--ink)', color: 'var(--mainbg)', flexShrink: 0 }}>知道了</button>
     </div>
   )
 }

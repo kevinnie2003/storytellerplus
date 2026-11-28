@@ -82,6 +82,29 @@ export interface FinalInfo {
   recap: unknown
 }
 
+/** 说书人那边的计时（中转按自己的时钟换算成时间点，玩家用 serverTime 校准本机时钟） */
+export interface TimerInfo {
+  /** 本局开始、这个白天/夜晚开始的时间点 */
+  gameStart: number
+  phaseStart: number
+  night: boolean
+  /** 计时器：timerAt 那一刻走了 timerElapsed 秒，running 表示还在走；countdown 大于 0 是倒计时的总秒数 */
+  timerAt: number
+  timerElapsed: number
+  running: boolean
+  countdown: number
+}
+
+/** 说书人发给中转的计时：各项已经走了多久 */
+export interface TimerReport {
+  gameElapsed: number
+  phaseElapsed: number
+  night: boolean
+  timerElapsed: number
+  running: boolean
+  countdown: number
+}
+
 /** 房间的公开信息：没加入的人也能看到哪些座位空着 */
 export interface RoomInfo {
   code: string
@@ -95,6 +118,10 @@ export interface RoomInfo {
   deadVote?: boolean[]
   /** 游戏结束了（没结束是 null） */
   ended?: EndedInfo | null
+  /** 计时（还没开始游戏是 null） */
+  timer?: TimerInfo | null
+  /** 中转发这条消息时的时间，玩家拿来校准本机时钟 */
+  serverTime?: number
 }
 
 /** 剧本里的一个角色：能力加上夜晚顺序（0 是不在夜里行动） */
@@ -141,6 +168,9 @@ export type ClientMessage =
   | { type: 'send'; messages: Omit<RoomMessage, 'sentAt' | 'readAt' | 'picks' | 'phase' | 'cancelled' | 'reply'>[] }
   | { type: 'cancel'; ids: string[] }
   | { type: 'script'; script: ScriptInfo }
+  | { type: 'timer'; timer: TimerReport | null }
+  /** 下一局继续用这个房间：清掉上一局的信息和结果；reseat 是让大家重新选座位 */
+  | { type: 'reset'; reseat: boolean }
   | { type: 'whisperRead'; ids: string[] }
   | { type: 'status'; alive: boolean[]; deadVote: boolean[] }
   | { type: 'kick'; seat: number }
@@ -155,7 +185,7 @@ export type ServerMessage =
   // 给玩家
   | { type: 'seated'; seat: number; name: string; seatToken: string }
   | { type: 'inbox'; messages: RoomMessage[]; sent?: Whisper[] }
-  | { type: 'kicked' }
+  | { type: 'kicked'; reason?: 'reset' }
   // 给说书人
   | { type: 'host'; messages: RoomMessage[]; whispers?: Whisper[] }
 

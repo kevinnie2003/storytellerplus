@@ -4,7 +4,7 @@
 import { DurableObject } from 'cloudflare:workers'
 import {
   CODE_CHARS, CODE_LENGTH, normalizeCode,
-  type ClientMessage, type EndedInfo, type FinalInfo, type MessageKind, type PushSub, type RoomInfo, type RoomMessage, type ScriptCharacter, type ScriptInfo, type ServerMessage, type Whisper,
+  type ClientMessage, type EndedInfo, type FinalInfo, type MessageKind, type PushSub, type TimerInfo, type RoomInfo, type RoomMessage, type ScriptCharacter, type ScriptInfo, type ServerMessage, type Whisper,
 } from '../../web/src/net/protocol'
 import { pushAllowed, sendPush } from './push'
 
@@ -94,6 +94,7 @@ interface RoomData {
   /** 说书人的推送订阅：玩家私信、回复时提醒说书人 */
   hostPush?: PushSub
   ended?: EndedInfo
+  timer?: TimerInfo | null
   alive?: boolean[]
   deadVote?: boolean[]
   messages: RoomMessage[]
@@ -216,6 +217,8 @@ export class Room extends DurableObject<Env> {
       alive: data.alive ?? [],
       deadVote: data.deadVote ?? [],
       ended: data.ended ?? null,
+      timer: data.timer ?? null,
+      serverTime: Date.now(),
       hostOnline,
       seats: data.seats.map((s, i) => ({ taken: s.token !== null, name: s.name, online: online.has(i) })),
     }
@@ -254,12 +257,12 @@ export class Room extends DurableObject<Env> {
   }
 
   /** 把坐在某个座位上的人请下去（变回没入座） */
-  private unseat(seat: number) {
+  private unseat(seat: number, reason?: 'reset') {
     for (const ws of this.sockets()) {
       const w = this.who(ws)
       if (w.role === 'player' && w.seat === seat) {
         ws.serializeAttachment({ role: 'guest' } satisfies Who)
-        this.send(ws, { type: 'kicked' })
+        this.send(ws, reason ? { type: 'kicked', reason } : { type: 'kicked' })
       }
     }
   }
@@ -367,7 +370,11 @@ export class Room extends DurableObject<Env> {
           this.send(ws, { type: 'error', code: 'bad-seat', message: '没有这个座位' })
           return
         }
-        if (data.seats[seat].token !== null) {
+        // 坐回自己的座位：昵称一样、原来那台手机已经不在线（比如 iPhone 从 Safari 换到主屏幕）
+        const name = String(msg.name ?? '').trim().slice(0, 20)
+        const seatOnline = this.sockets(ws).some((x) => { const w = this.who(x); return w.role === 'player' && w.seat === seat })
+        const reclaim = data.seats[seat].token !== null && name !== '' && data.seats[seat].name.trim() === name && !seatOnline
+        if (data.seats[seat].token !== null && !reclaim) {
           this.send(ws, { type: 'error', code: 'seat-taken', message: `${seat + 1}号已经有人了` })
           this.send(ws, { type: 'room', room: this.roomInfo(data) })
           return
@@ -539,6 +546,41 @@ export class Room extends DurableObject<Env> {
         data.deadVote = Array.from({ length: n }, (_, i) => msg.deadVote?.[i] !== false)
         await this.save()
         this.broadcastRoom(data)
+        return
+      }
+
+      case 'timer': {
+        if (who.role !== 'host') return
+        const t = msg.timer
+        const now = Date.now()
+        const num = (v: unknown) => Math.max(0, Number(v) || 0)
+        data.timer = t ? {
+          gameStart: now - num(t.gameElapsed), phaseStart: now - num(t.phaseElapsed), night: !!t.night,
+          timerAt: now, timerElapsed: num(t.timerElapsed), running: !!t.running, countdown: num(t.countdown),
+        } : null
+        await this.save()
+        this.broadcastRoom(data)
+        return
+      }
+
+      case 'reset': {
+        if (who.role !== 'host') return
+        // 新的一局：清掉信息、私信、结果和复盘；座位和昵称留着（reseat 时大家重新选座位）
+        data.messages = []
+        data.whispers = []
+        delete data.ended
+        delete data.alive
+        delete data.deadVote
+        data.timer = null
+        await this.ctx.storage.delete('final')
+        if (msg.reseat) {
+          data.seats.forEach((s, i) => { if (s.token) this.unseat(i, 'reset') })
+          data.seats = data.seats.map(() => ({ token: null, name: '' }))
+        }
+        await this.save()
+        this.broadcastRoom(data)
+        data.seats.forEach((_, i) => this.pushInbox(data, i))
+        this.pushHost(data)
         return
       }
 

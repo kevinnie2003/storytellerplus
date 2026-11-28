@@ -6,8 +6,10 @@ import { phaseLabel } from '../game/phase'
 import { team2Int } from '../game/loadScript'
 import type { Character, GameLogEntry } from '../game/types'
 import { uuid } from '../game/uuid'
-import { createRoom, relayURL, RoomSocket, type SocketStatus } from './relay'
-import type { FinalInfo, RoleInfo, RoomInfo, RoomMessage, ScriptCharacter, ScriptInfo, ServerMessage, Whisper } from './protocol'
+import { createRoom, fetchRoom, relayURL, RoomSocket, type SocketStatus } from './relay'
+import type { FinalInfo, RoleInfo, RoomInfo, RoomMessage, ScriptCharacter, ScriptInfo, ServerMessage, TimerReport, Whisper } from './protocol'
+import { settings } from '../settings/store'
+import { timerElapsedNow, timerState, useTimerVersion } from '../town/timer'
 import { showAlert } from '../ui/Alert'
 import { getSubscription } from './push'
 
@@ -150,6 +152,11 @@ function onMessage(msg: ServerMessage) {
       set({ room: msg.room, error: '' })
       return
     case 'host': {
+      // 沿用上一局的房间：连上后先清掉上一局的东西
+      if (pendingReset !== null) {
+        socket?.send({ type: 'reset', reseat: pendingReset })
+        pendingReset = null
+      }
       const whispers = msg.whispers ?? []
       if (primed) logResponses(useHost.getState().messages, msg.messages)
       // 私信：说书人掉线时发来的，重新连上也要弹出来、记进记录（记过的不重复记）
@@ -180,7 +187,24 @@ function scriptInfo(): ScriptInfo {
   return { name: s.playName, characters: list(s.playableCharacters), travelers: list(s.travelers), fabled: list(s.fabled) }
 }
 
-/** 跟着小镇：座位数、第几天第几夜、剧本 */
+/** 计时：本局、白天/夜晚各走了多久，计时器的状态。还没开始游戏是 null */
+function timerReport(): TimerReport | null {
+  const s = game()
+  if (s.gameState === 0) return null
+  const night = s.gameState === 1 || s.gameState === 3
+  const now = Date.now()
+  return {
+    gameElapsed: now - timerState.gameStartTime,
+    phaseElapsed: now - (night ? timerState.nightTimeStart : timerState.dayTimeStart),
+    night,
+    timerElapsed: timerElapsedNow(now),
+    running: !timerState.timerStopped,
+    countdown: settings().countdownSeconds,
+  }
+}
+const sendTimer = () => { socket?.send({ type: 'timer', timer: timerReport() }) }
+
+/** 跟着小镇：座位数、第几天第几夜、剧本、计时 */
 function watchGame() {
   unsubGame?.()
   let lastScript = ''
@@ -198,16 +222,20 @@ function watchGame() {
     // 谁死了、谁还有死人票是公开的，玩家的座位列表里要显示。
     // 但夜里的死亡要等天亮说书人宣布：夜里不同步，天亮时再一起同步
     if (!isNight(s.gameState)) socket?.send({ type: 'status', alive: s.playersIsAlive, deadVote: s.playersHasDeathVote })
+    sendTimer()
   }
   let last = ''
   let lastChars: unknown[] = []
-  unsubGame = useGame.subscribe((s) => {
+  // 计时器开始、暂停、归零、换白天黑夜时同步一次（平时玩家手机自己走秒）
+  const unsubTimer = useTimerVersion.subscribe(() => window.setTimeout(sendTimer, 0))
+  const unsubGameOnly = useGame.subscribe((s) => {
     const phase = phaseLabel(s.gameState, s.allLogs)
     const key = `${s.playersAssignedCharacters.length}|${phase}|${s.playersIsAlive.join()}|${s.playersHasDeathVote.join()}`
     if (key !== last) { last = key; push() }
     const chars = [s.playableCharacters, s.travelers, s.fabled, s.playName]
     if (chars.some((c, i) => c !== lastChars[i])) { lastChars = chars; pushScript() }
   })
+  unsubGame = () => { unsubGameOnly(); unsubTimer() }
   return push
 }
 
@@ -250,6 +278,26 @@ export async function syncHostPush(): Promise<boolean> {
     console.warn('push', e)
     return false
   }
+}
+
+/** 沿用上一局的房间时，连上后要发的 reset（null 是不用） */
+let pendingReset: boolean | null = null
+
+/** 上一局开过、现在还在的房间（这一局还没开房间时可以接着用） */
+export async function previousRoom(): Promise<string> {
+  const saved = readSaved()
+  if (!saved || saved.gameID === game().gameID || game().gameID === 'demo') return ''
+  try { return (await fetchRoom(saved.code)) ? saved.code : '' } catch { return '' }
+}
+
+/** 下一局继续用上一局的房间：玩家不用重新输房间号。reseat 是让大家重新选座位（换了座位、人数变了时） */
+export function reuseRoom(reseat: boolean) {
+  const saved = readSaved()
+  if (!saved) return
+  writeSaved({ ...saved, gameID: game().gameID })
+  writeDealt(saved.code, {})
+  pendingReset = reseat
+  connect(saved.code, saved.hostToken)
 }
 
 /** 开一个新房间 */
