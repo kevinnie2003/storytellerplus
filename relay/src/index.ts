@@ -91,6 +91,8 @@ interface RoomData {
   phase: string
   night: boolean
   script?: ScriptInfo
+  /** 说书人的推送订阅：玩家私信、回复时提醒说书人 */
+  hostPush?: PushSub
   ended?: EndedInfo
   alive?: boolean[]
   deadVote?: boolean[]
@@ -100,9 +102,9 @@ interface RoomData {
 }
 
 /** 每条连接自己记着是谁 */
-type Who = { role: 'guest' } | { role: 'host' } | { role: 'player'; seat: number; hidden?: boolean }
+type Who = { role: 'guest' } | { role: 'host'; hidden?: boolean } | { role: 'player'; seat: number; hidden?: boolean }
 
-/** 通知上统一显示这一句，不说是什么事（锁屏上旁边的人也看得到） */
+/** 通知的标题统一是这一句，没有正文，不说是什么事（锁屏上旁边的人也看得到） */
 const PUSH_TEXT = '说书人拍了拍你'
 
 export class Room extends DurableObject<Env> {
@@ -274,10 +276,30 @@ export class Room extends DurableObject<Env> {
   private notify(data: RoomData, seat: number) {
     const sub = data.seats[seat]?.push
     if (!sub || this.watching(seat) || !this.env.VAPID_PUBLIC || !this.env.VAPID_PRIVATE_JWK) return
-    const task = sendPush(sub, { title: '说书人联机', body: PUSH_TEXT }, this.env.VAPID_PUBLIC, this.env.VAPID_PRIVATE_JWK)
+    const task = sendPush(sub, { title: PUSH_TEXT, body: '' }, this.env.VAPID_PUBLIC, this.env.VAPID_PRIVATE_JWK)
       .then(async (gone) => {
         if (gone && data.seats[seat]?.push?.endpoint === sub.endpoint) {
           delete data.seats[seat].push
+          await this.save()
+        }
+      })
+      .catch((e) => console.log('push failed', String(e)))
+    this.ctx.waitUntil(task)
+  }
+
+  /** 玩家找说书人：说书人没在看页面时推送提醒；订阅失效了就删掉 */
+  private notifyHost(data: RoomData, body: string) {
+    const sub = data.hostPush
+    if (!sub || !this.env.VAPID_PUBLIC || !this.env.VAPID_PRIVATE_JWK) return
+    const watching = this.sockets().some((ws) => {
+      const w = this.who(ws)
+      return w.role === 'host' && !w.hidden
+    })
+    if (watching) return
+    const task = sendPush(sub, { title: body, body: '' }, this.env.VAPID_PUBLIC, this.env.VAPID_PRIVATE_JWK)
+      .then(async (gone) => {
+        if (gone && data.hostPush?.endpoint === sub.endpoint) {
+          delete data.hostPush
           await this.save()
         }
       })
@@ -377,6 +399,7 @@ export class Room extends DurableObject<Env> {
         await this.save()
         this.pushInbox(data, who.seat)
         this.pushHost(data)
+        if (msg.type !== 'ack') this.notifyHost(data, '有玩家回复了你')
         return
       }
 
@@ -390,12 +413,19 @@ export class Room extends DurableObject<Env> {
         await this.save()
         this.pushInbox(data, who.seat)
         this.pushHost(data)
+        this.notifyHost(data, '有玩家在找你')
         return
       }
 
       case 'push': {
-        if (who.role !== 'player') return
         const sub = msg.sub
+        if (who.role === 'host') {
+          if (sub && pushAllowed(sub)) data.hostPush = { endpoint: sub.endpoint, keys: { p256dh: sub.keys.p256dh, auth: sub.keys.auth } }
+          else delete data.hostPush
+          await this.save()
+          return
+        }
+        if (who.role !== 'player') return
         if (sub && pushAllowed(sub)) {
           data.seats[who.seat].push = { endpoint: sub.endpoint, keys: { p256dh: sub.keys.p256dh, auth: sub.keys.auth } }
         } else {
@@ -406,7 +436,7 @@ export class Room extends DurableObject<Env> {
       }
 
       case 'visible': {
-        if (who.role !== 'player') return
+        if (who.role === 'guest') return
         ws.serializeAttachment({ ...who, hidden: !msg.visible } satisfies Who)
         return
       }

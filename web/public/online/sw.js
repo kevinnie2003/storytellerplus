@@ -5,8 +5,9 @@ self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim(
 self.addEventListener('push', (event) => {
   let data = {}
   try { data = event.data ? event.data.json() : {} } catch { /* 不是 JSON 就用默认的字 */ }
-  event.waitUntil(self.registration.showNotification(data.title || '说书人联机', {
-    body: data.body || '说书人拍了拍你',
+  // 标题就是“说书人拍了拍你”，没有正文（iOS 会自己加一行“from 说书人联机”）
+  event.waitUntil(self.registration.showNotification(data.title || '说书人拍了拍你', {
+    body: data.body ?? '',
     tag: 'storyteller',
     renotify: true,
     icon: new URL('../icon.jpg', self.registration.scope).href,

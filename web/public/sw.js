@@ -187,3 +187,25 @@ function withTimeout(promise, ms) {
     promise.then((v) => { clearTimeout(t); resolve(v) }, (e) => { clearTimeout(t); reject(e) })
   })
 }
+
+// 说书人联机：玩家私信、回复说书人时的推送通知（玩家页面的通知在 online/sw.js）
+self.addEventListener('push', (event) => {
+  let data = {}
+  try { data = event.data ? event.data.json() : {} } catch { /* 不是 JSON 就用默认的字 */ }
+  event.waitUntil(self.registration.showNotification(data.title || '有玩家在找你', {
+    body: data.body ?? '',
+    tag: 'storyteller-host',
+    renotify: true,
+    icon: SCOPE + 'icon.jpg',
+  }))
+})
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  event.waitUntil((async () => {
+    const list = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+    const page = list.find((c) => c.url.startsWith(SCOPE) && !c.url.startsWith(SCOPE + 'online/'))
+    if (page) return page.focus()
+    return self.clients.openWindow(SCOPE)
+  })())
+})

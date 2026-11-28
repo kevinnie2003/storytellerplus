@@ -9,6 +9,7 @@ import { uuid } from '../game/uuid'
 import { createRoom, relayURL, RoomSocket, type SocketStatus } from './relay'
 import type { FinalInfo, RoleInfo, RoomInfo, RoomMessage, ScriptCharacter, ScriptInfo, ServerMessage, Whisper } from './protocol'
 import { showAlert } from '../ui/Alert'
+import { getSubscription } from './push'
 
 interface HostState {
   code: string
@@ -221,9 +222,34 @@ function connect(code: string, hostToken: string) {
     onMessage,
     (status) => {
       set({ status })
-      if (status === 'online') window.setTimeout(push, 50)
+      if (status === 'online') {
+        window.setTimeout(push, 50)
+        sendVisible()
+        void syncHostPush()
+      }
     },
   )
+}
+
+/** 说书人在不在看魔典：不在看时玩家私信、回复才推送。电脑上切到别的程序也算不在看 */
+function sendVisible() {
+  socket?.send({ type: 'visible', visible: document.visibilityState === 'visible' && document.hasFocus() })
+}
+const onVisibility = () => { if (useHost.getState().status === 'online') sendVisible() }
+document.addEventListener('visibilitychange', onVisibility)
+window.addEventListener('focus', onVisibility)
+window.addEventListener('blur', onVisibility)
+
+/** 开了通知的话，把推送订阅交给中转（每次连上都交一次） */
+export async function syncHostPush(): Promise<boolean> {
+  try {
+    const sub = await getSubscription()
+    if (!sub) return false
+    return !!socket?.send({ type: 'push', sub })
+  } catch (e) {
+    console.warn('push', e)
+    return false
+  }
 }
 
 /** 开一个新房间 */

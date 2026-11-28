@@ -8,8 +8,9 @@ import { SFIcon } from '../ui/SFIcon'
 import { useCompact } from '../ui/compact'
 import { mono, rounded, STChoice, STPageHeader, STRow, STSection } from '../ui/kit'
 import { CachedImage } from '../ui/CachedImage'
-import { changedRoleSeats, closeRoom, kickSeat, lastRoleFor, markWhispersRead, openRoom, replyTo, roleInfo, sendRoles, useHost, whisperLabel } from '../net/host'
+import { changedRoleSeats, closeRoom, kickSeat, lastRoleFor, markWhispersRead, openRoom, replyTo, roleInfo, sendRoles, syncHostPush, useHost, whisperLabel } from '../net/host'
 import { relayURL } from '../net/relay'
+import { askPermission, pushState, type PushState } from '../net/push'
 
 /** 玩家打开的网址 */
 export function playerURL(code?: string): string {
@@ -95,6 +96,8 @@ function RoomContent({ onClose }: { onClose: () => void }) {
                 </STChoice>
               </div>
             </STSection>
+
+            <HostPush />
 
             <STSection title="座位">
               {seats.length === 0 ? <div style={{ ...rounded(15), opacity: 0.6 }}>还没有座位</div> : null}
@@ -304,6 +307,32 @@ function Whispers() {
           </div>
         ))}
       </div>
+    </STSection>
+  )
+}
+
+/** 说书人的通知：玩家私信、申请私聊、回复你时，你不在看魔典就弹通知 */
+function HostPush() {
+  const [state, setState] = useState<PushState>(() => pushState())
+  const [note, setNote] = useState('')
+  const enable = async () => {
+    const next = await askPermission()
+    setState(next)
+    if (next === 'granted') setNote((await syncHostPush()) ? '' : '没开成，等一下再试')
+  }
+  const hint = state === 'granted' ? '已开启。玩家私信、申请私聊、回复你的时候，你不在看这个页面就会弹通知。'
+    : state === 'denied' ? '通知被关掉了。想收的话，去系统设置里给这个网页打开通知。'
+    : state === 'ios-install' ? 'iPhone、iPad 要先在 Safari 里点分享，选“添加到主屏幕”，从主屏幕打开说书人普拉斯才能收通知。'
+    : state === 'unsupported' ? '这个浏览器收不了通知。'
+    : '玩家私信、申请私聊、回复你的时候，你切到别的 app 也会弹通知。'
+  return (
+    <STSection title="通知">
+      <STRow title="有玩家找你时提醒" hint={hint}>
+        {state === 'default' ? (
+          <div><STChoice selected onClick={() => { void enable() }}><span style={rounded(16, 800)}>开启通知</span></STChoice></div>
+        ) : null}
+        {note ? <div style={{ ...rounded(15, 700), color: 'var(--warningRed)' }}>{note}</div> : null}
+      </STRow>
     </STSection>
   )
 }

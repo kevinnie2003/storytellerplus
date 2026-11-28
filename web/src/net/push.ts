@@ -1,4 +1,4 @@
-// 玩家手机上的通知：说书人找你、你又切到别的 app 时，系统弹一条提醒
+// 手机上的通知：玩家这边是说书人找你，说书人这边是玩家私信、回复你；切到别的 app 时系统弹一条提醒
 // iPhone 要先“添加到主屏幕”、从主屏幕打开才能收；安卓和电脑的浏览器直接就能收
 import { relayURL } from './relay'
 import type { PushSub } from './protocol'
@@ -28,9 +28,10 @@ export function pushState(): PushState {
   return Notification.permission === 'granted' ? 'granted' : Notification.permission === 'denied' ? 'denied' : 'default'
 }
 
+/** 玩家页面用 online/sw.js；说书人的魔典用主程序的 sw.js（pwa.ts 已经注册好了） */
 async function registration(): Promise<ServiceWorkerRegistration> {
   const scope = `${import.meta.env.BASE_URL}online/`
-  await navigator.serviceWorker.register(`${scope}sw.js`, { scope })
+  if (location.pathname.startsWith(scope)) await navigator.serviceWorker.register(`${scope}sw.js`, { scope })
   return navigator.serviceWorker.ready
 }
 
