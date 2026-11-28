@@ -41,7 +41,7 @@ final class AppSettings: ObservableObject {
   
   private init() {
     let d = UserDefaults.standard
-    appearance = d.string(forKey: "settings.appearance") ?? "light"
+    appearance = d.string(forKey: "settings.appearance") ?? "game"
     cardsPerRow = d.object(forKey: "settings.cardsPerRow") as? Int ?? 3
     cardFontScale = d.object(forKey: "settings.cardFontScale") as? Double ?? 1.0
     // 默认先确认；以前存过“不用确认”的照旧
