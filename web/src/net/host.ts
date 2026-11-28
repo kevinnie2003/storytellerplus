@@ -160,6 +160,8 @@ function onMessage(msg: ServerMessage) {
   }
 }
 
+const isNight = (gameState: number) => gameState === 1 || gameState === 3
+
 /** 跟着小镇：座位数、第几天第几夜 */
 function watchGame() {
   unsubGame?.()
@@ -167,8 +169,9 @@ function watchGame() {
     const s = game()
     socket?.send({ type: 'seats', count: s.playersAssignedCharacters.length })
     socket?.send({ type: 'phase', phase: phaseLabel(s.gameState, s.allLogs), night: s.gameState === 1 || s.gameState === 3 })
-    // 谁死了、谁还有死人票是公开的，玩家的座位列表里要显示
-    socket?.send({ type: 'status', alive: s.playersIsAlive, deadVote: s.playersHasDeathVote })
+    // 谁死了、谁还有死人票是公开的，玩家的座位列表里要显示。
+    // 但夜里的死亡要等天亮说书人宣布：夜里不同步，天亮时再一起同步
+    if (!isNight(s.gameState)) socket?.send({ type: 'status', alive: s.playersIsAlive, deadVote: s.playersHasDeathVote })
   }
   let last = ''
   let lastPhase = ''
