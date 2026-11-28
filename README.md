@@ -54,6 +54,10 @@
 
 支持 Claude、DeepSeek、OpenAI、Gemini、通义千问、Kimi、智谱、OpenRouter，以及任何 OpenAI 兼容接口。API Key 由你自己在设置里填写，只保存在本机钥匙串里。不填 Key 也能正常使用除 AI 以外的所有功能。
 
+## 网页版
+
+`web/` 里是网页版，大屏上和 iPad 版一致，不需要 Mac，用浏览器打开就能用。说明见 [web/README.md](web/README.md)。
+
 ## 自己安装
 
 1. 用 Xcode 打开 `说书人普拉斯.xcodeproj`。
