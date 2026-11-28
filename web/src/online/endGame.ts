@@ -13,12 +13,13 @@ export const winnerText = (w: string) => (w === 'evil' ? '邪恶阵营胜利' : 
 /**
  * 这个座位最后算不算邪恶：
  * - 爪牙、恶魔（包括拿着好人牌、挂“是提线木偶”的提线木偶）是邪恶，除非挂了“善良”标记
- * - 其他角色（镇民、外来者、旅行者，包括疯子）是善良，除非挂了“邪恶”标记
+ * - 其他角色（镇民、外来者、旅行者，包括拿着恶魔牌、挂“是疯子”的疯子）是善良，除非挂了“邪恶”标记
  */
 export function isEvil(c: Character, states: Reminder[] = []): boolean {
   const marked = (word: string) => states.some((r) => r.effect.includes(word))
-  const marionette = c.name === '提线木偶' || states.some((r) => r.from === '提线木偶' && r.effect.includes('提线木偶'))
-  const evilCharacter = c.team === 'minion' || c.team === 'demon' || marionette
+  const is = (name: string) => c.name === name || states.some((r) => r.from === name && r.effect.includes(name))
+  // 疯子拿着恶魔牌、挂“是疯子”，其实是善良的外来者
+  const evilCharacter = !is('疯子') && (c.team === 'minion' || c.team === 'demon' || is('提线木偶'))
   return evilCharacter ? !marked('善良') : marked('邪恶')
 }
 
