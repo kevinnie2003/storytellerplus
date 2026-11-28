@@ -3,10 +3,12 @@ import { useState } from 'react'
 import type { Character } from '../game/types'
 import { Sheet } from '../ui/Sheet'
 import { rounded } from '../ui/kit'
+import { useCompact } from '../ui/compact'
 import { aiErrorText, AIError } from './client'
 import { setupSystem, setupUser, standardCounts, teamCN, withHouseRules } from './prompts'
 import {
-  AIChip, AIFlow, AIPanelHeader, AIPillButton, AIProgressLine, AITextField, aiPanelStyle, aiRequestJSON, strings, str,
+  AIChip, AIFlow, AIPanelHeader, AIPillButton, AIProgressLine, AITextField, aiCompactPadding, aiPanelStyle, aiRequestJSON, strings, str,
+  keyboardMargins, useKeyboardInset,
 } from './common'
 
 interface AIBagPlan {
@@ -47,6 +49,8 @@ function SetupBody({ onClose, playableCharacters, playerCount, onApply }: {
   const [plan, setPlan] = useState<AIBagPlan | null>(null)
 
   const cardsNeeded = Math.min(playerCount, 15)
+  const compact = useCompact()
+  const keyboard = useKeyboardInset(compact)
 
   const generate = async () => {
     setBusy(true)
@@ -76,6 +80,75 @@ function SetupBody({ onClose, playableCharacters, playerCount, onApply }: {
       setErrorText(aiErrorText(e))
     }
     setBusy(false)
+  }
+
+  if (compact) {
+    // 手机上整页一起滚，不再分出里面的滚动区
+    return (
+      <div style={{ ...aiPanelStyle(10, aiCompactPadding), ...keyboardMargins(keyboard) }}>
+        <AIPanelHeader title="AI 配版" onClose={onClose} />
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column', gap: 12, paddingBottom: 8 }}>
+          <div style={rounded(15, 600)}>{`${playerCount} 名玩家，需要 ${cardsNeeded} 张牌。标准配置：${standardCounts(playerCount)}`}</div>
+          <AITextField value={wish} onChange={setWish} placeholder="对这局配版的诉求（可不填）" maxLines={4} style={{ flex: 'none' }} />
+          <AIFlow>
+            {wishChips.map((chip) => (
+              <AIChip key={chip} text={chip} onClick={() => setWish((w) => (w === '' ? chip : w + '；' + chip))} />
+            ))}
+          </AIFlow>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <AIPillButton
+              text={busy ? '配版中…' : plan === null ? '生成配版' : '重新生成'}
+              filled
+              onClick={generate}
+              disabled={busy || playerCount < 5}
+            />
+            {busy ? <AIProgressLine since={startedAt} text={progress} /> : null}
+            {playerCount < 5 ? <span style={{ ...rounded(14), color: 'var(--ai-red)' }}>至少需要 5 名玩家</span> : null}
+          </div>
+          {errorText !== '' ? <div className="ai-select-text" style={{ ...rounded(15), color: 'var(--ai-red)' }}>{errorText}</div> : null}
+          {plan !== null ? (
+            <>
+              <div className="ai-select-text" style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
+                {teams.map((team) => {
+                  const names = plan.bag.filter((c) => c.team === team).map((c) => c.name)
+                  if (names.length === 0) return null
+                  return <div key={team} style={rounded(16, 600)}>{`${teamCN(team)} ${names.length} 张：${names.join('、')}`}</div>
+                })}
+                {plan.bag.length !== cardsNeeded ? (
+                  <div style={{ ...rounded(14, 700), color: 'var(--ai-red)' }}>
+                    {`注意：AI 给了 ${plan.bag.length} 张牌，应该是 ${cardsNeeded} 张，应用后请手动调整。`}
+                  </div>
+                ) : null}
+                {plan.unknownNames.length > 0 ? (
+                  <div style={{ ...rounded(14, 700), color: 'var(--ai-red)' }}>
+                    {`注意：这些名字不在剧本里，已忽略：${plan.unknownNames.join('、')}`}
+                  </div>
+                ) : null}
+                {plan.reasoning !== '' ? <div style={{ ...rounded(15), paddingTop: 4, whiteSpace: 'pre-wrap' }}>{plan.reasoning}</div> : null}
+                {plan.postDraw.length > 0 ? (
+                  <>
+                    <div style={{ ...rounded(15, 700), paddingTop: 4 }}>抽完卡之后要做的事：</div>
+                    {plan.postDraw.map((line, i) => <div key={i} style={rounded(15)}>{`${i + 1}. ${line}`}</div>)}
+                  </>
+                ) : null}
+              </div>
+              <div>
+                <AIPillButton
+                  text="应用到配版，去检查"
+                  filled
+                  onClick={() => {
+                    const notes = plan.postDraw.join('\n')
+                    const bag = plan.bag
+                    onClose()
+                    onApply(bag, notes)
+                  }}
+                />
+              </div>
+            </>
+          ) : null}
+        </div>
+      </div>
+    )
   }
 
   return (

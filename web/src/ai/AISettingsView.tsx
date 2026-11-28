@@ -4,9 +4,11 @@ import { useEffect, useState } from 'react'
 import './ai.css'
 import { Sheet } from '../ui/Sheet'
 import { SFIcon } from '../ui/SFIcon'
+import { useCompact } from '../ui/compact'
 import { STChoice, STPageHeader, STRow, STSection, rounded } from '../ui/kit'
 import { AISettings, aiProviders, useAISettings, type AIConfig } from './providers'
 import { aiErrorText, aiListModels, aiSend, chatMessage } from './client'
+import { keyboardMargins, useKeyboardInset } from './common'
 
 export function AISettingsView({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
@@ -26,6 +28,8 @@ function AISettingsBody({ onClose }: { onClose: () => void }) {
   const [status, setStatus] = useState('')
   const [statusOK, setStatusOK] = useState(false)
   const [busy, setBusy] = useState(false)
+  const compact = useCompact()
+  const keyboard = useKeyboardInset(compact)
 
   const load = () => {
     const p = AISettings.provider
@@ -91,9 +95,14 @@ function AISettingsBody({ onClose }: { onClose: () => void }) {
 
   // 网页版用 app 自己的样子（和设置页一样的分块、粗描边），不模仿 iPad 上的系统表单
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, padding: '28px 28px 0', gap: 18, color: 'var(--ink)' }}>
+    <div style={compact
+      // 手机上留白小一些，弹键盘时整页让开
+      ? { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, padding: '12px 16px 0', gap: 12, color: 'var(--ink)', ...keyboardMargins(keyboard) }
+      : { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, padding: '28px 28px 0', gap: 18, color: 'var(--ink)' }}>
       <STPageHeader title="AI 设置" onClose={() => { save(); onClose() }} />
-      <div className="scroll-hidden" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 28, paddingBottom: 30 }}>
+      <div className="scroll-hidden" style={compact
+        ? { flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column', gap: 22, paddingBottom: 24 }
+        : { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 28, paddingBottom: 30 }}>
         <STSection title="提供商">
           <STRow title="用哪家的 AI" hint={provider.note}>
             <Select

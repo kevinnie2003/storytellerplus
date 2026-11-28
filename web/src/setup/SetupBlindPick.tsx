@@ -1,7 +1,10 @@
 // 玩家盲选某个阵营的牌（卡背朝上），对应 SetupBlindPick.swift
 import { useState } from 'react'
+import { useCompact } from '../ui/compact'
 import { rounded } from '../ui/kit'
-import { boxButton, CardBack, HFlow } from './cards'
+import { boxButton, CardBack, CardGrid, HFlow } from './cards'
+import { MobileBar } from './MobileBar'
+import { barButton, phoneHint, phoneScroll } from './mobileStyles'
 import { setFlow, setSelectionState, teamColors, teamNameEnglish, teamNames, useSetupFlow } from './flowState'
 
 export function SetupBlindPick({ stage }: { stage: number }) {
@@ -30,6 +33,35 @@ export function SetupBlindPick({ stage }: { stage: number }) {
       setFlow({ cardSelected: sel })
       setSelectedCount(selectedCount - 1)
     }
+  }
+
+  const compact = useCompact()
+  if (compact) {
+    // 手机：上面说明，中间一格一格的卡背，底下操作条
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <div className="scroll-hidden" style={phoneScroll}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, textAlign: 'center' }}>
+            <div style={rounded(22, 900)}>请玩家选择 {selectedTeamCounts[teamIndex]} 张{teamName}卡片</div>
+            <div style={phoneHint}>把手机递给玩家，点背面朝上的牌选中，再点一下取消。不需要玩家参与配版就直接点“确认”</div>
+          </div>
+          <CardGrid target={110} center data-tour="setup.pickCards" style={{ padding: '6px 4px' }}>
+            {deck.map((c, index) => c.team === teamEnglish ? (
+              <div key={index} onClick={() => tap(index)} style={{
+                width: 200, height: 300, cursor: 'pointer',
+                transform: `scale(${cardSelected[index] ? 1.06 : 0.94})`, transition: 'transform .3s ease-in-out',
+              }}>
+                <CardBack cardColor={teamColor} dim={cardSelected[index] ? 1 : 0.7} />
+              </div>
+            ) : null)}
+          </CardGrid>
+        </div>
+        <MobileBar status={`已选择 ${selectedCount} / ${selectedTeamCounts[teamIndex]} 张${teamName}卡片`} buttonsTour="setup.pickButtons">
+          <button style={barButton()} onClick={() => setSelectionState(useSetupFlow.getState().selectionState - 1)}>返回</button>
+          <button style={barButton(true)} onClick={() => setSelectionState(useSetupFlow.getState().selectionState + 1)}>确认</button>
+        </MobileBar>
+      </div>
+    )
   }
 
   return (

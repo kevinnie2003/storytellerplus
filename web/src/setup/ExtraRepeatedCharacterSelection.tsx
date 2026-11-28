@@ -2,8 +2,11 @@
 import { useGame } from '../game/store'
 import { usePress } from '../ui/gestures'
 import type { Character } from '../game/types'
-import { CardFront, HFlow } from './cards'
+import { MobilePage } from '../mobile/MobilePage'
+import { useCompact } from '../ui/compact'
+import { CardFront, CardGrid, HFlow } from './cards'
 import { setFlow, useSetupFlow } from './flowState'
+import { phoneHint } from './mobileStyles'
 
 const order: [string, string][] = [
   ['demon', 'var(--demon)'], ['minion', 'var(--minion)'], ['outsider', 'var(--outsider)'], ['townsfolk', 'var(--townsfolk)'],
@@ -19,6 +22,23 @@ export function ExtraRepeatedCharacterSelection({ shown, onClose }: { shown: boo
       extraRepeatedCharacters: [...f.extraRepeatedCharacters, c],
     })
     onClose()
+  }
+  const compact = useCompact()
+  if (compact) {
+    // 手机：盖在配版页上的全屏页，✕ 关掉
+    if (!shown) return null
+    return (
+      <MobilePage title="添加重复角色" onClose={onClose} zIndex={118} bodyStyle={{ padding: '14px 12px calc(24px + env(safe-area-inset-bottom))', gap: 12 }}>
+        <div style={phoneHint}>点一个角色，把它再加一张进抽卡堆</div>
+        <CardGrid target={79} style={{ padding: 2 }}>
+          {order.map(([team, color]) => playableCharacters.map((c, index) => c.team === team ? (
+            <div key={`${team}-${index}`} onClick={() => add(c)} style={{ width: 200, height: 300, cursor: 'pointer' }}>
+              <CardFront character={c} cardColor={color} />
+            </div>
+          ) : null))}
+        </CardGrid>
+      </MobilePage>
+    )
   }
   return (
     <div style={{

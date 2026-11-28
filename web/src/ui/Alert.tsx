@@ -3,6 +3,7 @@ import { create } from 'zustand'
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { rounded } from './kit'
+import { useCompact } from './compact'
 
 export interface AlertButton {
   label: string
@@ -52,6 +53,7 @@ function close() {
 export function AlertHost() {
   const current = useAlerts((s) => s.current)
   const inputValue = useAlerts((s) => s.inputValue)
+  const compact = useCompact()
   useEffect(() => {
     if (!current) return
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close() }
@@ -66,6 +68,10 @@ export function AlertHost() {
   const ordered = vertical
     ? [...buttons.filter((b) => b.role !== 'cancel'), ...buttons.filter((b) => b.role === 'cancel')]
     : [...buttons.filter((b) => b.role === 'cancel'), ...buttons.filter((b) => b.role !== 'cancel')]
+  // 手机上 confirmationDialog 一律从底下弹出（气泡放不下）
+  if (current.sheet && compact) {
+    return createPortal(<ActionSheet spec={current} buttons={buttons} press={press} />, document.body)
+  }
   if (current.sheet && current.anchor) {
     return createPortal(<Popover spec={current} buttons={buttons} press={press} />, document.body)
   }
@@ -75,11 +81,13 @@ export function AlertHost() {
       position: 'fixed', inset: 0, zIndex: 3000, background: 'var(--sheetdim)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'st-fade .15s ease-out',
     }}>
-      <div style={{
+      <div className={compact ? 'scroll-hidden' : undefined} style={{
         width: 360, maxWidth: 'calc(100vw - 32px)', background: 'var(--paper)', color: 'var(--ink)',
         borderRadius: 20, border: '3px solid var(--ink)', padding: 22,
         boxShadow: '0 10px 30px rgba(0,0,0,0.25)', display: 'flex', flexDirection: 'column', gap: 10,
         animation: 'st-pop .2s ease-out',
+        // 手机上字多了也不出屏幕，长字会折行
+        ...(compact ? { padding: 18, maxHeight: 'calc(100dvh - 32px)', overflowY: 'auto', overflowWrap: 'anywhere' } : null),
       }}>
         <div style={rounded(21, 900)}>{current.title}</div>
         {current.message ? <div style={{ ...rounded(16), lineHeight: 1.4, opacity: 0.75, whiteSpace: 'pre-wrap' }}>{current.message}</div> : null}
@@ -100,8 +108,8 @@ export function AlertHost() {
             }}
           />
         ) : null}
-        <div style={{ display: 'flex', flexDirection: vertical ? 'column' : 'row', gap: 10, marginTop: 8 }}>
-          {ordered.map((b, i) => <AlertButtonView key={i} button={b} onClick={() => press(b)} />)}
+        <div style={{ display: 'flex', flexDirection: vertical ? 'column' : 'row', gap: 10, marginTop: 8, flexWrap: compact && !vertical ? 'wrap' : undefined, flexShrink: 0 }}>
+          {ordered.map((b, i) => <AlertButtonView key={i} button={b} onClick={() => press(b)} wrap={compact && !vertical} />)}
         </div>
       </div>
     </div>,
@@ -110,7 +118,13 @@ export function AlertHost() {
 }
 
 /** 提示框里的按钮：取消是描边的，其他是黑底的，危险操作是红底的 */
-function AlertButtonView({ button, onClick, full }: { button: AlertButton; onClick: () => void; full?: boolean }) {
+function AlertButtonView({ button, onClick, full, wrap }: {
+  button: AlertButton
+  onClick: () => void
+  full?: boolean
+  /** 横排按钮放不下时换行：按字的宽度排，一行放不下就自己占一行 */
+  wrap?: boolean
+}) {
   const cancel = button.role === 'cancel'
   const danger = button.role === 'destructive'
   return (
@@ -121,6 +135,7 @@ function AlertButtonView({ button, onClick, full }: { button: AlertButton; onCli
         padding: '9.5px 14px', borderRadius: 14, border: `2.5px solid ${danger ? 'var(--warningRed)' : 'var(--ink)'}`,
         background: cancel ? 'transparent' : danger ? 'var(--warningRed)' : 'var(--ink)',
         color: cancel ? 'var(--ink)' : danger ? '#f6f1e2' : 'var(--paper)',
+        ...(wrap ? { flex: '1 1 auto', minHeight: 44 } : null),
       }}
     >{button.label}</button>
   )
@@ -156,6 +171,45 @@ function Popover({ spec, buttons, press }: {
       }}>
         {spec.message ? <div style={{ ...rounded(15), opacity: 0.75, lineHeight: 1.35, padding: '2px 4px' }}>{spec.message}</div> : null}
         {shown.map((b, i) => <AlertButtonView key={i} button={{ ...b, role: b.role === 'destructive' ? 'destructive' : 'cancel' }} onClick={() => press(b)} full />)}
+      </div>
+    </div>
+  )
+}
+
+/** 手机上的 confirmationDialog：从底下弹出的一列按钮，最下面单独一个取消 */
+function ActionSheet({ spec, buttons, press }: {
+  spec: AlertSpec
+  buttons: AlertButton[]
+  press: (b: AlertButton) => void
+}) {
+  const shown = buttons.filter((b) => b.role !== 'cancel')
+  const cancel = buttons.find((b) => b.role === 'cancel') ?? { label: '取消', role: 'cancel' as const }
+  return (
+    <div data-alert-host style={{ position: 'fixed', inset: 0, zIndex: 3000, background: 'var(--sheetdim)', animation: 'st-fade .15s ease-out' }}>
+      <div style={{ position: 'absolute', inset: 0 }} onClick={() => press(cancel)} />
+      <div style={{
+        position: 'absolute', left: 8, right: 8, bottom: 'calc(8px + env(safe-area-inset-bottom))',
+        maxHeight: 'calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom))',
+        display: 'flex', flexDirection: 'column', gap: 8, animation: 'st-rise .22s cubic-bezier(.2,.8,.2,1)',
+      }}>
+        <div className="scroll-hidden" style={{
+          minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10, padding: 14, borderRadius: 20,
+          background: 'var(--paper)', color: 'var(--ink)', border: '3px solid var(--ink)', boxShadow: '0 8px 24px rgba(0,0,0,0.22)',
+          overflowWrap: 'anywhere',
+        }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '2px 4px', textAlign: 'center', flexShrink: 0 }}>
+            <div style={rounded(17, 900)}>{spec.title}</div>
+            {spec.message ? <div style={{ ...rounded(14), opacity: 0.75, lineHeight: 1.35 }}>{spec.message}</div> : null}
+          </div>
+          {shown.map((b, i) => (
+            <div key={i} style={{ flexShrink: 0, display: 'flex' }}>
+              <AlertButtonView button={{ ...b, role: b.role === 'destructive' ? 'destructive' : 'cancel' }} onClick={() => press(b)} full />
+            </div>
+          ))}
+        </div>
+        <div style={{ flexShrink: 0, display: 'flex' }}>
+          <AlertButtonView button={{ label: cancel.label }} onClick={() => press(cancel)} full />
+        </div>
       </div>
     </div>
   )

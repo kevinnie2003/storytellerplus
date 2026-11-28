@@ -1,5 +1,6 @@
 // SwiftUI 的 .sheet（iPad 上的 page 样式）：屏幕中间一张大卡片，背后变暗。点外面不关闭，和 iPad 一样要点“完成”
 import { createPortal } from 'react-dom'
+import { useCompact } from './compact'
 
 export function Sheet({ open, onClose, children, dismissOnBackdrop = false, width, height }: {
   open: boolean
@@ -9,7 +10,21 @@ export function Sheet({ open, onClose, children, dismissOnBackdrop = false, widt
   width?: number | string
   height?: number | string
 }) {
+  const compact = useCompact()
   if (!open) return null
+  // 手机上整屏铺满，内容自己留出刘海和底部横条
+  if (compact) {
+    return createPortal(
+      <div style={{
+        position: 'fixed', inset: 0, zIndex: 1000, background: 'var(--mainbg)', color: 'var(--ink)',
+        display: 'flex', flexDirection: 'column', animation: 'st-rise .28s cubic-bezier(.2,.8,.2,1)',
+        paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)',
+      }}>
+        {children}
+      </div>,
+      document.body,
+    )
+  }
   return createPortal(
     <div
       onPointerDown={(e) => { if (dismissOnBackdrop && e.target === e.currentTarget) onClose?.() }}

@@ -5,11 +5,13 @@ import { create } from 'zustand'
 import { useGame } from '../game/store'
 import { Sheet } from '../ui/Sheet'
 import { rounded } from '../ui/kit'
+import { useCompact } from '../ui/compact'
 import { aiErrorText, aiSendStreaming, chatMessage, type AIChatMessage } from './client'
 import { makeAIContext } from './context'
 import { advisorSystem, savantBatchPrompt, withHouseRules } from './prompts'
 import {
-  AIChip, AIFlow, AIMarkdown, AIPanelHeader, AIPillButton, AIProgressLine, AITextField, aiPanelStyle, aiThinkingTail,
+  AIChip, AIFlow, AIMarkdown, AIPanelHeader, AIPillButton, AIProgressLine, AITextField, aiCompactPadding, aiPanelStyle, aiThinkingTail,
+  keyboardMargins, useKeyboardInset,
 } from './common'
 
 interface AIChatStore {
@@ -64,6 +66,8 @@ const bubble = (user: boolean): React.CSSProperties => ({
   whiteSpace: 'pre-wrap', wordBreak: 'break-word', minWidth: 0,
 })
 
+const chipNoWrap: React.CSSProperties = { whiteSpace: 'nowrap', flexShrink: 0 }
+
 function AdvisorBody({ onClose }: { onClose: () => void }) {
   const [chat, setChat] = useChat()
   const [input, setInput] = useState('')
@@ -74,6 +78,8 @@ function AdvisorBody({ onClose }: { onClose: () => void }) {
   const [errorText, setErrorText] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
   const busyRef = useRef(false)
+  const compact = useCompact()
+  const keyboard = useKeyboardInset(compact)
 
   const send = async (text: string, display?: string, effort?: string) => {
     const question = text.trim()
@@ -115,6 +121,62 @@ function AdvisorBody({ onClose }: { onClose: () => void }) {
     const el = scrollRef.current
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
   }, [chat.length])
+  // 手机上键盘弹出、收起后，对话区变矮了，也滚到底部
+  useEffect(() => {
+    const el = scrollRef.current
+    if (el && compact) el.scrollTo({ top: el.scrollHeight })
+  }, [compact, keyboard.bottom])
+
+  const chips = (
+    <>
+      <AIChip text="一批博学者信息，我来挑" onClick={() => send(savantBatchPrompt(), '一批博学者信息，我来挑', 'medium')} style={compact ? chipNoWrap : undefined} />
+      {quickPrompts.map((p) => <AIChip key={p} text={p} onClick={() => send(p)} style={compact ? chipNoWrap : undefined} />)}
+      {chat.length > 0 ? (
+        <AIChip text="清空对话" onClick={() => { setChat(() => []); setErrorText('') }} style={compact ? chipNoWrap : undefined} />
+      ) : null}
+    </>
+  )
+
+  if (compact) {
+    // 手机上：快捷问题排成一行左右滑，输入栏贴着键盘
+    return (
+      <div style={{ ...aiPanelStyle(10, aiCompactPadding), ...keyboardMargins(keyboard) }}>
+        <AIPanelHeader title="AI 说书" onClose={onClose} />
+        <div ref={scrollRef} style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', overscrollBehavior: 'contain' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '4px 0' }}>
+            {chat.length === 0 ? (
+              <div style={{ ...rounded(15), color: 'var(--ai-secondary)' }}>AI 能看到当前魔典、标记和游戏记录。问它怎么给信息、怎么平衡局势都可以。</div>
+            ) : null}
+            {chat.map((m) => {
+              const user = m.role === 'user'
+              return (
+                <div key={m.id} style={{ display: 'flex', justifyContent: user ? 'flex-end' : 'flex-start', paddingLeft: user ? 36 : 0, paddingRight: user ? 0 : 20 }}>
+                  <div className="ai-select-text" style={{ ...bubble(user), ...rounded(16, 500), padding: 9 }}><AIMarkdown text={m.display ?? m.text} /></div>
+                </div>
+              )
+            })}
+            {busy ? (
+              streamingText === '' ? (
+                <AIProgressLine since={startedAt} text={progress} />
+              ) : (
+                <div style={{ display: 'flex', paddingRight: 20 }}>
+                  <div style={{ ...bubble(false), ...rounded(16, 500), padding: 9 }}><AIMarkdown text={streamingText} /></div>
+                </div>
+              )
+            ) : null}
+            {errorText !== '' ? <div className="ai-select-text" style={{ ...rounded(15), color: 'var(--ai-red)' }}>{errorText}</div> : null}
+          </div>
+        </div>
+        <div className="scroll-hidden" style={{ overflowX: 'auto', margin: '0 -16px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', gap: 8, padding: '0 16px', width: 'max-content' }}>{chips}</div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, flexShrink: 0 }}>
+          <AITextField value={input} onChange={setInput} placeholder="问点什么…" maxLines={4} onSubmit={() => send(input)} />
+          <AIPillButton text="发送" filled onClick={() => send(input)} disabled={busy} />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div style={aiPanelStyle(12)}>
@@ -144,13 +206,7 @@ function AdvisorBody({ onClose }: { onClose: () => void }) {
           {errorText !== '' ? <div className="ai-select-text" style={{ ...rounded(15), color: 'var(--ai-red)' }}>{errorText}</div> : null}
         </div>
       </div>
-      <AIFlow>
-        <AIChip text="一批博学者信息，我来挑" onClick={() => send(savantBatchPrompt(), '一批博学者信息，我来挑', 'medium')} />
-        {quickPrompts.map((p) => <AIChip key={p} text={p} onClick={() => send(p)} />)}
-        {chat.length > 0 ? (
-          <AIChip text="清空对话" onClick={() => { setChat(() => []); setErrorText('') }} />
-        ) : null}
-      </AIFlow>
+      <AIFlow>{chips}</AIFlow>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <AITextField
           value={input}

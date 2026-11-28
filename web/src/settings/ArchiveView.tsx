@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Sheet } from '../ui/Sheet'
 import { showAlert } from '../ui/Alert'
 import { SFIcon } from '../ui/SFIcon'
+import { useCompact } from '../ui/compact'
 import { rounded, STChoice, STPageHeader } from '../ui/kit'
 import { ReviewView } from '../ai/ReviewView'
 import { archiveDelete, archiveList, type ArchiveEntry } from '../game/persistence'
@@ -69,6 +70,7 @@ function ArchiveContent({ onClose, currentGameID, onLoad }: {
   currentGameID?: string
   onLoad: (id: string) => void
 }) {
+  const compact = useCompact()
   const [entries, setEntries] = useState<ArchiveEntry[]>([])
   const [loaded, setLoaded] = useState(false)
   const [reviewing, setReviewing] = useState<ArchiveEntry | null>(null)
@@ -88,7 +90,7 @@ function ArchiveContent({ onClose, currentGameID, onLoad }: {
   })
 
   return (
-    <div style={{ flex: 1, minHeight: 0, padding: 28, display: 'flex', flexDirection: 'column', gap: 18 }}>
+    <div style={{ flex: 1, minHeight: 0, padding: compact ? '12px 16px 0' : 28, display: 'flex', flexDirection: 'column', gap: compact ? 12 : 18 }}>
       <STPageHeader title="游戏存档" onClose={onClose} />
       {entries.length === 0 ? (
         <div style={{
@@ -100,28 +102,29 @@ function ArchiveContent({ onClose, currentGameID, onLoad }: {
           <div style={{ ...rounded(16), color: 'color-mix(in srgb, var(--ink) 60%, transparent)' }}>分好角色之后会自动保存</div>
         </div>
       ) : (
-        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: compact ? 'hidden' : undefined }}>
+          {/* 手机上一列 */}
           <div style={{
-            display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 18,
-            padding: '4px 4px 34px',
+            display: 'grid', gridTemplateColumns: compact ? 'minmax(0, 1fr)' : 'repeat(auto-fill, minmax(300px, 1fr))', gap: compact ? 14 : 18,
+            padding: compact ? '4px 1px 24px' : '4px 4px 34px',
           }}>
             {entries.map((entry) => {
               const isCurrent = entry.id === currentGameID
               return (
                 <div key={entry.id} style={{
-                  display: 'flex', flexDirection: 'column', gap: 14, padding: 15,
+                  display: 'flex', flexDirection: 'column', gap: compact ? 12 : 14, padding: compact ? 13 : 15,
                   background: 'var(--paper)', borderRadius: 18, border: '3px solid var(--ink)',
                   // 正在进行的那一局描边粗一些（5），往里外各多出 1
                   boxShadow: isCurrent ? '0 0 0 1px var(--ink), inset 0 0 0 1px var(--ink)' : undefined,
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
-                    <SeatRing alive={entry.alive} />
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: compact ? 12 : 14 }}>
+                    <SeatRing alive={entry.alive} size={compact ? 64 : undefined} />
                     <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                      <div style={{ ...rounded(22, 900), whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <div style={{ ...rounded(compact ? 20 : 22, 900), whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {entry.playName || '无名剧本'}
                       </div>
-                      <div style={rounded(16, 600)}>{entry.playerCount} 人，还剩 {entry.aliveCount} 人活着</div>
-                      <div style={{ ...rounded(15), color: 'color-mix(in srgb, var(--ink) 60%, transparent)' }}>
+                      <div style={rounded(compact ? 15 : 16, 600)}>{entry.playerCount} 人，还剩 {entry.aliveCount} 人活着</div>
+                      <div style={{ ...rounded(compact ? 14 : 15), color: 'color-mix(in srgb, var(--ink) 60%, transparent)' }}>
                         {stageText(entry)}，{savedAtText(entry.savedAt)} 保存
                       </div>
                     </div>

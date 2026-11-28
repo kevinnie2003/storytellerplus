@@ -3,11 +3,13 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { AISetupSheet } from '../ai/AISetupSheet'
 import { game, setGame, useGame } from '../game/store'
+import { HeaderButton, MobilePage } from '../mobile/MobilePage'
+import { useCompact } from '../ui/compact'
 import { rounded } from '../ui/kit'
 import { SFIcon } from '../ui/SFIcon'
 import { usePresence } from './cards'
 import { ExtraSetupForSetup } from './ExtraSetupForSetup'
-import { fillSetupBag, startSetupFlow, useSetupFlow } from './flowState'
+import { fillSetupBag, startSetupFlow, teamNames, useSetupFlow } from './flowState'
 import { SetupBlindPick } from './SetupBlindPick'
 import { SetupCheck } from './SetupCheck'
 import { SetupCount } from './SetupCount'
@@ -35,7 +37,37 @@ function Layer({ visible, children }: { visible: boolean; children: React.ReactN
   )
 }
 
+/** 手机标题栏上写现在是哪一步 */
+function phoneTitle(stage: number) {
+  const kind = kindOf(stage)
+  const team = teamNames[Math.min(Math.max(Math.floor(stage / 3), 0), 3)]
+  return kind === 'count' ? `${team}数量` : kind === 'blind' ? `${team}盲选` : kind === 'check' ? '检查配置' : '玩家开抽'
+}
+
 function StagePage({ kind, stage }: { kind: Kind; stage: number }) {
+  const compact = useCompact()
+  // 手机：一页一列，操作条在各页自己的底部
+  if (compact) {
+    switch (kind) {
+      case 'count':
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
+            <div className="scroll-hidden" style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column' }}>
+              <div style={{ margin: 'auto 0', padding: '20px 0' }}>
+                <SetupCount stage={stage} />
+              </div>
+            </div>
+            <ExtraSetupForSetup />
+          </div>
+        )
+      case 'blind':
+        return <SetupBlindPick stage={stage} />
+      case 'check':
+        return <SetupCheck />
+      case 'pick':
+        return <SetupPlayerPick />
+    }
+  }
   switch (kind) {
     case 'count':
       return (
@@ -110,6 +142,38 @@ function SetupFlow() {
     return () => window.clearTimeout(t)
   }, [])
 
+  const compact = useCompact()
+  const aiSheet = (
+    <AISetupSheet
+      open={showAISetup}
+      onClose={() => setShowAISetup(false)}
+      playableCharacters={playableCharacters}
+      playerCount={playerCount}
+      onApply={(bag, notes) => { setShowAISetup(false); fillSetupBag(bag, notes) }}
+    />
+  )
+
+  // 手机：整屏一页，标题栏写第几步，右上 AI 配版和 ✕（✕ 就是“退出”）
+  if (compact) {
+    return (
+      <>
+        <MobilePage
+          title={phoneTitle(stage)}
+          onClose={() => setGame({ showSetup: false })}
+          zIndex={117}
+          scroll={false}
+          right={stage < 12 ? <HeaderButton icon="sparkles" label="AI配版" onClick={() => setShowAISetup(true)} /> : null}
+          bodyStyle={{ paddingBottom: 0, paddingLeft: 'env(safe-area-inset-left)', paddingRight: 'env(safe-area-inset-right)' }}
+        >
+          <div className="dot-bg" style={{ position: 'relative', flex: '1 1 0', minHeight: 0, lineHeight: 1.2 }}>
+            {ready ? <SetupStages /> : null}
+          </div>
+        </MobilePage>
+        {aiSheet}
+      </>
+    )
+  }
+
   return (
     <div className="dot-bg" style={{ position: 'absolute', inset: 0, color: 'var(--ink)', lineHeight: 1.2 }}>
       <div style={{
@@ -136,13 +200,7 @@ function SetupFlow() {
           ) : null}
         </div>
       </div>
-      <AISetupSheet
-        open={showAISetup}
-        onClose={() => setShowAISetup(false)}
-        playableCharacters={playableCharacters}
-        playerCount={playerCount}
-        onApply={(bag, notes) => { setShowAISetup(false); fillSetupBag(bag, notes) }}
-      />
+      {aiSheet}
     </div>
   )
 }
@@ -151,9 +209,11 @@ function SetupFlow() {
 export function SetupView() {
   const showSetup = useGame((s) => s.showSetup)
   const p = usePresence(showSetup, 500)
+  const compact = useCompact()
   if (!p.mounted) return null
+  // 手机上 SetupFlow 自己是全屏的一页（zIndex 117），外面这层不起作用；还是同一个外层，屏幕宽窄变了也不会重新洗牌
   return (
-    <div style={{
+    <div style={compact ? { display: 'contents' } : {
       position: 'fixed', inset: 0, zIndex: 17, opacity: p.shown ? 1 : 0, transition: 'opacity .5s ease-in-out',
       pointerEvents: showSetup ? 'auto' : 'none',
     }}>

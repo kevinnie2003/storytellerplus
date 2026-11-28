@@ -11,6 +11,8 @@ import { teamIdColor } from '../game/teams'
 import { CachedImage } from '../ui/CachedImage'
 import { SFIcon } from '../ui/SFIcon'
 import { rounded } from '../ui/kit'
+import { useCompact } from '../ui/compact'
+import { MobilePage } from '../mobile/MobilePage'
 import { MenuPicker, OverlayLayer, panelHeight, stroke, systemBlue } from './common'
 
 const getImageURL = (name: string, characters: Character[]) => characters.find((c) => c.name === name)?.imageURL ?? ''
@@ -108,11 +110,17 @@ function confirm(remindersWithSource: Reminder[]) {
   }
 }
 
+/** 手机版底下的大按钮 */
+const phoneButton: React.CSSProperties = {
+  ...rounded(17, 800), color: 'var(--ink)', height: 48, borderRadius: 24, outline: '3px solid var(--ink)', outlineOffset: -1.5,
+}
+
 const smallButton = (size: number): React.CSSProperties => ({
   ...rounded(size, 700), color: 'var(--ink)', padding: '8px 20px', ...stroke(2, 20),
 })
 
 function TagView() {
+  const compact = useCompact()
   const target = useGame((s) => s.currentSelectedPlayerIDForReminder)
   const selectedReminderIndex = useGame((s) => s.selectedReminderIndex)
   const characters = useGame((s) => s.characters)
@@ -145,6 +153,86 @@ function TagView() {
     ...players.map((p, i) => ({ value: i, label: `${i + 1}号 ${p.name}` })),
     { value: players.length, label: '说书人' },
   ]
+
+  if (compact) {
+    // 手机版：全屏一页，标签可以滚，确认、返回固定在底下
+    const close = () => setGame({ selectNewReminder: false })
+    return (
+      <MobilePage title={target >= 0 ? `为${target + 1}号玩家选择标记` : '为全局添加标记'} zIndex={112} onClose={close} scroll={false}>
+        <div data-tour="tag.panel" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+          <div className="scroll-hidden" style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, padding: '14px 12px' }}>
+              {remindersWithSource.map((r, index) => (
+                <PhoneReminderChip
+                  key={index}
+                  reminder={r}
+                  imageURL={getImageURL(r.from, characters)}
+                  selected={selectedReminderIndex === index}
+                  onTap={() => setGame({ selectedReminderIndex: index })}
+                />
+              ))}
+              <button
+                onClick={() => setShowTagEditor(true)}
+                style={{
+                  height: 44, padding: '0 14px 0 10px', borderRadius: 22, display: 'flex', alignItems: 'center', gap: 4,
+                  color: 'var(--ink)', ...rounded(15, 700), ...stroke(3, 22),
+                }}
+              >
+                <SFIcon name="plus" size={20} weight="bold" />自定义
+              </button>
+            </div>
+          </div>
+          <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 8, padding: '10px 12px 12px', borderTop: '3px solid var(--ink)' }}>
+            <div style={{ ...rounded(13, 600), opacity: 0.6, textAlign: 'center' }}>
+              {selectedReminderIndex >= 0 && selectedReminderIndex < remindersWithSource.length
+                ? `已选：${remindersWithSource[selectedReminderIndex].effect}`
+                : '点一个标签选中，再点确认'}
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={close} style={{ ...phoneButton, flex: '1 1 0' }}>返回</button>
+              <button onClick={() => confirm(remindersWithSource)} style={{ ...phoneButton, flex: '2 1 0', background: 'var(--ink)', color: 'var(--mainbg)' }}>确认</button>
+            </div>
+          </div>
+        </div>
+
+        {showTagEditor ? (
+          <div style={{
+            position: 'fixed', inset: 0, zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+            background: 'color-mix(in srgb, var(--mainbg) 60%, transparent)', animation: 'st-fade .3s ease-in-out',
+          }}>
+            <div style={{
+              width: '100%', maxWidth: 360, background: 'var(--paper)', padding: 18, display: 'flex',
+              flexDirection: 'column', gap: 14, ...stroke(3, 20),
+            }}>
+              <div style={{ ...rounded(19, 900) }}>新标签</div>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={{ ...rounded(15, 700) }}>标签名字</span>
+                <input
+                  autoFocus
+                  value={newTagName}
+                  placeholder="输入标签名字"
+                  onChange={(e) => setNewTagName(e.target.value)}
+                  style={{
+                    // 16 号以上 iOS 不会自动放大
+                    fontSize: 17, height: 44, padding: '0 12px', background: 'var(--mainbg)', color: 'var(--ink)', border: 'none', outline: 'none',
+                    fontFamily: 'system-ui, -apple-system, "PingFang SC", sans-serif', ...stroke(2.5, 12),
+                  }}
+                />
+              </label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ ...rounded(15, 700), whiteSpace: 'nowrap' }}>标签来源</span>
+                <MenuPicker options={sourceOptions} value={newTagSource} onChange={setNewTagSource} tint={systemBlue} style={{ flex: 1, justifyContent: 'flex-end', minHeight: 44 }} />
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={() => setShowTagEditor(false)} style={{ ...phoneButton, flex: '1 1 0' }}>取消</button>
+                <button onClick={addCustomTag} disabled={newTagName === ''} style={{ ...phoneButton, flex: '1 1 0', background: 'var(--ink)', color: 'var(--paper)', opacity: newTagName === '' ? 0.4 : 1 }}>确认</button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </MobilePage>
+    )
+  }
 
   return (
     <OverlayLayer
@@ -270,5 +358,42 @@ function ReminderChip({ reminder, imageURL, selected, onTap }: {
       </div>
       <span style={{ ...rounded(18, 700), color: 'var(--goodTextBg)', padding: 5, whiteSpace: 'nowrap' }}>{reminder.effect}</span>
     </div>
+  )
+}
+
+/** 手机版的标签：比 iPad 小一号，太长的字截断，选中的多一圈描边 */
+function PhoneReminderChip({ reminder, imageURL, selected, onTap }: {
+  reminder: Reminder
+  imageURL: string
+  selected: boolean
+  onTap: () => void
+}) {
+  const color = teamIdColor(reminder.team)
+  const hasSeat = reminder.playerId >= 0
+  return (
+    <button
+      onClick={onTap}
+      style={{
+        display: 'flex', alignItems: 'center', maxWidth: '100%', height: 44, padding: '0 4px', borderRadius: 22, background: color,
+        outline: selected ? '3px solid var(--ink)' : 'none', outlineOffset: 1.5,
+        transform: `scale(${selected ? 1.04 : 1})`, transition: 'transform .2s ease-in-out',
+      }}
+    >
+      {hasSeat || imageURL ? (
+        <span style={{ display: 'flex', alignItems: 'center', flexShrink: 0, paddingLeft: hasSeat ? 4 : 0, borderRadius: 20, background: 'var(--goodTextBg)' }}>
+          {hasSeat ? (
+            <span style={{ ...rounded(15, 900), color, minWidth: 22, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{reminder.playerId + 1}</span>
+          ) : null}
+          {imageURL ? (
+            <CachedImage url={imageURL} size={36} style={{ borderRadius: '50%', background: 'var(--goodTextBg)' }} />
+          ) : (
+            <span style={{ width: 4, height: 36 }} />
+          )}
+        </span>
+      ) : null}
+      <span style={{
+        ...rounded(15, 700), color: 'var(--goodTextBg)', padding: '0 8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0,
+      }}>{reminder.effect}</span>
+    </button>
   )
 }

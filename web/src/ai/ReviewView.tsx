@@ -4,7 +4,8 @@ import type { GameLogEntry, GameSaveData } from '../game/types'
 import { archiveLoad, recapLoad, recapPosterDelete, recapPosterLoad, recapPosterSave, recapSave } from '../game/persistence'
 import { teamColor } from '../game/teams'
 import { Sheet } from '../ui/Sheet'
-import { STChoice, STPageHeader, rounded } from '../ui/kit'
+import { STChoice, STChoiceRow, STPageHeader, rounded } from '../ui/kit'
+import { useCompact } from '../ui/compact'
 import { SFIcon } from '../ui/SFIcon'
 import { CachedImage } from '../ui/CachedImage'
 import { aiErrorText } from './client'
@@ -100,6 +101,9 @@ function ReviewBody({ onClose, gameID }: { onClose: () => void; gameID: string }
   const [progress, setProgress] = useState('')
   const [errorText, setErrorText] = useState('')
   const [showSettings, setShowSettings] = useState(false)
+  const compact = useCompact()
+  /** 手机上时间线和 AI 复盘分两页 */
+  const [tab, setTab] = useState<'timeline' | 'recap'>('timeline')
   /** 画图是异步的，只认最后一次 */
   const renderToken = useRef(0)
   const alive = useRef(true)
@@ -211,6 +215,139 @@ function ReviewBody({ onClose, gameID }: { onClose: () => void; gameID: string }
       downloadBlob(poster, fileName())
       setSavedMessage('已保存图片')
     }
+  }
+
+  if (compact) {
+    const dim = (pct: number) => `color-mix(in srgb, var(--ink) ${pct}%, transparent)`
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '12px 16px 0', flex: 1, minHeight: 0, background: 'var(--mainbg)', color: 'var(--ink)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 1, flex: 1, minWidth: 0 }}>
+            <div style={{ ...rounded(22, 900), whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {game && game.playName !== '' ? game.playName : '复盘'}
+            </div>
+            {game ? (
+              <div style={{ ...rounded(13), color: dim(60) }}>{`${game.playersAssignedCharacters.length} 人，还剩 ${game.aliveCount} 人活着`}</div>
+            ) : null}
+          </div>
+          <button
+            onClick={() => setShowSettings(true)}
+            aria-label="AI 设置"
+            style={{
+              width: 38, height: 38, borderRadius: '50%', border: '2.5px solid var(--ink)', color: 'var(--ink)', flexShrink: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            <SFIcon name="gearshape" size={20} weight="bold" />
+          </button>
+          <button
+            onClick={onClose}
+            style={{ ...rounded(16, 900), color: 'var(--paper)', background: 'var(--ink)', padding: '0 18px', height: 38, borderRadius: 999, flexShrink: 0 }}
+          >完成</button>
+        </div>
+
+        {game ? (
+          <>
+            <STChoiceRow<'timeline' | 'recap'> options={[['timeline', '时间线'], ['recap', 'AI 复盘']]} value={tab} onChange={setTab} />
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column', gap: 12, paddingBottom: 16 }}>
+              {tab === 'timeline' ? (
+                <>
+                  {/* 座位一行左右滑 */}
+                  <div className="scroll-hidden" style={{ overflowX: 'auto', background: 'var(--paper)', borderRadius: 14, border: '2.5px solid var(--ink)', flexShrink: 0 }}>
+                    <div style={{ display: 'flex', gap: 4, padding: 8, width: 'max-content' }}>
+                      {game.playersAssignedCharacters.map((c, i) => {
+                        const isAlive = i < game.playersIsAlive.length ? game.playersIsAlive[i] : true
+                        return (
+                          <div key={i} style={{ width: 52, position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                            <CachedImage url={c.imageURL} size={34} style={{ opacity: isAlive ? 1 : 0.4 }} />
+                            <div style={rounded(13, 900)}>{i + 1}</div>
+                            <div style={{
+                              ...rounded(13, 600), color: teamColor(c.team), maxWidth: '100%',
+                              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                            }}>{c.name}</div>
+                            {!isAlive ? (
+                              <div style={{ position: 'absolute', top: 0, right: 0, color: 'var(--demonInk)' }}>
+                                <SFIcon name="xmark" size={13} weight="black" />
+                              </div>
+                            ) : null}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                  <div style={{ background: 'var(--paper)', borderRadius: 16, border: '3px solid var(--ink)', flexShrink: 0 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: 13, alignItems: 'flex-start' }}>
+                      {ReviewBuilder.segments(game.allLogs).map((segment) => (
+                        <div key={segment.id} style={{ display: 'flex', flexDirection: 'column', gap: 5, alignItems: 'flex-start', width: '100%' }}>
+                          <div style={{
+                            ...rounded(17, 900), display: 'flex', alignItems: 'center', gap: 6,
+                            color: segment.isNight ? 'var(--paper)' : 'var(--ink)', background: segment.isNight ? 'var(--ink)' : 'var(--paper)',
+                            padding: '4px 11px', borderRadius: 999, border: '2px solid var(--ink)',
+                          }}>
+                            <SFIcon name={segment.isNight ? 'moon.fill' : segment.title === '开局' ? 'flag.fill' : 'sun.max.fill'} size={17} weight="black" />
+                            <span>{segment.title}</span>
+                          </div>
+                          {segment.entries.length === 0 ? (
+                            <div style={{ ...rounded(14), color: dim(40), paddingLeft: 8 }}>没有记录</div>
+                          ) : null}
+                          {segment.entries.map((entry) => (
+                            <div
+                              key={entry.id}
+                              className="ai-select-text"
+                              style={{
+                                ...rounded(15, ReviewBuilder.isBold(entry) ? 700 : 400), color: ReviewBuilder.color(entry),
+                                paddingLeft: 8, width: '100%', whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                              }}
+                            >{ReviewBuilder.text(entry)}</div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <STChoice selected={recap === null} onClick={generate} disabled={busy} style={{ opacity: busy ? 0.4 : 1 }}>
+                      <span style={rounded(16, 700)}>{recap === null ? '生成复盘图' : '重新生成'}</span>
+                    </STChoice>
+                    {posterURL !== '' ? (
+                      <>
+                        <STChoice selected onClick={savePoster}>
+                          <span style={rounded(16, 700)}>保存到相册</span>
+                        </STChoice>
+                        <button
+                          onClick={sharePoster}
+                          style={{ ...rounded(16, 700), color: 'var(--ink)', padding: '0 16px', minHeight: 40, borderRadius: 14, border: '2.5px solid var(--ink)' }}
+                        >分享</button>
+                      </>
+                    ) : null}
+                  </div>
+                  {savedMessage !== '' ? <div style={{ ...rounded(14, 600), color: 'var(--ai-green)' }}>{savedMessage}</div> : null}
+                  {busy ? <AIProgressLine since={startedAt} text={progress} /> : null}
+                  {errorText !== '' ? <div className="ai-select-text" style={{ ...rounded(15), color: 'var(--ai-red)' }}>{errorText}</div> : null}
+                  {posterURL !== '' ? (
+                    // 长图按屏幕宽度缩放，跟着整页往下滑
+                    <img
+                      src={posterURL}
+                      alt="复盘长图"
+                      style={{ width: '100%', height: 'auto', display: 'block', borderRadius: 12, border: '2px solid var(--ink)', flexShrink: 0 }}
+                    />
+                  ) : !busy && recap === null ? (
+                    <div style={{ ...rounded(15), color: dim(45) }}>
+                      让 AI 根据这一局的记录生成一张复盘长图，可以保存或发给玩家。
+                    </div>
+                  ) : null}
+                </>
+              )}
+            </div>
+          </>
+        ) : loaded ? (
+          <div style={{ ...rounded(17), flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>读取存档失败</div>
+        ) : <div style={{ flex: 1 }} />}
+        <AISettingsView open={showSettings} onClose={() => setShowSettings(false)} />
+      </div>
+    )
   }
 
   return (

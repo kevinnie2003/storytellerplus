@@ -2,10 +2,13 @@
 import { useState } from 'react'
 import { useGame } from '../game/store'
 import { teamCounts } from '../game/builtins'
+import { useCompact } from '../ui/compact'
 import { rounded } from '../ui/kit'
-import { cardColorOf, CardFront, HFlow, PlusCircleFill, usePresence } from './cards'
+import { cardColorOf, CardFront, CardGrid, HFlow, PlusCircleFill, usePresence } from './cards'
 import { ExtraRepeatedCharacterSelection } from './ExtraRepeatedCharacterSelection'
-import { setFlow, setSelectionState, useSetupFlow } from './flowState'
+import { ExtraSetupForSetup } from './ExtraSetupForSetup'
+import { setFlow, setSelectionState, teamNames, useSetupFlow } from './flowState'
+import { barButton, phoneHint, phoneScroll } from './mobileStyles'
 
 const sections: [string, string, string, number][] = [
   // 恶魔那行 iPad 版就是“恶魔， 应选”，逗号后面多一个空格
@@ -43,6 +46,70 @@ export function SetupCheck() {
     const sel = [...useSetupFlow.getState().extraRepeatedCardSelected]
     sel[index] = !sel[index]
     setFlow({ extraRepeatedCardSelected: sel })
+  }
+
+  const compact = useCompact()
+  if (compact) {
+    // 手机：四个阵营一段一段往下排，一行 4 张；数量和“玩家开抽”在底部操作条
+    const phoneHeading = (color: string, title: string, right?: React.ReactNode) => (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 6 }}>
+        <span style={{ width: 14, height: 14, borderRadius: 7, background: color, border: '2.5px solid var(--ink)', flexShrink: 0 }} />
+        <span style={{ ...rounded(19, 900), flex: 1, minWidth: 0 }}>{title}</span>
+        {right}
+      </div>
+    )
+    return (
+      <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', height: '100%' }}>
+        {extra.mounted ? (
+          <ExtraRepeatedCharacterSelection shown={extra.shown} onClose={() => setShowExtraCharacterSelection(false)} />
+        ) : null}
+        <div data-tour="setup.check" className="scroll-hidden" style={phoneScroll}>
+          <div style={phoneHint}>点牌选中，再点一下去掉。按每个阵营的应选张数选够，再点右下角“玩家开抽”</div>
+          {sections.map(([team, color, , countIndex], i) => {
+            const picked = deck.filter((c, index) => c.team === team && cardSelected[index]).length
+            return (
+              <div key={team} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {phoneHeading(color, `${teamNames[i]}，应选 ${teamCount[countIndex]} 张`, (
+                  <span style={{ ...rounded(14, 800), opacity: 0.65, flexShrink: 0 }}>已选 {picked}</span>
+                ))}
+                <CardGrid target={79} style={{ padding: 2 }}>
+                  {deck.map((c, index) => c.team === team ? (
+                    <div key={index} onClick={() => toggle(index)} style={{ width: 200, height: 300, ...cardWrap(cardSelected[index]) }}>
+                      <CardFront character={c} cardColor={color} dim={cardSelected[index] ? 1 : 0.7} />
+                    </div>
+                  ) : null)}
+                </CardGrid>
+              </div>
+            )
+          })}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {phoneHeading('var(--ink)', '添加重复角色')}
+            <CardGrid target={79} style={{ padding: 2 }}>
+              {extraRepeatedCharacters.map((c, index) => (
+                <div key={index} onClick={() => toggleExtra(index)} style={{ width: 200, height: 300, ...cardWrap(extraRepeatedCardSelected[index]) }}>
+                  <CardFront character={c} cardColor={cardColorOf(c.team, 'var(--ink)')} dim={extraRepeatedCardSelected[index] ? 1 : 0.7} />
+                </div>
+              ))}
+              <button
+                key="add"
+                aria-label="添加重复角色"
+                onClick={() => setShowExtraCharacterSelection(true)}
+                style={{
+                  width: 200, height: 300, borderRadius: 24, border: '8px dashed var(--ink)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                <PlusCircleFill size={100} />
+              </button>
+            </CardGrid>
+          </div>
+        </div>
+        <ExtraSetupForSetup
+          status={`已选 ${total} / ${playerCount} 张`}
+          extra={<button data-tour="setup.deal" style={barButton(true)} onClick={() => setSelectionState(12)}>玩家开抽</button>}
+        />
+      </div>
+    )
   }
 
   return (

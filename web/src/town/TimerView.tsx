@@ -22,7 +22,7 @@ const section: React.CSSProperties = {
   flex: '1 1 0', minHeight: 'min-content', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0, /* 两个 Text 之间 SwiftUI 默认不留空 */
 }
 
-export function TimerView() {
+export function TimerView({ compact = false }: { compact?: boolean } = {}) {
   const gameState = useGame((s) => s.gameState)
   const countdownSeconds = useSettings((s) => s.countdownSeconds)
 
@@ -176,6 +176,31 @@ export function TimerView() {
   })
 
   const night = gameState === 1 || gameState === 3
+  // 手机版：一行，阶段时长 + 计时器，点、双击、长按和大屏一样
+  if (compact) {
+    const small: React.CSSProperties = { ...rounded(12, 700), opacity: 0.6, lineHeight: 1.1 }
+    const t: React.CSSProperties = { ...mono(15, 700), lineHeight: 1.2 }
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+          <span style={small}>{night ? '夜晚' : gameState === 2 ? '白天' : '游戏'}</span>
+          <span style={t}>{gameState === 0 ? '00:00:00' : formatted((now - (night ? st.current.nightTimeStart : gameState === 2 ? st.current.dayTimeStart : st.current.gameStartTime)) / 1000)}</span>
+        </div>
+        <div
+          {...press}
+          ref={countdownRef}
+          onPointerDownCapture={() => { pressInCountdown.current = true }}
+          style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', cursor: 'pointer', padding: '2px 8px', borderRadius: 8, border: '2px solid var(--ink)' }}
+        >
+          <span style={small}>{countdownSeconds > 0 ? '倒计时' : '计时器'}</span>
+          <span style={{
+            ...t, color: timeUp ? '#fff' : 'var(--ink)', borderRadius: 4, padding: '0 2px',
+            background: timeUp && flash ? 'var(--demon)' : 'transparent',
+          }}>{gameState === 0 ? '00:00:00' : formatted(timerDisplay)}</span>
+        </div>
+      </div>
+    )
+  }
   return (
     <div
       {...press}

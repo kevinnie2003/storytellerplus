@@ -1,5 +1,5 @@
 // 配版用的卡牌正反面（CardFront.swift / CardBack.swift）和几个共用的小东西
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { Children, isValidElement, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { Character } from '../game/types'
 import { CachedImage } from '../ui/CachedImage'
 import { rounded } from '../ui/kit'
@@ -162,4 +162,52 @@ export function usePresence(open: boolean, ms: number) {
     return () => window.clearTimeout(t)
   }, [open, ms])
   return { mounted: mounted || open, shown: open && shown }
+}
+
+/**
+ * 手机上的牌格子：按宽度算一行几张（竖屏 3、4 张，横屏更多），200×300 的牌整张缩小放进格子。
+ * target：一张牌大约多宽，min：一行至少几张
+ */
+export function CardGrid({ target, min = 3, center, children, style, ...rest }: {
+  target: number
+  min?: number
+  /** 最后一行不满时居中（和 HFlow center 一样） */
+  center?: boolean
+  children: React.ReactNode
+  style?: React.CSSProperties
+} & React.HTMLAttributes<HTMLDivElement>) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [width, setWidth] = useState(0)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const cs = getComputedStyle(el)
+    setWidth(el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight))
+    const ro = new ResizeObserver(([e]) => setWidth(e.contentRect.width))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  const gap = 10
+  const cols = Math.max(min, Math.floor((width + gap) / (target + gap)))
+  const cell = width > 0 ? (width - gap * (cols - 1)) / cols : 0
+  return (
+    <div
+      {...rest}
+      ref={ref}
+      style={{
+        ...(center
+          ? { display: 'flex', flexWrap: 'wrap', justifyContent: 'center' }
+          : { display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }),
+        gap: `${gap + 4}px ${gap}px`, ...style,
+      }}
+    >
+      {Children.toArray(children).map((child, i) => (
+        <div key={isValidElement(child) && child.key !== null ? child.key : i} style={{ position: 'relative', height: cell * 1.5, width: center ? Math.floor(cell * 100) / 100 : undefined }}>
+          <div style={{ position: 'absolute', left: 0, top: 0, width: 200, height: 300, transform: `scale(${cell / 200})`, transformOrigin: 'top left' }}>
+            {child}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
 }

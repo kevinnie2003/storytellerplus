@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { createPortal } from 'react-dom'
 import { STChoice, rounded } from '../ui/kit'
 import { SFIcon } from '../ui/SFIcon'
+import { safeInsets, useCompact } from '../ui/compact'
 
 export type Corner = 'topLeading' | 'topTrailing' | 'bottomLeading' | 'bottomTrailing'
 
@@ -25,6 +26,8 @@ export interface TourStep {
   skipLabel?: string
   /** 圈出来的地方太大、旁边放不下时，指定说明卡片放在屏幕哪个角 */
   cardCorner?: Corner
+  /** 手机上说明卡片停在哪（不填就自己挑挡得最少的位置） */
+  phoneCard?: 'top' | 'middle' | 'bottom'
 }
 
 interface Rect { x: number; y: number; w: number; h: number }
@@ -78,9 +81,14 @@ export function TourOverlay({ steps, onFinish }: { steps: TourStep[]; onFinish: 
   const [rects, setRects] = useState<Rect[]>([])
   const [size, setSize] = useState({ w: window.innerWidth, h: window.innerHeight })
   const [drag, setDrag] = useState({ x: 0, y: 0 })
+  // 手机上卡片可以收成一行，免得挡住要点的地方
+  const [mini, setMini] = useState(false)
+  // 说明卡片的高度，手机上挑位置要用
+  const [cardH, setCardH] = useState(260)
   const dragStart = useRef<{ px: number; py: number; x: number; y: number } | null>(null)
   const doneAtEntry = useRef(false)
   const step = steps[index]
+  const compact = useCompact()
 
   const go = useCallback((to: number) => {
     if (to < 0 || to >= steps.length) return
@@ -89,6 +97,7 @@ export function TourOverlay({ steps, onFinish }: { steps: TourStep[]; onFinish: 
     // prepare 改的状态要等一下才生效，再看条件
     window.setTimeout(() => { doneAtEntry.current = steps[to].done?.() ?? false }, 500)
     setDrag({ x: 0, y: 0 })
+    setMini(false)
     setIndex(to)
   }, [steps])
 
@@ -112,6 +121,8 @@ export function TourOverlay({ steps, onFinish }: { steps: TourStep[]; onFinish: 
       const next = (step.targets ?? []).map(measure).filter((r): r is Rect => !!r)
       setRects((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next))
       setSize((prev) => (prev.w === window.innerWidth && prev.h === window.innerHeight ? prev : { w: window.innerWidth, h: window.innerHeight }))
+      const h = cardRef.current?.offsetHeight
+      if (h) setCardH((prev) => (prev === h ? prev : h))
       raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
@@ -168,7 +179,23 @@ export function TourOverlay({ steps, onFinish }: { steps: TourStep[]; onFinish: 
   const last = index === steps.length - 1
 
   let cardStyle: React.CSSProperties
-  if (step.cardCorner) {
+  if (compact) {
+    // 手机上卡片横跨整屏，停在上边或下边：圈出来的地方在下半屏就放上面，反过来放下面
+    // 手机上卡片横跨整屏，上下挑一个挡住圈出来的地方最少的位置（贴顶、贴底、或者紧挨着圈出来的地方）
+    const ch = cardH
+    const inset = safeInsets()
+    // 开着全屏面板时，不挡它的标题栏（关闭按钮在那里）
+    const lo = 8 + inset.top + (document.querySelector('[data-mobile-page]') ? 58 : 0); const hi = Math.max(lo, size.h - ch - 8 - inset.bottom)
+    const clamp = (y: number) => Math.min(Math.max(y, lo), hi)
+    const covered = (y0: number) => rects.reduce((sum, r) => sum + Math.max(0, Math.min(y0 + ch, r.y + r.h) - Math.max(y0, r.y)) * r.w, 0)
+    const candidates = step.phoneCard
+      ? [step.phoneCard === 'top' ? lo : step.phoneCard === 'bottom' ? hi : clamp((size.h - ch) / 2 + 40)]
+      : step.cardCorner
+      ? [step.cardCorner.startsWith('top') ? lo : hi]
+      : [lo, hi, ...rects.flatMap((r) => [clamp(r.y + r.h + 8), clamp(r.y - ch - 8)])]
+    const y = candidates.reduce((best, c) => (covered(c) < covered(best) ? c : best), candidates[0])
+    cardStyle = { position: 'absolute', left: 10, right: 10, top: y, transition: 'top .3s ease' }
+  } else if (step.cardCorner) {
     const c = step.cardCorner
     cardStyle = {
       position: 'absolute',
@@ -192,7 +219,7 @@ export function TourOverlay({ steps, onFinish }: { steps: TourStep[]; onFinish: 
       </svg>
       <div
         ref={cardRef}
-        style={{ ...cardStyle, width: CARD_W, marginLeft: drag.x, marginTop: drag.y, pointerEvents: 'auto' }}
+        style={{ ...cardStyle, width: compact ? undefined : CARD_W, marginLeft: drag.x, marginTop: drag.y, pointerEvents: 'auto' }}
         onPointerDown={(e) => {
           if ((e.target as HTMLElement).closest('button')) return
           dragStart.current = { px: e.clientX, py: e.clientY, x: drag.x, y: drag.y }
@@ -205,24 +232,31 @@ export function TourOverlay({ steps, onFinish }: { steps: TourStep[]; onFinish: 
         onPointerUp={() => { dragStart.current = null }}
       >
         <div style={{
-          display: 'flex', flexDirection: 'column', gap: 12, padding: 20, background: 'var(--paper)',
+          display: 'flex', flexDirection: 'column', gap: compact ? 8 : 12, padding: compact ? '12px 14px' : 20, background: 'var(--paper)',
           borderRadius: 18, outline: '3px solid var(--ink)', outlineOffset: -1.5, boxShadow: '0 6px 24px rgba(0,0,0,0.25)', color: 'var(--ink)',
         }}>
           <div style={{ display: 'flex', alignItems: 'center' }}>
             <span style={{ ...rounded(14, 700), opacity: 0.5 }}>{index + 1} / {steps.length}</span>
             <span style={{ opacity: 0.35, marginLeft: 6 }}><SFIcon name="arrow.up.and.down.and.arrow.left.and.right" size={12} weight="bold" /></span>
             <span style={{ flex: 1 }} />
-            <button onClick={onFinish} style={{ ...rounded(14, 700), opacity: 0.6 }}>退出教程</button>
+            {compact && mini ? null : <button onClick={onFinish} style={{ ...rounded(14, 700), opacity: 0.6 }}>退出教程</button>}
+            {compact ? (
+              <button onClick={() => setMini(!mini)} style={{ ...rounded(14, 800), marginLeft: 14, display: 'flex', alignItems: 'center', gap: 2, padding: '4px 0' }}>
+                {mini ? '展开' : '收起'}
+                <SFIcon name={mini ? 'chevron.down' : 'chevron.up'} size={14} weight="bold" />
+              </button>
+            ) : null}
           </div>
-          <div style={rounded(24, 900)}>{step.title}</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {step.lines.map((line, i) => <div key={i} style={{ ...rounded(17), lineHeight: 'calc(1.2em + 3px)' /* .lineSpacing(3) */ }}>{line}</div>)}
+          {compact && mini ? <div style={{ ...rounded(16, 900), marginTop: -4 }}>{step.title}</div> : <>
+          <div style={rounded(compact ? 19 : 24, 900)}>{step.title}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: compact ? 5 : 8 }}>
+            {step.lines.map((line, i) => <div key={i} style={{ ...rounded(compact ? 15 : 17), lineHeight: 'calc(1.2em + 3px)' /* .lineSpacing(3) */ }}>{line}</div>)}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
             <span style={{ flex: 1 }} />
             {step.done ? (
               <>
-                <span style={{ ...rounded(13, 600), opacity: 0.5 }}>照着做，完成后自动下一步</span>
+                <span style={{ ...rounded(13, 600), opacity: 0.5 }}>{compact ? '照着做，做完自动下一步' : '照着做，完成后自动下一步'}</span>
                 <STChoice selected={false} onClick={() => go(Math.min(index + (step.skipSteps ?? 1), steps.length - 1))}>
                   <span style={rounded(16, 700)}>{step.skipLabel ?? '帮我做'}</span>
                 </STChoice>
@@ -233,6 +267,7 @@ export function TourOverlay({ steps, onFinish }: { steps: TourStep[]; onFinish: 
               </STChoice>
             )}
           </div>
+          </>}
         </div>
       </div>
     </div>,

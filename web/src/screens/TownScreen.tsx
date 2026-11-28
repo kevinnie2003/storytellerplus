@@ -35,6 +35,8 @@ import { ArchiveView } from '../settings/ArchiveView'
 import { AIAdvisor, resetAIChat } from '../ai/AIAdvisor'
 import { AIPostDrawSheet } from '../ai/AIPostDrawSheet'
 import { uuid } from '../game/uuid'
+import { useCompact } from '../ui/compact'
+import { MobileTown } from '../mobile/MobileTown'
 
 /**
  * iPad Pro 11 寸横屏（iPadOS 26）的状态栏和底部横条留出的位置，界面和 iPad 上一样不顶到上下边。
@@ -162,6 +164,7 @@ export function TownScreen() {
   const showArchive = useGame((s) => s.showArchive)
   const showAIAdvisor = useGame((s) => s.showAIAdvisor)
   const showAIPostDraw = useGame((s) => s.showAIPostDraw)
+  const compact = useCompact()
 
   // onAppear / onDisappear，以及各种时候存档
   useLayoutEffect(() => {
@@ -214,11 +217,13 @@ export function TownScreen() {
 
   // iPad 版小镇本身是透明的，底下是 ContentView 的圆点底纹（圆桌摆法、卡片缝隙里都看得到）；新手教程的演示小镇是纯色底
   return (
-    <div className={demo ? undefined : 'dot-bg'} style={{ position: 'relative', width: '100%', height: '100%', background: demo ? 'var(--mainbg)' : undefined, color: 'var(--ink)', paddingTop: SAFE_TOP, paddingBottom: SAFE_BOTTOM, overflow: 'hidden' }}>
+    <div className={demo ? undefined : 'dot-bg'} style={{ position: 'relative', width: '100%', height: '100%', background: demo ? 'var(--mainbg)' : undefined, color: 'var(--ink)', paddingTop: compact ? 0 : SAFE_TOP, paddingBottom: compact ? 0 : SAFE_BOTTOM, overflow: 'hidden' }}>
       <style>{townCSS}</style>
       <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+        {/* 手机版另有一套摆法（mobile/MobileTown.tsx），下面盖着的面板两边共用 */}
+        {compact ? <MobileTown onExit={confirmExit} /> : null}
         {/* 主界面：左边菜单、中间卡片、传奇/计时器/伪装、右边信息和面板 */}
-        <div style={{ display: 'flex', gap: 8, height: '100%', alignItems: 'stretch' }}>
+        {compact ? null : <div style={{ display: 'flex', gap: 8, height: '100%', alignItems: 'stretch' }}>
           <MenuView onExit={confirmExit} />
 
           <div className="scroll-hidden" style={{
@@ -270,7 +275,7 @@ export function TownScreen() {
               </div>
             </div>
           </div>
-        </div>
+        </div>}
 
         {/* 盖在上面的面板，层次和 iPad 版一样 */}
         {selectNewCharacter ? <Layer z={11}><CharacterSelection /></Layer> : null}
@@ -282,9 +287,11 @@ export function TownScreen() {
         {showFabledCharactersSelection ? <Layer z={16}><FabledSelection /></Layer> : null}
         {showSetup ? <Layer z={17}><SetupView /></Layer> : null}
 
-        <div style={{ position: 'absolute', left: 0, right: 0, bottom: 24, zIndex: 50, display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}>
-          <div style={{ pointerEvents: 'auto' }}><UndoToast /></div>
-        </div>
+        {compact ? null : (
+          <div style={{ position: 'absolute', left: 0, right: 0, bottom: 24, zIndex: 50, display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}>
+            <div style={{ pointerEvents: 'auto' }}><UndoToast /></div>
+          </div>
+        )}
       </div>
 
       <AIAdvisor open={showAIAdvisor} onClose={() => setGame({ showAIAdvisor: false })} />

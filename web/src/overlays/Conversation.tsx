@@ -7,6 +7,8 @@ import { team2Int } from '../game/loadScript'
 import { showAlert } from '../ui/Alert'
 import { SFIcon } from '../ui/SFIcon'
 import { rounded } from '../ui/kit'
+import { useCompact } from '../ui/compact'
+import { HeaderButton, MobilePage } from '../mobile/MobilePage'
 import { ConversationLogView } from './ConversationLog'
 import { MenuPicker, OverlayLayer, panelHeight, stroke, systemGreen } from './common'
 import { renderToPng, saveImages, timestampName } from './exportImage'
@@ -37,6 +39,7 @@ export async function exportGameLog(width: number, playersAssignedCharacters: Ch
 function ConversationView() {
   const players = useGame((s) => s.playersAssignedCharacters)
   const allLogs = useGame((s) => s.allLogs)
+  const compact = useCompact()
   // 默认是最后一项“说书人”
   const [currentSelection, setCurrentSelection] = useState(() => game().playersAssignedCharacters.length)
   const [inputText, setInputText] = useState('')
@@ -48,7 +51,8 @@ function ConversationView() {
     // iPad 是 scrollTo(最后一条, anchor: .bottom)：最后一条贴着底边，下面那 20 的留白不露出来
     if (el) el.scrollTo({ top: Math.max(0, el.scrollHeight - el.clientHeight - 20), behavior: smooth ? 'smooth' : 'auto' })
   }
-  useLayoutEffect(() => { scrollToBottom(false) }, [])
+  // 换成手机或大屏布局时也滚到底
+  useLayoutEffect(() => { scrollToBottom(false) }, [compact])
   useEffect(() => { scrollToBottom(true) }, [allLogs.length])
 
   useEffect(() => {
@@ -94,6 +98,61 @@ function ConversationView() {
     ...players.map((p, i) => ({ value: i, label: `${i + 1}号 ${p.name}` })),
     { value: players.length, label: '说书人' },
   ]
+
+  if (compact) {
+    return (
+      <MobilePage
+        title="整局记录"
+        zIndex={114}
+        scroll={false}
+        onClose={() => setGame({ showConversation: false })}
+        right={<span data-tour="log.export" style={{ display: 'flex' }}><HeaderButton icon="square.and.arrow.down" label="长图" onClick={askExport} /></span>}
+      >
+        <div data-tour="log.panel" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
+          {exportedMessage ? (
+            <div style={{
+              position: 'absolute', top: 10, left: '50%', transform: 'translateX(-50%)', zIndex: 1, whiteSpace: 'nowrap',
+              ...rounded(15, 700), color: systemGreen, background: 'var(--mainbg)', padding: '6px 14px', borderRadius: 16,
+              outline: `2.5px solid ${systemGreen}`, outlineOffset: -1.25, animation: 'st-fade .2s ease-out',
+            }}>{exportedMessage}</div>
+          ) : null}
+          <div ref={scroller} className="scroll-hidden" style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
+            <div style={{ padding: '12px 10px 20px' }}>
+              <ConversationLogView allLogs={allLogs} playerCount={players.length} compact />
+            </div>
+          </div>
+          {/* 底栏：谁说的、说了什么、发送 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderTop: '3px solid var(--ink)', flexShrink: 0 }}>
+            <div style={{ flexShrink: 0, maxWidth: '38%', height: 44, display: 'flex', alignItems: 'center', padding: '0 4px', ...stroke(2.5, 12) }}>
+              <MenuPicker options={options} value={currentSelection} onChange={setCurrentSelection} tint="var(--ink)" style={{ width: '100%' }} />
+            </div>
+            <input
+              value={inputText}
+              placeholder="输入聊天内容"
+              enterKeyHint="send"
+              onChange={(e) => setInputText(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) send() }}
+              style={{
+                ...rounded(16, 600), color: 'var(--ink)', flex: 1, minWidth: 0, height: 44, padding: '0 12px',
+                background: 'transparent', border: 'none', ...stroke(2.5, 12),
+              }}
+            />
+            <button
+              aria-label="发送"
+              onClick={send}
+              disabled={inputText === ''}
+              style={{
+                width: 44, height: 44, borderRadius: 12, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: 'var(--ink)', color: 'var(--mainbg)', opacity: inputText === '' ? 0.35 : 1,
+              }}
+            >
+              <SFIcon name="paperplane.fill" size={20} />
+            </button>
+          </div>
+        </div>
+      </MobilePage>
+    )
+  }
 
   return (
     <OverlayLayer zIndex={14} background="var(--mainbg)" onDoubleTapBackground={() => setGame({ showConversation: false })}>

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNav } from '../nav'
 import { rounded, STBigButton } from '../ui/kit'
 import { SFIcon } from '../ui/SFIcon'
+import { useCompact } from '../ui/compact'
 import { SettingsView } from '../settings/SettingsView'
 import { ArchiveView } from '../settings/ArchiveView'
 import { AIScriptImport } from '../ai/AIScriptImport'
@@ -72,6 +73,7 @@ export function StartScreen() {
   const [showArchive, setShowArchive] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
   const chooser = usePresence(showStartChooser, 200)
+  const compact = useCompact()
 
   const enterNewGame = (items: Record<string, unknown>[]) => {
     useNav.setState({ playJSON: items, loadLast: false, viewNumber: 1 })
@@ -115,7 +117,10 @@ export function StartScreen() {
           <FilledQuestionCircle size={20} />
           <span>新手教程</span>
         </button>
-        <div style={{ fontFamily: 'system-ui, -apple-system, "PingFang SC", sans-serif', fontSize: 17, lineHeight: '22px' }}>
+        <div style={compact
+          // 手机上一行放不下，字小一点、居中换行
+          ? { fontFamily: 'system-ui, -apple-system, "PingFang SC", sans-serif', fontSize: 13, lineHeight: '18px', textAlign: 'center', padding: '0 24px', opacity: 0.8 }
+          : { fontFamily: 'system-ui, -apple-system, "PingFang SC", sans-serif', fontSize: 17, lineHeight: '22px' }}>
           本产品仍为测试版，遇到任何bug或有需求请大胆联系作者
         </div>
       </div>
@@ -126,9 +131,9 @@ export function StartScreen() {
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 18,
         pointerEvents: 'none',
       }}>
-        <div style={{ ...rounded(52, 900), marginBottom: 26 }}>说书人普拉斯</div>
-        <STBigButton title="开始游戏" systemImage="play.fill" filled onClick={() => setShowStartChooser(true)} style={{ width: 320, pointerEvents: 'auto' }} />
-        <STBigButton title="设置" systemImage="gearshape.fill" onClick={() => setShowSettings(true)} style={{ width: 320, pointerEvents: 'auto' }} />
+        <div style={{ ...rounded(compact ? 40 : 52, 900), marginBottom: compact ? 14 : 26 }}>说书人普拉斯</div>
+        <STBigButton title="开始游戏" systemImage="play.fill" filled onClick={() => setShowStartChooser(true)} style={{ width: compact ? 'min(320px, calc(100vw - 48px))' : 320, pointerEvents: 'auto' }} />
+        <STBigButton title="设置" systemImage="gearshape.fill" onClick={() => setShowSettings(true)} style={{ width: compact ? 'min(320px, calc(100vw - 48px))' : 320, pointerEvents: 'auto' }} />
       </div>
 
       {chooser.mounted ? (
@@ -145,6 +150,7 @@ export function StartScreen() {
             display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none',
           }}>
             <div style={{
+              ...(compact ? { maxHeight: '100%', display: 'flex' } : null),
               pointerEvents: chooser.visible ? 'auto' : 'none',
               opacity: chooser.visible ? 1 : 0, transform: chooser.visible ? 'none' : 'scale(0.95)',
               transition: 'opacity .2s ease-out, transform .2s ease-out',
@@ -211,6 +217,43 @@ function StartChooser({ lastGameName, onUploadJSON, onImageScript, onContinue, o
   onClose: () => void
 }) {
   const columnTitle: React.CSSProperties = { ...rounded(19, 700), color: 'color-mix(in srgb, var(--ink) 60%, transparent)' }
+  const compact = useCompact()
+  if (compact) {
+    // 手机上两组按钮上下排，中间一条横线；太矮时卡片里面滚
+    const title: React.CSSProperties = { ...rounded(16, 700), color: 'color-mix(in srgb, var(--ink) 60%, transparent)' }
+    return (
+      <div className="scroll-hidden" style={{
+        width: 'min(420px, calc(100vw - 32px))', maxHeight: '100%', overflowY: 'auto', padding: 16, /* 20 - 描边 4 */
+        display: 'flex', flexDirection: 'column', gap: 14,
+        background: 'var(--mainbg)', borderRadius: 22, border: '4px solid var(--ink)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <div style={rounded(22, 900)}>开始游戏</div>
+          <div style={{ flex: 1 }} />
+          <button
+            onClick={onClose}
+            style={{ width: 38, height: 38, margin: '-6px -8px -6px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink)' }}
+            aria-label="关闭"
+          >
+            <SFIcon name="xmark" size={20} weight="black" />
+          </button>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={title}>新的一局</div>
+          <STBigButton title="上传剧本 JSON" systemImage="doc.fill" filled onClick={onUploadJSON} />
+          <STBigButton title="用图片生成剧本" systemImage="photo.fill" onClick={onImageScript} />
+        </div>
+        <div style={{ height: 3, background: 'var(--ink)', flexShrink: 0 }} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={title}>接着玩</div>
+          {lastGameName ? (
+            <STBigButton title="继续上一局" subtitle={lastGameName} systemImage="arrow.uturn.backward" filled onClick={onContinue} />
+          ) : null}
+          <STBigButton title="打开存档" systemImage="tray.full.fill" onClick={onOpenArchive} />
+        </div>
+      </div>
+    )
+  }
   return (
     <div style={{
       width: 760, padding: 24, /* 28 - 描边 4 */ display: 'flex', flexDirection: 'column', gap: 22,

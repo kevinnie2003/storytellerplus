@@ -2,10 +2,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { Sheet } from '../ui/Sheet'
 import { rounded } from '../ui/kit'
+import { useCompact } from '../ui/compact'
 import { SFIcon } from '../ui/SFIcon'
 import { AIError, aiErrorText, aiExtractJSON, aiSendStreaming, chatMessage } from './client'
 import { scriptImportSystem, scriptImportUser, scriptRefineSystem, scriptRefineUser } from './prompts'
-import { AIPanelHeader, AIPillButton, AIPillLabel, AITextField, Spinner, aiPanelStyle, downloadBlob, isObject, strings, str } from './common'
+import {
+  AIPanelHeader, AIPillButton, AIPillLabel, AITextField, Spinner, aiCompactPadding, aiPanelStyle, downloadBlob, isObject, keyboardMargins, strings, str,
+  useKeyboardInset,
+} from './common'
 import { aiPrepareImage, applyPatch, compactJSON, fillIcons, isCharacter, type ScriptItem } from './scriptTools'
 
 export function AIScriptImport({ open, onClose, onEnter }: { open: boolean; onClose: () => void; onEnter: (items: Record<string, unknown>[]) => void }) {
@@ -31,6 +35,8 @@ function ImportBody({ onClose, onEnter }: { onClose: () => void; onEnter: (items
   const [showDetails, setShowDetails] = useState(false)
   const photoInput = useRef<HTMLInputElement>(null)
   const fileInput = useRef<HTMLInputElement>(null)
+  const compact = useCompact()
+  const keyboard = useKeyboardInset(compact)
 
   useEffect(() => () => { if (imageURL) URL.revokeObjectURL(imageURL) }, [imageURL])
 
@@ -155,6 +161,97 @@ function ImportBody({ onClose, onEnter }: { onClose: () => void; onEnter: (items
   const exportJSON = () => {
     const blob = new Blob([JSON.stringify(script, null, 2)], { type: 'application/json' })
     downloadBlob(blob, `${scriptName}.json`)
+  }
+
+  if (compact) {
+    // 手机上图片在上、结果在下，整页一起滚
+    const enter = () => {
+      const items = script
+      onClose()
+      onEnter(items)
+    }
+    return (
+      <div style={{ ...aiPanelStyle(10, aiCompactPadding), ...keyboardMargins(keyboard) }}>
+        <AIPanelHeader title="图片生成剧本" onClose={onClose} />
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column', gap: 12, paddingBottom: 8 }}>
+          <div style={{
+            height: script.length > 0 ? 200 : 'min(46vh, 340px)', flexShrink: 0, position: 'relative',
+            background: 'var(--paper)', borderRadius: 14, border: '3px solid var(--ink)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+          }}>
+            {imageURL ? (
+              <img src={imageURL} alt="" draggable={false} style={{ position: 'absolute', inset: 6, width: 'calc(100% - 12px)', height: 'calc(100% - 12px)', objectFit: 'contain' }} />
+            ) : (
+              <span style={{ ...rounded(16), color: 'var(--ai-secondary)' }}>选择一张剧本图片</span>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button onClick={() => photoInput.current?.click()}><AIPillLabel text="从相册选" /></button>
+            <button onClick={() => fileInput.current?.click()}><AIPillLabel text="从文件选" /></button>
+            <input ref={photoInput} type="file" accept="image/*" hidden onChange={onPick} />
+            <input ref={fileInput} type="file" accept="image/*,.heic,.heif" hidden onChange={onPick} />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <AIPillButton text={script.length === 0 ? '生成剧本' : '整份重新生成'} filled={script.length === 0} onClick={generate} disabled={busy || image === null} />
+            {busy ? (
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                <Spinner />
+                <span style={rounded(15, 600)}>{progress}</span>
+              </span>
+            ) : null}
+          </div>
+          {errorText !== '' ? <div className="ai-select-text" style={{ ...rounded(15), color: 'var(--ai-red)' }}>{errorText}</div> : null}
+          {script.length > 0 ? (
+            <>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
+                <div style={{ ...rounded(20, 900), wordBreak: 'break-word' }}>{scriptName}</div>
+                <div style={{ ...rounded(14, 600), color: 'var(--ai-secondary)' }}>{countsLine}</div>
+                {lastChange !== '' ? <div style={{ ...rounded(14, 600), color: 'var(--ai-green)' }}>{`已修改：${lastChange}`}</div> : null}
+                {notes.length === 0 ? (
+                  <div style={{ ...rounded(15), paddingTop: 4 }}>没有需要确认的地方。</div>
+                ) : (
+                  <>
+                    <div style={{ ...rounded(15, 700), paddingTop: 4 }}>需要你确认（点一下可以直接回复）</div>
+                    {notes.map((note, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setReply(`关于“${note}”：`)}
+                        style={{
+                          ...rounded(15), color: 'var(--ink)', textAlign: 'left', width: '100%', padding: 8, minHeight: 36,
+                          background: 'var(--paper)', borderRadius: 10, border: '2px solid var(--ink)',
+                        }}
+                      >{`${i + 1}. ${note}`}</button>
+                    ))}
+                  </>
+                )}
+                <button
+                  onClick={() => setShowDetails((v) => !v)}
+                  style={{ ...rounded(15, 600), color: 'var(--ai-secondary)', display: 'flex', alignItems: 'center', gap: 4, minHeight: 36 }}
+                >
+                  <SFIcon name={showDetails ? 'chevron.down' : 'chevron.right'} size={14} weight="semibold" />
+                  <span>夜晚顺序和图标</span>
+                </button>
+                {showDetails ? (
+                  <>
+                    <div style={rounded(14)}>{`首夜：${nightOrder('firstNight')}`}</div>
+                    <div style={rounded(14)}>{`其他夜晚：${nightOrder('otherNight')}`}</div>
+                    <div style={rounded(14)}>{missingIcons.length === 0 ? '所有角色都有图标。' : `没有图标：${missingIcons.join('、')}`}</div>
+                  </>
+                ) : null}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
+                <AITextField value={reply} onChange={setReply} placeholder="回复 AI 或者提修改" maxLines={4} fontSize={16} onSubmit={refine} />
+                <AIPillButton text="修改" onClick={refine} disabled={busy || reply.trim() === ''} />
+              </div>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <AIPillButton text="进入小镇" filled disabled={busy} onClick={enter} />
+                <AIPillButton text="保存 JSON" onClick={exportJSON} disabled={busy} />
+              </div>
+            </>
+          ) : null}
+        </div>
+      </div>
+    )
   }
 
   return (

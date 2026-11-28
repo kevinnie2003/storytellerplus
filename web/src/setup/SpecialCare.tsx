@@ -3,7 +3,11 @@ import { useState } from 'react'
 import type { Character } from '../game/types'
 import { teamColor } from '../game/teams'
 import { CachedImage } from '../ui/CachedImage'
+import { MobilePage } from '../mobile/MobilePage'
+import { useCompact } from '../ui/compact'
 import { rounded } from '../ui/kit'
+import { MobileBar } from './MobileBar'
+import { barButton, phoneHint } from './mobileStyles'
 
 function SpecialCareCharacterCard({ character }: { character: Character }) {
   return (
@@ -59,6 +63,44 @@ export function SpecialCare({ shown, merged, selectedCardIndices, specialCarePla
     }
   }
 
+  const list = ['townsfolk', 'outsider', 'minion', 'demon'].map((team) => merged.map((c, index) => c.team === team ? (
+    <div
+      key={`${team}-${index}`}
+      onClick={() => tap(index)}
+      style={{
+        transform: `scale(${preSelectedIndex === index ? 1 : 0.95})`,
+        opacity: selectedCardIndices.has(index) || values.has(index) ? 0.5 : 1,
+        transition: spring, cursor: 'pointer', flexShrink: 0,
+      }}
+    >
+      <SpecialCareCharacterCard character={c} />
+    </div>
+  ) : null))
+
+  const compact = useCompact()
+  if (compact) {
+    // 手机：全屏一页，底下确认/返回
+    if (!shown) return null
+    return (
+      <MobilePage
+        title={`为${currentSelectingPlayerIndex + 1}号提前选角色`}
+        onClose={onClose}
+        zIndex={118}
+        scroll={false}
+        bodyStyle={{ paddingBottom: 0 }}
+      >
+        <div className="scroll-hidden" style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column', gap: 4, padding: '12px 4px 20px' }}>
+          <div style={{ ...phoneHint, padding: '0 10px 6px' }}>点一张牌定给这个座位，再点一下取消。变淡的牌已经被抽走或定给别人了</div>
+          {list}
+        </div>
+        <MobileBar>
+          <button style={barButton()} onClick={onClose}>返回</button>
+          <button style={barButton(true)} onClick={onClose}>确认</button>
+        </MobileBar>
+      </MobilePage>
+    )
+  }
+
   const btn: React.CSSProperties = {
     ...rounded(20, 700), color: 'var(--ink)', padding: '7px 19px', border: '2px solid var(--ink)', borderRadius: 20, // 描边不占位置，减掉 1
     margin: '20px 30px', whiteSpace: 'nowrap',
@@ -77,19 +119,7 @@ export function SpecialCare({ shown, merged, selectedCardIndices, specialCarePla
       }}>
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ ...rounded(25, 700), padding: '25px 0', textAlign: 'center', flexShrink: 0 }}>为{currentSelectingPlayerIndex + 1}号玩家提前选择角色</div>
-          {['townsfolk', 'outsider', 'minion', 'demon'].map((team) => merged.map((c, index) => c.team === team ? (
-            <div
-              key={`${team}-${index}`}
-              onClick={() => tap(index)}
-              style={{
-                transform: `scale(${preSelectedIndex === index ? 1 : 0.95})`,
-                opacity: selectedCardIndices.has(index) || values.has(index) ? 0.5 : 1,
-                transition: spring, cursor: 'pointer', flexShrink: 0,
-              }}
-            >
-              <SpecialCareCharacterCard character={c} />
-            </div>
-          ) : null))}
+          {list}
         </div>
         <div style={{ display: 'flex', justifyContent: 'center', flexShrink: 0 }}>
           <button style={btn} onClick={onClose}>确认</button>

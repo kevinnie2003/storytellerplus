@@ -1,5 +1,6 @@
 // 设置、存档、开始页共用的小组件，对应 iPad 版 Settings/STStyle.swift
 import { SFIcon } from './SFIcon'
+import { useCompact } from './compact'
 
 /**
  * iPad 上 .rounded / .monospaced 的 .semibold 遇到汉字时，实际画出来只有苹方 Medium 那么粗
@@ -35,6 +36,21 @@ export const mono = (size: number, weight: number | string = 400): React.CSSProp
 /** SwiftUI 字重：.semibold 600 .bold 700 .heavy 800 .black 900 */
 
 export function STSection({ title, children }: { title: string; children: React.ReactNode }) {
+  const compact = useCompact()
+  // 手机上标题和框里的留白都小一号
+  if (compact) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 }}>
+        <div style={rounded(20, 900)}>{title}</div>
+        <div style={{
+          display: 'flex', flexDirection: 'column', gap: 18, padding: 13, minWidth: 0,
+          background: 'var(--paper)', borderRadius: 16, border: '3px solid var(--ink)',
+        }}>
+          {children}
+        </div>
+      </div>
+    )
+  }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={rounded(24, 900)}>{title}</div>
@@ -49,6 +65,18 @@ export function STSection({ title, children }: { title: string; children: React.
 }
 
 export function STRow({ title, hint, children }: { title: string; hint?: string; children?: React.ReactNode }) {
+  const compact = useCompact()
+  if (compact) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <div style={rounded(17, 700)}>{title}</div>
+          {hint ? <div style={{ ...rounded(14), opacity: 0.55 }}>{hint}</div> : null}
+        </div>
+        {children}
+      </div>
+    )
+  }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -89,11 +117,12 @@ export function STChoiceRow<T>({ options, value, onChange }: {
   value: T
   onChange: (v: T) => void
 }) {
+  const compact = useCompact()
   return (
-    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', gap: compact ? 8 : 10, flexWrap: 'wrap' }}>
       {options.map(([v, label], i) => (
         <STChoice key={i} selected={v === value} onClick={() => onChange(v)}>
-          <span style={rounded(17, 700)}>{label}</span>
+          <span style={rounded(compact ? 16 : 17, 700)}>{label}</span>
         </STChoice>
       ))}
     </div>
@@ -108,6 +137,29 @@ export function STBigButton({ title, subtitle, systemImage, filled, onClick, sty
   onClick: () => void
   style?: React.CSSProperties
 }) {
+  const compact = useCompact()
+  if (compact) {
+    // 手机上矮一点、字小一号
+    return (
+      <button
+        onClick={onClick}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 12, width: '100%', minHeight: 60,
+          padding: '8px 14px', textAlign: 'left',
+          color: filled ? 'var(--paper)' : 'var(--ink)',
+          background: filled ? 'var(--ink)' : 'var(--paper)',
+          borderRadius: 16, border: '3px solid var(--ink)',
+          ...style,
+        }}
+      >
+        {systemImage ? <span style={{ width: 28, display: 'flex', justifyContent: 'center', flexShrink: 0 }}><SFIcon name={systemImage} size={22} weight="bold" /></span> : null}
+        <span style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>
+          <span style={rounded(19, 900)}>{title}</span>
+          {subtitle ? <span style={{ ...rounded(14), opacity: 0.65, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{subtitle}</span> : null}
+        </span>
+      </button>
+    )
+  }
   return (
     <button
       onClick={onClick}
@@ -130,6 +182,18 @@ export function STBigButton({ title, subtitle, systemImage, filled, onClick, sty
 }
 
 export function STPageHeader({ title, onClose }: { title: string; onClose: () => void }) {
+  const compact = useCompact()
+  if (compact) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+        <div style={{ ...rounded(22, 900), flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
+        <button
+          onClick={onClose}
+          style={{ ...rounded(16, 900), color: 'var(--paper)', background: 'var(--ink)', padding: '0 18px', height: 38, borderRadius: 999, flexShrink: 0 }}
+        >完成</button>
+      </div>
+    )
+  }
   return (
     <div style={{ display: 'flex', alignItems: 'center' }}>
       <div style={rounded(34, 900)}>{title}</div>

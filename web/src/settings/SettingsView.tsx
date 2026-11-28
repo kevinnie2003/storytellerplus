@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Sheet } from '../ui/Sheet'
 import { showAlert } from '../ui/Alert'
 import { SFIcon } from '../ui/SFIcon'
+import { useCompact } from '../ui/compact'
 import { rounded, STChoice, STChoiceRow, STPageHeader, STRow, STSection } from '../ui/kit'
 import { AISettingsView } from '../ai/AISettingsView'
 import { defaultNotepadTags, useSettings } from './store'
@@ -19,14 +20,15 @@ function savantTruths(total: number): number[] {
 const set = useSettings.getState().set
 
 /** 卡片布局的小示意图：每行 n 张 */
-function CardLayoutPreview({ perRow, selected }: { perRow: number; selected: boolean }) {
+function CardLayoutPreview({ perRow, selected, width = 96 }: { perRow: number; selected: boolean; width?: number }) {
   const ink = selected ? 'var(--paper)' : 'var(--ink)'
+  const gap = width < 96 ? 3 : 4
   return (
-    <div style={{ width: 96, display: 'flex', flexDirection: 'column', gap: 4 }}>
+    <div style={{ width, display: 'flex', flexDirection: 'column', gap }}>
       {[0, 1].map((r) => (
-        <div key={r} style={{ display: 'flex', gap: 4 }}>
+        <div key={r} style={{ display: 'flex', gap }}>
           {Array.from({ length: perRow }, (_, i) => (
-            <div key={i} style={{ flex: 1, height: 22, borderRadius: 3, background: ink, opacity: 0.85 }} />
+            <div key={i} style={{ flex: 1, height: width < 96 ? 16 : 22, borderRadius: 3, background: ink, opacity: 0.85 }} />
           ))}
         </div>
       ))}
@@ -47,6 +49,7 @@ export function SettingsView({ open, onClose }: { open: boolean; onClose: () => 
 
 function SettingsContent({ onClose }: { onClose: () => void }) {
   const s = useSettings()
+  const compact = useCompact()
   const [showAISettings, setShowAISettings] = useState(false)
   const [aiHint, setAIHint] = useState(aiSettingsHint)
   const [newTag, setNewTag] = useState('')
@@ -66,10 +69,10 @@ function SettingsContent({ onClose }: { onClose: () => void }) {
   const savantTrueOptions: [number, string][] = [[t[0], '真的多一些'], [t[1], '一半一半'], [t[2], '假的多一些']]
 
   return (
-    <div style={{ flex: 1, minHeight: 0, padding: 28, display: 'flex', flexDirection: 'column', gap: 18 }}>
+    <div style={{ flex: 1, minHeight: 0, padding: compact ? '12px 16px 0' : 28, display: 'flex', flexDirection: 'column', gap: compact ? 12 : 18 }}>
       <STPageHeader title="设置" onClose={onClose} />
-      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 28, paddingBottom: 30 }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: compact ? 'hidden' : undefined }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: compact ? 22 : 28, paddingBottom: 30 }}>
           <STSection title="外观">
             <STRow title="深色模式" hint={s.appearance === 'game' ? '入夜自动变深色，天亮变回浅色' : ''}>
               <STChoiceRow<'light' | 'dark' | 'game'>
@@ -84,14 +87,21 @@ function SettingsContent({ onClose }: { onClose: () => void }) {
             <STRow title="摆法">
               <STChoiceRow options={[[false, '网格'], [true, '圆桌']]} value={s.circleLayout} onChange={(v) => set('circleLayout', v)} />
             </STRow>
-            {!s.circleLayout ? (
+            {/* 手机上卡片固定两列，不显示这一项 */}
+            {!s.circleLayout && !compact ? (
               <STRow title="每行几张">
-                <div style={{ display: 'flex', gap: 12 }}>
+                {/* 手机上四个选项平分一行，示意图缩小 */}
+                <div style={{ display: 'flex', gap: compact ? 6 : 12 }}>
                   {[2, 3, 4, 5].map((n) => (
-                    <STChoice key={n} selected={s.cardsPerRow === n} onClick={() => set('cardsPerRow', n)}>
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '4px 0' }}>
-                        <CardLayoutPreview perRow={n} selected={s.cardsPerRow === n} />
-                        <span style={rounded(16, 700)}>{n} 张</span>
+                    <STChoice
+                      key={n}
+                      selected={s.cardsPerRow === n}
+                      onClick={() => set('cardsPerRow', n)}
+                      style={compact ? { flex: '1 1 0', minWidth: 0, padding: '6px 4px' } : undefined}
+                    >
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: compact ? 6 : 8, padding: '4px 0' }}>
+                        <CardLayoutPreview perRow={n} selected={s.cardsPerRow === n} width={compact ? 48 : 96} />
+                        <span style={rounded(compact ? 15 : 16, 700)}>{n} 张</span>
                       </div>
                     </STChoice>
                   ))}
@@ -99,7 +109,7 @@ function SettingsContent({ onClose }: { onClose: () => void }) {
               </STRow>
             ) : null}
             <STRow title="字号">
-              <div style={{ display: 'flex', gap: 10 }}>
+              <div style={{ display: 'flex', gap: compact ? 8 : 10, flexWrap: compact ? 'wrap' : undefined }}>
                 {([[0.85, '小'], [1.0, '中'], [1.15, '大']] as const).map(([scale, name]) => (
                   <STChoice key={name} selected={s.cardFontScale === scale} onClick={() => set('cardFontScale', scale)}>
                     <span style={{ ...rounded(17 * scale, 700), whiteSpace: 'pre' }}>{`${name}  占卜师`}</span>
@@ -137,13 +147,16 @@ function SettingsContent({ onClose }: { onClose: () => void }) {
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                 {s.notepadTags.map((tag) => (
                   <div key={tag} style={{
-                    display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px',
+                    display: 'flex', alignItems: 'center', gap: compact ? 0 : 6, padding: compact ? '0 0 0 10px' : '4px 8px',
                     borderRadius: 10, border: '2px solid var(--ink)',
                   }}>
-                    <span style={rounded(17, 600)}>{tag}</span>
+                    <span style={rounded(compact ? 16 : 17, 600)}>{tag}</span>
                     <button
                       onClick={() => set('notepadTags', useSettings.getState().notepadTags.filter((x) => x !== tag))}
-                      style={{ color: 'var(--ink)' }}
+                      // 手机上叉号的点击区域放大到 36
+                      style={compact
+                        ? { color: 'var(--ink)', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center' }
+                        : { color: 'var(--ink)' }}
                       aria-label={`删掉${tag}`}
                     >
                       <SFIcon name="xmark" size={12} weight="black" />
@@ -151,21 +164,21 @@ function SettingsContent({ onClose }: { onClose: () => void }) {
                   </div>
                 ))}
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: compact ? 'wrap' : undefined }}>
                 <input
                   value={newTag}
                   placeholder="加一个常用词"
                   onChange={(e) => setNewTag(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) addTag() }}
                   style={{
-                    ...rounded(17), flex: '1 1 320px', minWidth: 0, maxWidth: 320, padding: 8, outline: 'none',
+                    ...rounded(17), flex: compact ? '1 1 0' : '1 1 320px', minWidth: 0, maxWidth: compact ? undefined : 320, padding: 8, outline: 'none',
                     background: fieldBg, borderRadius: 12, border: '2px solid var(--ink)',
                   }}
                 />
                 <STChoice selected onClick={addTag}>
                   <span style={label17}>添加</span>
                 </STChoice>
-                <div style={{ flex: 1 }} />
+                {compact ? null : <div style={{ flex: 1 }} />}
                 <button
                   onClick={() => showAlert({
                     title: '恢复成默认的常用词吗？',
@@ -175,7 +188,10 @@ function SettingsContent({ onClose }: { onClose: () => void }) {
                       { label: '恢复', role: 'destructive', action: () => set('notepadTags', defaultNotepadTags) },
                     ],
                   })}
-                  style={{ ...rounded(16, 600), color: 'color-mix(in srgb, var(--ink) 60%, transparent)' }}
+                  style={{
+                    ...rounded(16, 600), color: 'color-mix(in srgb, var(--ink) 60%, transparent)',
+                    ...(compact ? { minHeight: 36, padding: '0 4px' } : null),
+                  }}
                 >恢复默认</button>
               </div>
             </STRow>

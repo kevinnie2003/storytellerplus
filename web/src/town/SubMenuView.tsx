@@ -4,6 +4,7 @@ import { useSettings, settings } from '../settings/store'
 import { addPlayer, canRemoveLastPlayer, randomAssign, removeLastPlayer, startGame } from '../game/actions'
 import { SFIcon } from '../ui/SFIcon'
 import { rounded } from '../ui/kit'
+import { useCompact } from '../ui/compact'
 
 function Row({ title, icon, onClick }: { title: string; icon: string; onClick: () => void }) {
   return (
@@ -34,12 +35,19 @@ export function SubMenuView() {
   const canRemove = useGame((s) => canRemoveLastPlayer(s))
   const hideTeamColors = useSettings((s) => s.hideTeamColors)
   const close = () => setGame({ showMenu: false })
+  const compact = useCompact()
 
   return (
     <>
       {/* 点面板外面收起；整层往右挪了 65，左边的图标栏还能点 */}
-      <div onClick={close} style={{ position: 'fixed', top: 0, bottom: 0, left: 65, right: 0 }} />
-      <div style={{
+      <div onClick={close} style={{ position: 'fixed', top: 0, bottom: 0, left: compact ? 0 : 65, right: 0 }} />
+      <div style={compact ? {
+        // 手机版：从右上角的齿轮弹下来
+        position: 'fixed', right: 10, top: 'calc(env(safe-area-inset-top) + 58px)', width: 'min(280px, calc(100vw - 20px))',
+        background: 'var(--paper)', borderRadius: 16, outline: '3px solid var(--ink)', outlineOffset: -1.5, overflow: 'hidden',
+        display: 'flex', flexDirection: 'column', transformOrigin: 'top right', animation: 'st-submenu-in .2s ease-in-out',
+        boxShadow: '0 8px 24px rgba(0,0,0,0.2)', zIndex: 1,
+      } : {
         // iPad 的描边是 overlay 画在边上的，不占里面的位置；用 outline 往里收一半，里面的内容才和 iPad 一样宽
         position: 'absolute', left: 65, bottom: 70, width: 280, background: 'var(--paper)', borderRadius: 16,
         outline: '3px solid var(--ink)', outlineOffset: -1.5, overflow: 'hidden', display: 'flex', flexDirection: 'column',

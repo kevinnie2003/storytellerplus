@@ -5,6 +5,8 @@ import { defaultCharacter, type Character } from '../game/types'
 import { fillSetupBag, setSelectionState, useSetupFlow, scrollSetupDeal } from '../setup/flowState'
 import { settings, useSettings } from '../settings/store'
 import type { TourStep } from './TourOverlay'
+import { isCompact } from '../ui/compact'
+import { setMobileUI } from '../mobile/uiStore'
 
 /** 演示局用的 8 个角色（暗流涌动 8 人：5 镇民、1 外来者、1 爪牙、1 恶魔） */
 function demoRoster(): Character[] {
@@ -103,7 +105,9 @@ function scrollTown(to: 'top' | 'setup') {
 
 function closePanels(menu = false, scroll: 'top' | 'setup' = 'top') {
   scrollTown(scroll)
-  setGame({ showMenu: menu, selectNewReminder: false, showNotepad: false, showConversation: false })
+  setGame({ showMenu: menu, selectNewReminder: false, showNotepad: false, showConversation: false, showAllCharacterInfos: false })
+  // 手机版：关掉信息页、收起底部的流程面板
+  setMobileUI({ info: false, sheetExpanded: false })
 }
 
 export function finishDemoState() {
@@ -282,5 +286,152 @@ export function tourSteps(): TourStep[] {
     ],
   })
   void scrollSetupDeal
+  if (isCompact()) applyPhone(steps)
   return steps
+}
+
+/** 手机版的教程：位置和说法不一样的步骤换掉文字，要用信息页、流程面板的步骤先把它们打开 */
+function applyPhone(steps: TourStep[]) {
+  const openInfo = () => window.setTimeout(() => setMobileUI({ info: true }), 50)
+  const expandSheet = () => setMobileUI({ sheetExpanded: true })
+  const patch: Record<string, Partial<TourStep> & { after?: () => void }> = {
+    '带你完整走一局': { lines: [
+      '这是一个用《暗流涌动》开的 8 人演示局，从配版、玩家抽卡一直走到夜里。',
+      '演示不会存档，也不会影响你的上一局，随时可以点“退出教程”。',
+      '有“照着做”的步骤，请直接在圈出来的地方操作；不想动手就点“帮我做”。说明卡片挡住了可以拖开。',
+    ] },
+    '先定人数': { lines: [
+      '点右上角的齿轮打开面板（再点一下收起），用 + − 调玩家人数。',
+      '演示局已经是 8 人。面板里还有随机分配角色、隐藏阵营颜色、存档和设置。',
+    ] },
+    '开始配版': { lines: [
+      '卡片下面有三个按钮：',
+      '说书人配版：自己定数量、抽牌。AI配版：让 AI 直接配好（要先填 AI Key）。AI补完配版：发完角色后让 AI 安排醉酒、红鲱鱼、恶魔伪装。',
+      '现在点“说书人配版”。',
+    ] },
+    '配版 1：各阵营数量': { lines: [
+      '不需要玩家参与配版，就直接点下面的“确认”。',
+      '这里的数量只在“让玩家自己抽角色”时有用。',
+    ] },
+    '配版 2：让玩家抽（可跳过）': { lines: [
+      '不需要玩家参与配版，就直接点“确认”，到下一页由你自己选角色。',
+      '想让玩家参与时，把手机递给玩家，让他在背面朝上的牌里点几张。',
+    ] },
+    '配版 3：自己选角色': { lines: [
+      '点一下牌选中，再点一下去掉。8 人局是 1 恶魔、1 爪牙、1 外来者、5 镇民，要放两张同样的角色就点 ⊕。',
+      '选够 8 张后点底部的“玩家开抽”。',
+    ], targets: ['setup.check', 'setup.deal'] },
+    '抽卡：第一位玩家': { lines: [
+      '双击上面的“1号”选中他，然后让 1 号长按一张牌，牌会翻开显示他的角色。看完把手机传给下一位。',
+      '长按号码可以提前给这个座位指定一张牌。卡片挡住牌了就点“收起”。',
+    ], cardCorner: 'bottomLeading' },
+    '抽卡：其他玩家': { lines: [
+      '其他人照样：双击号码，再长按一张牌。号码后面变成 ✓ 就是抽好了。',
+      '全部抽完点“确认”回到小镇。',
+    ], phoneCard: 'middle' },
+    '直接给座位换角色': { lines: [
+      '回到小镇，每张卡片就是一个座位。点卡片右边的头像，在弹出的列表里点一下新角色就能换。',
+      '弹出的面板都是点右上角的 ✕ 关掉。',
+    ] },
+    '恶魔伪装': { lines: [
+      '底部“信息”页里有恶魔伪装：首夜给恶魔看的三个不在场的善良角色。',
+      '点一个格子选角色。用 AI补完配版的话，AI 会帮你选好。',
+    ], after: openInfo },
+    '开始游戏': { lines: [
+      '所有人都有角色后，打开右上角的齿轮面板，点“开始游戏”，进入第一夜。',
+      '分好角色就会自动存档。现在点“开始游戏”。',
+    ] },
+    '首夜：按顺序唤醒': { lines: [
+      '底部的流程面板按顺序列出今晚要唤醒的角色和该说的话，点标题栏可以收起和拉起。',
+      '现在点一下列表里的一项，表示正在唤醒他，会记进整局记录。',
+    ], after: expandSheet },
+    '给玩家看信息：打开记事本': { lines: [
+      '首夜先唤醒爪牙，告诉他们谁是恶魔；再唤醒恶魔，告诉他谁是爪牙和三个伪装角色。这种时候用记事本拼出来举给玩家看。',
+      '点底部的“记事本”。',
+    ] },
+    '选一个标签': { phoneCard: 'middle' },
+    '加标签': { lines: ['夜里有人中毒、醉酒，就给他挂标签。点 1 号卡片下方的 ⊕。'] },
+    '删除和倒置标签': { lines: [
+      '标签显示在卡片下方。双击删掉，长按 1 秒倒置。',
+      '删错了点屏幕下方出现的“撤销”。',
+    ] },
+    '全局标签': { lines: ['最上面这一栏给全场的效果挂标签。点 ⊕ 添加，双击删除，长按 1 秒倒置。'] },
+    '天亮': { lines: [
+      '夜里的事都做完了，点上面的太阳天亮。',
+      '第一夜恶魔不杀人，所以第一天早上没有人死。',
+    ] },
+    '提名': { lines: [
+      '白天流程面板换成投票。先点提名者的号码，点“确认”；再点被提名者的号码，点“确认”。',
+      '提名过、被提名过的人会分到下面。',
+    ], after: expandSheet },
+    '投票': { lines: [
+      '从提示的座位开始，逐个点举手的人，再点一下取消。上面会实时显示当前几票。',
+      '点“投票”记下这次提名。',
+    ], after: expandSheet },
+    '处决': { lines: [
+      '“处决”页列出今天所有提名和票数，票数最高且过半的会反色显示。',
+      '要处决谁，就收起面板，点他的座位号让他死亡。',
+    ], after: expandSheet },
+    '计时器': { lines: [
+      '左边是当前白天或夜晚的时长。右边的计时器：点一下暂停或继续，双击归零，长按选倒计时。',
+    ] },
+    '局势和相克': { lines: [
+      '“信息”页最上面是各阵营应有和实有的数量、存活人数。',
+      '下面自动列出相克规则，以及和提名、投票、处决有关的能力。',
+    ], after: openInfo },
+    '传奇角色': { lines: ['点 ⊕ 选这局用的传奇角色，双击已选的移除。'], after: openInfo },
+    'AI 说书': { lines: [
+      '局中随时问 AI，比如“给占卜师编今晚的信息”，它会结合魔典和整局记录回答。要先在设置里填好 AI Key。',
+    ] },
+    '角色能力': { lines: ['“信息”页最下面能看到剧本里所有角色的能力。'], after: () => {
+      openInfo()
+      window.setTimeout(() => document.querySelector('[data-tour="menu.infos"]')?.scrollIntoView({ block: 'end', behavior: 'smooth' }), 400)
+    } },
+    '整局记录': { lines: ['发角色、标签、死亡、提名投票都会自动记下来。点底部的“记录”打开看看。'] },
+    '记发言、存长图': { lines: [
+      '下面选一个玩家，输入他说的话点“发送”，就会记进去。',
+      '右上角的“长图”会把整局记录画成一张长图。',
+      '看完点右上角的 ✕ 关掉，会自动进入下一步。',
+    ] },
+    '入夜': { lines: ['一天结束，点上面的月亮入夜。'] },
+    '存档、复盘和离开': { lines: [
+      '齿轮面板里的“存档”能看到所有局，可以载入继续，也能看复盘、让 AI 生成复盘长图。',
+      '左上角的 ✕ 回到开始页。点错了就点屏幕下方的“撤销”。教程到这里结束，祝你带局顺利。',
+    ] },
+  }
+  // 拼一句话：手机版的记事本词块在下面，有“展示”整屏给玩家看
+  const notepadStep = steps.find((s) => s.title === '给玩家看信息：拼一句话')
+  if (notepadStep) {
+    const lines = Object.getOwnPropertyDescriptor(notepadStep, 'lines')?.get
+    Object.defineProperty(notepadStep, 'lines', {
+      configurable: true,
+      get: () => {
+        const ipad = lines?.() ?? []
+        return [
+          '下面是词块：座位号、恶魔伪装、其他角色、常用词，点一下就加到上面的大字区。',
+          ipad[1], ipad[2],
+          '拼好后点“展示”，整屏只显示这句话，再举给玩家看，他就看不到下面的词块。',
+          '用完点右上角的 ✕ 关掉，会自动进入下一步。',
+        ].filter(Boolean)
+      },
+    })
+    notepadStep.cardCorner = 'topTrailing'
+  }
+  patch['直接给座位换角色'] = { lines: [
+    '回到小镇，每张卡片就是一个座位。手机上卡片不写能力，点角色名就能看。',
+    '要换角色，点卡片右边的头像，在弹出的列表里点一下新角色。弹出的面板都是点右上角的 ✕ 关掉。',
+  ] }
+  for (const step of steps) {
+    const p = patch[step.title]
+    if (!p) continue
+    const { after, ...rest } = p
+    if (rest.lines) Object.defineProperty(step, 'lines', { value: rest.lines, writable: true, configurable: true })
+    if (rest.targets) step.targets = rest.targets
+    if (rest.cardCorner) step.cardCorner = rest.cardCorner
+    if (rest.phoneCard) step.phoneCard = rest.phoneCard
+    if (after) {
+      const prepare = step.prepare
+      step.prepare = () => { prepare?.(); after() }
+    }
+  }
 }

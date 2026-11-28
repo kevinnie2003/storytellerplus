@@ -7,11 +7,13 @@ import { useGame } from '../game/store'
 import { team2Int } from '../game/loadScript'
 import { Sheet } from '../ui/Sheet'
 import { rounded } from '../ui/kit'
+import { useCompact } from '../ui/compact'
 import { aiErrorText } from './client'
 import { makeAIContext } from './context'
 import { postDrawSystem, postDrawUser, withHouseRules } from './prompts'
 import {
-  AIPanelHeader, AIPillButton, AIProgressLine, AITextField, AIToggle, aiPanelStyle, aiRequestJSON, isObject, str, strings,
+  AIPanelHeader, AIPillButton, AIProgressLine, AITextField, AIToggle, aiCompactPadding, aiPanelStyle, aiRequestJSON, isObject, str, strings,
+  keyboardMargins, useKeyboardInset,
 } from './common'
 import { uuid } from '../game/uuid'
 
@@ -69,6 +71,8 @@ function PostDrawBody({ onClose }: { onClose: () => void }) {
   const [errorText, setErrorText] = useState('')
   const [plan, setPlan] = useState<AIPostDrawPlan | null>(null)
   const [applyBluffs, setApplyBluffs] = useState(true)
+  const compact = useCompact()
+  const keyboard = useKeyboardInset(compact)
 
   const generate = async () => {
     const ctx = makeAIContext()
@@ -118,6 +122,63 @@ function PostDrawBody({ onClose }: { onClose: () => void }) {
 
   const setTagEnabled = (i: number, on: boolean) =>
     setPlan((p) => (p ? { ...p, tags: p.tags.map((t, j) => (j === i ? { ...t, enabled: on } : t)) } : p))
+
+  const apply = () => {
+    if (!plan) return
+    const tags = plan.tags.filter((t) => t.enabled)
+    const bluffs = applyBluffs && plan.bluffs.length === 3 ? plan.bluffs : []
+    onClose()
+    applyAIPostDraw(tags, bluffs)
+  }
+
+  if (compact) {
+    // 手机上整页一起滚，不再分出里面的滚动区
+    return (
+      <div style={{ ...aiPanelStyle(10, aiCompactPadding), ...keyboardMargins(keyboard) }}>
+        <AIPanelHeader title="AI 补完配版" onClose={onClose} />
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column', gap: 12, paddingBottom: 8 }}>
+          <div style={rounded(15)}>
+            玩家抽完卡之后，让 AI 定下首夜之前必须决定的事：谁是酒鬼、提线木偶、疯子，占卜师的干扰项，首夜信息指向谁，以及三个恶魔伪装。之后才触发的能力不会提前打标记。结果要你确认后才会应用。
+          </div>
+          {setupNotes !== '' ? (
+            <div style={{ ...rounded(14), color: 'var(--ai-secondary)', whiteSpace: 'pre-wrap' }}>{`配版时留下的待办：\n${setupNotes}`}</div>
+          ) : null}
+          <AITextField value={wish} onChange={setWish} placeholder="额外诉求（可不填），比如：酒鬼不要给占卜师" maxLines={3} style={{ flex: 'none' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <AIPillButton text={busy ? '思考中…' : plan === null ? '开始' : '重新生成'} filled onClick={generate} disabled={busy} />
+            {busy ? <AIProgressLine since={startedAt} text={progress} /> : null}
+          </div>
+          {errorText !== '' ? <div className="ai-select-text" style={{ ...rounded(15), color: 'var(--ai-red)' }}>{errorText}</div> : null}
+          {plan !== null ? (
+            <>
+              {plan.tags.length === 0 ? <div style={rounded(15)}>没有需要挂的开局标记。</div> : null}
+              {plan.tags.map((tag, i) => {
+                const character = tag.playerIndex < players.length ? players[tag.playerIndex].name : ''
+                return (
+                  <AIToggle key={tag.id} on={tag.enabled} onChange={(v) => setTagEnabled(i, v)}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <div style={rounded(16, 700)}>{`${tag.playerIndex + 1}号 ${character}：${tag.from}·${tag.effect}`}</div>
+                      {tag.reason !== '' ? <div style={{ ...rounded(14), color: 'var(--ai-secondary)' }}>{tag.reason}</div> : null}
+                    </div>
+                  </AIToggle>
+                )
+              })}
+              {plan.bluffs.length === 3 ? (
+                <AIToggle on={applyBluffs} onChange={setApplyBluffs}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <div style={rounded(16, 700)}>{`恶魔伪装：${plan.bluffs.map((c) => c.name).join('、')}`}</div>
+                    {plan.bluffsReason !== '' ? <div style={{ ...rounded(14), color: 'var(--ai-secondary)' }}>{plan.bluffsReason}</div> : null}
+                  </div>
+                </AIToggle>
+              ) : null}
+              {plan.notes !== '' ? <div style={{ ...rounded(14), whiteSpace: 'pre-wrap' }}>{plan.notes}</div> : null}
+              <div><AIPillButton text="应用到魔典" filled onClick={apply} /></div>
+            </>
+          ) : null}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div style={aiPanelStyle(12)}>

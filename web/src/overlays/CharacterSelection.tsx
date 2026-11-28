@@ -8,6 +8,8 @@ import { registerUndo } from '../game/undo'
 import { team2Int } from '../game/loadScript'
 import { CachedImage } from '../ui/CachedImage'
 import { rounded } from '../ui/kit'
+import { useCompact } from '../ui/compact'
+import { MobilePage } from '../mobile/MobilePage'
 import { OverlayLayer, panelHeight, stroke } from './common'
 
 const sameCharacter = (a: Character, b: Character) =>
@@ -66,6 +68,7 @@ export function CharacterSelection() {
 }
 
 function CharacterSelectionView() {
+  const compact = useCompact()
   // 和 iPad 版一样，打开时算一次
   const [lists] = useState(() => {
     const s = game()
@@ -83,6 +86,8 @@ function CharacterSelectionView() {
       selectedNames: s.playersAssignedCharacters.map((c) => c.name),
     }
   })
+
+  if (compact) return <PhoneCharacterSelection sections={lists.sections} selectedNames={lists.selectedNames} />
 
   return (
     <OverlayLayer
@@ -129,5 +134,44 @@ function CharacterCell({ character, selected }: { character: Character; selected
       <CachedImage url={character.imageURL} size={60} style={{ borderRadius: '50%', overflow: 'hidden' }} />
       <div style={{ ...rounded(15, 700), color: 'var(--ink)', textAlign: 'center', wordBreak: 'break-word' }}>{character.name}</div>
     </div>
+  )
+}
+
+// 手机版：全屏一页，每类角色一组，一行四个左右
+const sectionColors = ['var(--townsfolk)', 'var(--outsider)', 'var(--minion)', 'var(--demon)', 'var(--traveler)', 'var(--traveler)']
+
+function PhoneCharacterSelection({ sections, selectedNames }: { sections: [string, Character[]][]; selectedNames: string[] }) {
+  const slot = useGame((s) => s.currentSelectedPlayerID)
+  const title = slot > 20 ? `恶魔伪装 ${slot - 20}` : `为${slot + 1}号选角色`
+  return (
+    <MobilePage
+      title={title}
+      zIndex={111}
+      onClose={() => setGame({ selectNewCharacter: false })}
+      bodyStyle={{ padding: '6px 12px calc(20px + env(safe-area-inset-bottom))', gap: 6 }}
+    >
+      {sections.map(([name, chars], i) => (chars.length === 0 ? null : (
+        <div key={name} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ ...rounded(19, 900), color: sectionColors[i], padding: '10px 4px 0', lineHeight: 1.2 }}>{name}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(76px, 1fr))', gap: 8 }}>
+            {chars.map((c) => (
+              <button
+                key={c.id}
+                onClick={() => assignWithUndo(c)}
+                style={{
+                  minWidth: 0, minHeight: 96, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start',
+                  gap: 4, padding: '8px 4px', borderRadius: 12, color: 'var(--ink)',
+                  background: `color-mix(in srgb, ${sectionColors[i]} 14%, transparent)`,
+                  outline: selectedNames.includes(c.name) ? '3px solid var(--ink)' : 'none', outlineOffset: -1.5,
+                }}
+              >
+                <CachedImage url={c.imageURL} size={50} style={{ borderRadius: '50%', overflow: 'hidden' }} />
+                <span style={{ ...rounded(13, 700), lineHeight: 1.2, textAlign: 'center', wordBreak: 'break-word', maxWidth: '100%' }}>{c.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )))}
+    </MobilePage>
   )
 }

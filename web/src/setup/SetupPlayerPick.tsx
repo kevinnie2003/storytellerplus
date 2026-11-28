@@ -3,26 +3,31 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import type { Character } from '../game/types'
 import { game, setGame, useGame } from '../game/store'
+import { useCompact } from '../ui/compact'
 import { usePress } from '../ui/gestures'
 import { rounded } from '../ui/kit'
 import { SFIcon } from '../ui/SFIcon'
-import { boxButton, cardColorOf, CardBack, CardFront, HFlow, usePresence } from './cards'
+import { boxButton, cardColorOf, CardBack, CardFront, CardGrid, HFlow, usePresence } from './cards'
 import { setFlow, setSelectionState, shuffled, useSetupFlow } from './flowState'
+import { MobileBar } from './MobileBar'
+import { barButton, phoneHint } from './mobileStyles'
 import { SpecialCare } from './SpecialCare'
 
 const ease = '.3s ease-in-out'
 const spring = '.35s cubic-bezier(.25,.9,.35,1)'
 
-function PickCard({ character, rotation, dimmed, onLongPress }: {
+function PickCard({ character, rotation, dimmed, onLongPress, bare }: {
   character: Character
   rotation: number
   dimmed: boolean
   onLongPress: () => void
+  /** 手机上放进 CardGrid，不要外边的留白 */
+  bare?: boolean
 }) {
   const press = usePress({ onLongPress, longPressSeconds: 0.3 })
   const faceUp = rotation > 90 && rotation < 270
   return (
-    <div {...press} style={{ padding: '30px 10px', touchAction: 'pan-y' }}>
+    <div {...press} style={{ padding: bare ? 0 : '30px 10px', touchAction: 'pan-y' }}>
       <div style={{ position: 'relative', width: 200, height: 300 }}>
         <div style={{
           position: 'absolute', inset: 0, opacity: faceUp ? 1 : 0,
@@ -58,6 +63,30 @@ function SeatRow({ index, chosen, rowRef, onDoubleTap, onLongPress }: {
           <SFIcon name={chosen ? 'checkmark' : 'xmark'} size={40} weight="semibold" />
         </div>
       </div>
+    </div>
+  )
+}
+
+/** 手机上的座位：一格一个号码，选中的那格涂黑 */
+function SeatChip({ index, chosen, current, onDoubleTap, onLongPress }: {
+  index: number
+  chosen: boolean
+  current: boolean
+  onDoubleTap: () => void
+  onLongPress: () => void
+}) {
+  const press = usePress({ onDoubleTap, onLongPress, longPressSeconds: 0.3 })
+  return (
+    <div {...press} style={{
+      height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3, cursor: 'pointer',
+      borderRadius: 12, border: '3px solid var(--ink)', touchAction: 'pan-y',
+      background: current ? 'var(--ink)' : 'var(--mainbg)', color: current ? 'var(--mainbg)' : 'var(--ink)',
+      transition: `background ${ease}, color ${ease}`,
+    }}>
+      <span style={{ ...rounded(16, 800), whiteSpace: 'nowrap' }}>{index + 1}号</span>
+      <span style={{ display: 'flex', opacity: chosen ? 1 : 0.45 }}>
+        <SFIcon name={chosen ? 'checkmark' : 'xmark'} size={15} weight="bold" />
+      </span>
     </div>
   )
 }
@@ -143,6 +172,72 @@ export function SetupPlayerPick() {
     prevCurrent.current = currentSelectingPlayerIndex
   }, [currentSelectingPlayerIndex])
 
+  const seatDoubleTap = (index: number) => setCurrent(currentSelectingPlayerIndex === index ? -1 : index)
+  const seatLongPress = (index: number) => {
+    if ((useSetupFlow.getState().playerChoices[index] ?? -1) === -1) {
+      setCurrent(index)
+      setShowSpecialCare(true)
+    }
+  }
+  const back = () => setSelectionState(Math.max(useSetupFlow.getState().selectionState - 1, 0))
+
+  const compact = useCompact()
+  if (compact) {
+    // 手机：上面座位格子，中间一格一格的牌，底下操作条。退出用标题栏的 ✕
+    const dealt = playersAssignedCharacters.filter((_, index) => (playerChoices[index] ?? -1) !== -1).length
+    return (
+      <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', height: '100%' }}>
+        {care.mounted ? (
+          <SpecialCare
+            shown={care.shown}
+            merged={merged}
+            selectedCardIndices={selectedCardIndices}
+            specialCarePlayerChoices={specialCarePlayerChoices}
+            setSpecialCarePlayerChoices={setSpecialCarePlayerChoices}
+            currentSelectingPlayerIndex={currentSelectingPlayerIndex}
+            onClose={() => setShowSpecialCare(false)}
+          />
+        ) : null}
+        <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 14px 10px', background: 'var(--mainbg)', borderBottom: '2px solid var(--ink)' }}>
+          <div style={phoneHint}>双击号码选中座位，再让这位玩家长按一张牌翻开看角色。长按号码可以提前给他指定角色</div>
+          <div data-tour="deal.seats" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(60px, 1fr))', gap: 6 }}>
+            {playersAssignedCharacters.map((_, index) => (
+              <SeatChip
+                key={index}
+                index={index}
+                chosen={(playerChoices[index] ?? -1) !== -1}
+                current={currentSelectingPlayerIndex === index}
+                onDoubleTap={() => seatDoubleTap(index)}
+                onLongPress={() => seatLongPress(index)}
+              />
+            ))}
+          </div>
+        </div>
+        <div data-tour="deal.cards" className="scroll-hidden" style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', padding: '16px 18px 24px' }}>
+          <CardGrid target={110} center>
+            {merged.map((c, index) => (
+              <PickCard
+                key={index}
+                bare
+                character={c}
+                rotation={cardRotation[index] ?? 0}
+                dimmed={(cardRotation[index] ?? 0) === 0 && selectedCardIndices.has(index)}
+                onLongPress={() => pickCard(index)}
+              />
+            ))}
+          </CardGrid>
+        </div>
+        <MobileBar
+          status={currentSelectingPlayerIndex !== -1 ? `${currentSelectingPlayerIndex + 1}号在抽 · 已抽 ${dealt} / ${playerChoices.length}` : `已抽 ${dealt} / ${playerChoices.length}，先双击一个号码`}
+          buttonsTour="deal.buttons"
+        >
+          <button style={barButton()} onClick={back}>返回</button>
+          <button style={barButton(true)} onClick={() => setGame({ showSetup: false })}>确认</button>
+        </MobileBar>
+      </div>
+    )
+  }
+
   const btn = boxButton(20, 20, 10, 3)
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
@@ -191,19 +286,14 @@ export function SetupPlayerPick() {
                   index={index}
                   chosen={(playerChoices[index] ?? -1) !== -1}
                   rowRef={(el) => { rowRefs.current[index] = el }}
-                  onDoubleTap={() => setCurrent(currentSelectingPlayerIndex === index ? -1 : index)}
-                  onLongPress={() => {
-                    if ((useSetupFlow.getState().playerChoices[index] ?? -1) === -1) {
-                      setCurrent(index)
-                      setShowSpecialCare(true)
-                    }
-                  }}
+                  onDoubleTap={() => seatDoubleTap(index)}
+                  onLongPress={() => seatLongPress(index)}
                 />
               ))}
             </div>
           </div>
           <div data-tour="deal.buttons" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-            <button style={btn} onClick={() => setSelectionState(Math.max(useSetupFlow.getState().selectionState - 1, 0))}>返回</button>
+            <button style={btn} onClick={back}>返回</button>
             <button style={btn} onClick={() => setGame({ showSetup: false })}>确认</button>
             <button style={btn} onClick={() => setGame({ showSetup: false })}>退出</button>
           </div>

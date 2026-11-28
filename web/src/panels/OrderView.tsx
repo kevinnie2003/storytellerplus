@@ -9,6 +9,7 @@ import { rounded } from '../ui/kit'
 import { usePress } from '../ui/gestures'
 import { ScrollColumn, TabCell } from './common'
 import { edgeBorder } from './style'
+import { useCompact } from '../ui/compact'
 
 const ease = 'opacity .3s ease-in-out, transform .3s ease-in-out'
 // 提示文字收 0.3 字距：iPad 上 15 号字的汉字约 14.7 宽（系统字体的 tracking），一行能多排一个字
@@ -25,7 +26,9 @@ function wake(info: OrderInfo) {
 }
 
 function NightRow({ info, isAlive, opacity, scale }: { info: OrderInfo; isAlive: boolean; opacity: number; scale: number }) {
-  const press = usePress({ onDoubleTap: () => wake(info) })
+  // 手机上点一下就标成当前唤醒的角色（大屏是双击）
+  const compact = useCompact()
+  const press = usePress(compact ? { onTap: () => wake(info) } : { onDoubleTap: () => wake(info) })
   const idText = info.playerID >= 0 ? `${info.playerID + 1}号` : info.playerID <= -4 ? '不在场' : ''
   return (
     <div {...press} style={{ width: '100%', opacity, transform: `scale(${scale})`, transition: ease }}>
@@ -42,7 +45,9 @@ function NightRow({ info, isAlive, opacity, scale }: { info: OrderInfo; isAlive:
 
 /** “不需要唤醒”的那一段：iPad 版只把文字那一块变淡、缩小，双击也只在文字上 */
 function IdleRow({ info, isAlive, awake }: { info: OrderInfo; isAlive: boolean; awake: boolean }) {
-  const press = usePress({ onDoubleTap: () => wake(info) })
+  // 手机上点一下就标成当前唤醒的角色（大屏是双击）
+  const compact = useCompact()
+  const press = usePress(compact ? { onTap: () => wake(info) } : { onDoubleTap: () => wake(info) })
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '5px 0' }}>
       <CachedImage url={info.imageURL} size={40} />

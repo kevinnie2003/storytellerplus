@@ -6,6 +6,8 @@ import { demonInfo, minionInfo } from '../game/builtins'
 import { CachedImage } from '../ui/CachedImage'
 import { SFIcon } from '../ui/SFIcon'
 import { rounded } from '../ui/kit'
+import { useCompact } from '../ui/compact'
+import { HeaderButton, MobilePage } from '../mobile/MobilePage'
 import { OverlayLayer, SAFE_BOTTOM, SAFE_TOP, Spinner } from './common'
 import { preloadImages, renderToPng, saveImages, timestampName } from './exportImage'
 
@@ -156,6 +158,7 @@ export function AllCharacterInfos() {
 }
 
 function AllCharacterInfosView() {
+  const compact = useCompact()
   const playableCharacters = useGame((s) => s.playableCharacters)
   const travelersInPlay = useGame((s) => s.travelers)
   const fabledInPlay = useGame((s) => s.fabled)
@@ -188,6 +191,8 @@ function AllCharacterInfosView() {
     }
   }
 
+  if (compact) return <PhoneAllCharacterInfos data={data} isSavingImage={isSavingImage} onSave={saveAsImage} />
+
   return (
     // iPad 上背景 ignoresSafeArea 把整个 ZStack 撑满屏幕：右上角的按钮离屏幕顶 20，ScrollView 也铺满整屏、内容从安全区下面开始
     <OverlayLayer zIndex={15} background="var(--mainbg)" ignoresSafeArea onDoubleTapBackground={() => setGame({ showAllCharacterInfos: false })}>
@@ -215,5 +220,60 @@ function AllCharacterInfosView() {
         </span>
       </button>
     </OverlayLayer>
+  )
+}
+
+// 手机版：一栏排下来。上面是首夜、其他夜晚的顺序（一排图标），下面每类角色一组
+function PhoneAllCharacterInfos({ data, isSavingImage, onSave }: { data: LayoutData; isSavingImage: boolean; onSave: () => void }) {
+  const { playableCharacters: playable, travelersInPlay, fabledInPlay } = data
+  const travelerNames = travelersInPlay.map((c) => c.name)
+  const { first, other } = nightOrders(playable)
+  const sections: [string, Character[], string][] = [
+    ['镇民', playable.filter((c) => c.team === 'townsfolk'), 'var(--townsfolk)'],
+    ['外来者', playable.filter((c) => c.team === 'outsider'), 'var(--outsider)'],
+    ['爪牙', playable.filter((c) => c.team === 'minion'), 'var(--minion)'],
+    ['恶魔', playable.filter((c) => c.team === 'demon'), 'var(--demon)'],
+    ['剧本传奇角色', fabledInPlay, 'var(--fabled)'],
+    ['剧本旅行者', travelersInPlay, 'var(--traveler)'],
+    ['官方旅行者', playable.filter((c) => c.team === 'traveler' && !travelerNames.includes(c.name)), 'var(--traveler)'],
+  ]
+  const orderRow = (label: string, orders: OrderInfo[]) => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ ...rounded(16, 900) }}>{label}</div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+        {orders.map((o, i) => <CachedImage key={i} url={o.imageURL} size={36} />)}
+      </div>
+    </div>
+  )
+  return (
+    <MobilePage
+      title="全部角色能力"
+      zIndex={115}
+      onClose={() => setGame({ showAllCharacterInfos: false })}
+      right={<HeaderButton icon="square.and.arrow.down" label={isSavingImage ? '存图中' : '存图'} onClick={onSave} disabled={isSavingImage} />}
+      bodyStyle={{ padding: '12px 12px calc(24px + env(safe-area-inset-bottom))', gap: 14 }}
+    >
+      <div style={{
+        display: 'flex', flexDirection: 'column', gap: 12, padding: '12px 14px', background: 'var(--paper)',
+        borderRadius: 14, outline: '3px solid var(--ink)', outlineOffset: -1.5,
+      }}>
+        {orderRow('首个夜晚', first)}
+        {orderRow('其他夜晚', other)}
+      </div>
+      {sections.map(([title, chars, color]) => (chars.length === 0 ? null : (
+        <div key={title} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div style={{ ...rounded(20, 900), color, padding: '6px 2px 4px', borderBottom: '3px solid var(--ink)' }}>{title}</div>
+          {chars.map((c, i) => (
+            <div key={`${c.id}-${i}`} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 0' }}>
+              <CachedImage url={c.imageURL} size={40} />
+              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <div style={{ ...rounded(17, 800), color, lineHeight: 1.25 }}>{c.name}</div>
+                <div style={{ ...rounded(15, 600), lineHeight: 1.45, wordBreak: 'break-word' }}>{c.ability}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )))}
+    </MobilePage>
   )
 }

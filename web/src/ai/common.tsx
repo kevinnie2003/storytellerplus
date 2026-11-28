@@ -4,6 +4,8 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import './ai.css'
 import { rounded } from '../ui/kit'
 import { SFIcon } from '../ui/SFIcon'
+import { useCompact } from '../ui/compact'
+import { CloseButton } from '../mobile/MobilePage'
 import { AISettings, aiSaveFailedReply, useAISettings } from './providers'
 import { AIError, aiExtractJSON, aiSendStreaming, chatMessage, type AIChatMessage } from './client'
 import { AISettingsView } from './AISettingsView'
@@ -49,9 +51,45 @@ export const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x
 export const str = (v: unknown): string => (typeof v === 'string' ? v : '')
 
 /** AI 面板的外框：.padding(20) + mainbg 底色 */
-export const aiPanelStyle = (spacing: number, padding = 20): React.CSSProperties => ({
+export const aiPanelStyle = (spacing: number, padding: number | string = 20): React.CSSProperties => ({
   display: 'flex', flexDirection: 'column', gap: spacing, padding, flex: 1, minHeight: 0,
   background: 'var(--mainbg)', color: 'var(--ink)',
+})
+
+/** 手机上 AI 面板的留白（底下的安全区 Sheet 已经留了） */
+export const aiCompactPadding = '10px 16px 12px'
+
+/**
+ * 手机上屏幕键盘挡住的高度（bottom），以及系统为了露出输入框把页面往上推的距离（top）。
+ * iOS 和安卓 Chrome 弹键盘时只缩小 visualViewport，fixed 的面板不会变矮，要自己让开
+ */
+export function useKeyboardInset(enabled: boolean): { top: number; bottom: number } {
+  const [inset, setInset] = useState({ top: 0, bottom: 0 })
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!enabled || !vv) return
+    const update = () => {
+      const layoutHeight = document.documentElement.clientHeight
+      const top = Math.max(0, Math.round(vv.offsetTop))
+      let bottom = Math.max(0, Math.round(layoutHeight - vv.height - vv.offsetTop))
+      if (bottom < 2) bottom = 0
+      setInset((o) => (o.top === top && o.bottom === bottom ? o : { top, bottom }))
+    }
+    update()
+    vv.addEventListener('resize', update)
+    vv.addEventListener('scroll', update)
+    return () => {
+      vv.removeEventListener('resize', update)
+      vv.removeEventListener('scroll', update)
+    }
+  }, [enabled])
+  return enabled ? inset : { top: 0, bottom: 0 }
+}
+
+/** 按键盘让开的外边距：顶上补回被推走的部分，底下让出键盘（键盘盖住了底部横条，Sheet 留的安全区要扣回来） */
+export const keyboardMargins = (inset: { top: number; bottom: number }): React.CSSProperties => ({
+  marginTop: inset.top,
+  marginBottom: inset.bottom > 0 ? `calc(${inset.bottom}px - env(safe-area-inset-bottom))` : 0,
 })
 
 /** 各个 AI 面板共用的顶栏。齿轮打开 AI 设置 */
@@ -60,6 +98,35 @@ export function AIPanelHeader({ title, onClose }: { title: string; onClose: () =
   const [showSettings, setShowSettings] = useState(false)
   const configured = AISettings.isConfigured
   const p = AISettings.provider
+  const compact = useCompact()
+  if (compact) {
+    // 手机上：标题下面一行小字写模型，右边齿轮和圆形关闭按钮
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flexShrink: 0 }}>
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <div style={{ ...rounded(22, 900), whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.2 }}>{title}</div>
+          <div style={{
+            ...rounded(13), color: configured ? 'var(--ai-secondary)' : 'var(--ai-red)',
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}>
+            {configured ? `${p.name} · ${AISettings.model(p)}` : '未配置 AI'}
+          </div>
+        </div>
+        <button
+          onClick={() => setShowSettings(true)}
+          aria-label="AI 设置"
+          style={{
+            width: 38, height: 38, borderRadius: '50%', border: '2.5px solid var(--ink)', color: 'var(--ink)', flexShrink: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <SFIcon name="gearshape" size={20} weight="bold" />
+        </button>
+        <CloseButton onClick={onClose} />
+        <AISettingsView open={showSettings} onClose={() => setShowSettings(false)} />
+      </div>
+    )
+  }
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
       <div style={{ ...rounded(24, 900), whiteSpace: 'nowrap' }}>{title}</div>
@@ -82,11 +149,12 @@ export function AIPanelHeader({ title, onClose }: { title: string; onClose: () =
 }
 
 export function AIPillLabel({ text, filled = false }: { text: string; filled?: boolean }) {
+  const compact = useCompact()
   return (
     <span style={{
-      ...rounded(18, 700), display: 'inline-block', whiteSpace: 'nowrap',
+      ...rounded(compact ? 16 : 18, 700), display: 'inline-block', whiteSpace: 'nowrap',
       color: filled ? 'var(--paper)' : 'var(--ink)', background: filled ? 'var(--ink)' : 'var(--paper)',
-      padding: '8.5px 16.5px', borderRadius: 24, border: '3px solid var(--ink)', // iPad 的描边不占位置，减掉 1.5
+      padding: compact ? '7px 14px' : '8.5px 16.5px', borderRadius: 24, border: '3px solid var(--ink)', // iPad 的描边不占位置，减掉 1.5
     }}>{text}</span>
   )
 }
@@ -100,11 +168,14 @@ export function AIPillButton({ text, filled, onClick, disabled }: { text: string
   )
 }
 
-export function AIChip({ text, onClick }: { text: string; onClick: () => void }) {
+export function AIChip({ text, onClick, style }: { text: string; onClick: () => void; style?: React.CSSProperties }) {
+  const compact = useCompact()
   return (
     <button onClick={onClick} style={{
       ...rounded(15, 600), color: 'var(--ink)', background: 'var(--paper)',
       padding: '5px 11px', borderRadius: 16, border: '2px solid var(--ink)', textAlign: 'left', // 描边不占位置，减掉 1
+      ...(compact ? { minHeight: 36, padding: '6px 12px', borderRadius: 18 } : null),
+      ...style,
     }}>{text}</button>
   )
 }
@@ -192,6 +263,31 @@ export function AITextField({ value, onChange, placeholder, maxLines, fontSize =
 
 /** iOS 的 Toggle：左边是说明，右边是开关，.tint(.ink) */
 export function AIToggle({ on, onChange, children }: { on: boolean; onChange: (v: boolean) => void; children: React.ReactNode }) {
+  const compact = useCompact()
+  if (compact) {
+    // 手机上开关外面套一圈透明的点击区域，高 38
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>{children}</div>
+        <button
+          role="switch"
+          aria-checked={on}
+          onClick={() => onChange(!on)}
+          style={{ width: 55, height: 38, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          <span style={{
+            width: 51, height: 31, borderRadius: 16, position: 'relative', display: 'block',
+            background: on ? 'var(--ink)' : 'var(--ai-switch-off)', transition: 'background .2s',
+          }}>
+            <span style={{
+              position: 'absolute', top: 2, left: on ? 22 : 2, width: 27, height: 27, borderRadius: '50%',
+              background: '#fff', boxShadow: '0 3px 8px rgba(0,0,0,0.15), 0 1px 1px rgba(0,0,0,0.16)', transition: 'left .2s',
+            }} />
+          </span>
+        </button>
+      </div>
+    )
+  }
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
       <div style={{ flex: 1, minWidth: 0 }}>{children}</div>

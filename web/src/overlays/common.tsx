@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { usePress } from '../ui/gestures'
 import { SFIcon } from '../ui/SFIcon'
+import { useCompact } from '../ui/compact'
 
 /** iOS 系统颜色 */
 export const systemRed = 'light-dark(#ff3b30, #ff453a)'
@@ -69,6 +70,7 @@ export function MenuPicker({ options, value, onChange, tint, style }: {
   style?: React.CSSProperties
 }) {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null)
+  const compact = useCompact()
   const current = options.find((o) => o.value === value)?.label ?? ''
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minWidth: 0, ...style }}>
@@ -77,6 +79,8 @@ export function MenuPicker({ options, value, onChange, tint, style }: {
         style={{
           display: 'flex', alignItems: 'center', gap: 5, color: tint, fontSize: 17, minWidth: 0, maxWidth: '100%',
           fontFamily: 'system-ui, -apple-system, "PingFang SC", sans-serif', padding: '6px 4px',
+          // 手机上按钮至少 40 高，好点
+          ...(compact ? { minHeight: 40 } : null),
         }}
       >
         <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{current}</span>
@@ -103,9 +107,11 @@ function MenuPopup({ anchor, options, value, onPick, onClose }: {
     const h = ref.current?.offsetHeight ?? 0
     const below = window.innerHeight - r.bottom - 12
     const above = r.top - 12
-    const left = Math.max(12, Math.min(r.left, window.innerWidth - 262))
-    if (h <= below || below >= above) setPos({ left, top: r.bottom + 6, maxHeight: below })
-    else setPos({ left, bottom: window.innerHeight - r.top + 6, maxHeight: above })
+    // 窄屏上菜单变窄，左右都留 12，不出屏幕
+    const w = Math.min(250, window.innerWidth - 24)
+    const left = Math.max(12, Math.min(r.left, window.innerWidth - w - 12))
+    if (h <= below || below >= above) setPos({ left, top: r.bottom + 6, maxHeight: below, width: w })
+    else setPos({ left, bottom: window.innerHeight - r.top + 6, maxHeight: above, width: w })
   }, [anchor])
   useEffect(() => {
     const ref2 = ref.current
@@ -124,7 +130,7 @@ function MenuPopup({ anchor, options, value, onPick, onClose }: {
         className="scroll-hidden"
         style={{
           // 网页版用 app 自己的样子，不模仿 iOS 的系统菜单
-          position: 'fixed', ...pos, width: 250, overflowY: 'auto', borderRadius: 16,
+          position: 'fixed', width: 250, ...pos, overflowY: 'auto', borderRadius: 16,
           background: 'var(--paper)', border: '3px solid var(--ink)', boxShadow: '0 8px 24px rgba(0,0,0,0.22)', color: 'var(--ink)',
           fontFamily: 'var(--font-rounded)', fontWeight: 700, animation: 'st-fade .12s ease-out',
         }}
