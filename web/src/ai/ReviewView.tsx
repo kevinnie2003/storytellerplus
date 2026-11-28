@@ -15,7 +15,7 @@ import { AIProgressLine, aiRequestJSON, downloadBlob } from './common'
 import { AISettingsView } from './AISettingsView'
 import { AISettings } from './providers'
 import { fetchIcons, iconIsCached, normalizeRecap, recapFrom, renderRecapPoster, type RecapData } from './RecapPoster'
-import { ReviewBuilder, ReviewTimeline } from './ReviewTimeline'
+import { EndedBadge, ReviewBuilder, ReviewTimeline } from './ReviewTimeline'
 
 export { ReviewBuilder }
 
@@ -187,6 +187,7 @@ function ReviewBody({ onClose, gameID, autoGenerate = false, onRecap }: ReviewPr
             {game ? (
               <div style={{ ...rounded(13), color: dim(60) }}>{`${game.playersAssignedCharacters.length} 人，还剩 ${game.aliveCount} 人活着`}</div>
             ) : null}
+            {game ? <EndedBadge winner={game.winner} size={13} /> : null}
           </div>
           <button
             onClick={() => setShowSettings(true)}
@@ -265,6 +266,7 @@ function ReviewBody({ onClose, gameID, autoGenerate = false, onRecap }: ReviewPr
               {`${game.playersAssignedCharacters.length} 人，还剩 ${game.aliveCount} 人活着`}
             </div>
           ) : null}
+          {game ? <EndedBadge winner={game.winner} size={15} /> : null}
         </div>
         <div style={{ flex: 1 }} />
         <button onClick={() => setShowSettings(true)} style={{ marginRight: 10, color: 'var(--ink)' }} aria-label="AI 设置">

@@ -36,6 +36,7 @@ export function SeatRing({ alive, size = 76 }: { alive: boolean[]; size?: number
 }
 
 function stageText(entry: ArchiveEntry): string {
+  if (entry.winner === 'good' || entry.winner === 'evil') return `已结束，${entry.winner === 'evil' ? '邪恶' : '善良'}阵营胜利`
   switch (entry.gameState) {
     case 1: return '首夜'
     case 2: return `第 ${Math.max(entry.dayCount, 1)} 天白天`
@@ -134,7 +135,7 @@ function ArchiveContent({ onClose, currentGameID, onLoad }: {
                       <span style={rounded(17, 700)}>复盘</span>
                     </STChoice>
                     {isCurrent ? (
-                      <span style={{ ...rounded(17, 700), padding: '10px 0', color: 'color-mix(in srgb, var(--ink) 50%, transparent)' }}>正在进行</span>
+                      <span style={{ ...rounded(17, 700), padding: '10px 0', color: 'color-mix(in srgb, var(--ink) 50%, transparent)' }}>{entry.winner ? '当前这一局' : '正在进行'}</span>
                     ) : (
                       <>
                         <STChoice selected onClick={() => { onClose(); onLoad(entry.id) }}>

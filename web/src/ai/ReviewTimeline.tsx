@@ -133,3 +133,18 @@ export function ReviewTimeline({ game }: { game: GameSaveData }) {
     </>
   )
 }
+
+/** 说书人点过“结束游戏”的局：标出已结束和胜利方 */
+export function EndedBadge({ winner, size = 14 }: { winner?: string; size?: number }) {
+  if (winner !== 'good' && winner !== 'evil') return null
+  return (
+    <span style={{
+      ...rounded(size, 900), display: 'inline-flex', alignItems: 'center', gap: 4, alignSelf: 'flex-start', whiteSpace: 'nowrap',
+      padding: '2px 10px', borderRadius: 999, color: 'var(--goodTextBg)',
+      background: winner === 'evil' ? 'var(--demon)' : 'var(--townsfolk)',
+    }}>
+      <SFIcon name="flag.fill" size={size - 1} weight="black" />
+      {`已结束 · ${winner === 'evil' ? '邪恶' : '善良'}阵营胜利`}
+    </span>
+  )
+}

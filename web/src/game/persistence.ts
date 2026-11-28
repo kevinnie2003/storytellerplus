@@ -105,6 +105,8 @@ export interface ArchiveEntry {
   dayCount: number
   gameState: number
   savedAt: number
+  /** 点过“结束游戏”的话是胜利方：good / evil */
+  winner: string
 }
 
 export async function archiveSave(d: GameSaveData) {
@@ -136,6 +138,7 @@ export async function archiveList(): Promise<ArchiveEntry[]> {
       dayCount: r.data.allLogs.filter((l) => l.type === 10).length,
       gameState: r.data.gameState,
       savedAt: r.savedAt,
+      winner: r.data.winner ?? '',
     }))
     .sort((a, b) => b.savedAt - a.savedAt)
 }
