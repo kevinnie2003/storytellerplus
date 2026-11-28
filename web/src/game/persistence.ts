@@ -119,6 +119,7 @@ export async function archiveDelete(id: string) {
   await del(id, archiveDB)
   await del(id, recapDB)
   await del(`${id}.png`, recapDB)
+  await del(`${id}.v2.png`, recapDB)
 }
 
 export async function archiveList(): Promise<ArchiveEntry[]> {
@@ -149,6 +150,8 @@ export function saveGame() {
 // 复盘：AI 生成的复盘内容和画好的复盘图
 export async function recapLoad<T>(id: string): Promise<T | null> { return (await get<T>(id, recapDB)) ?? null }
 export async function recapSave(id: string, recap: unknown) { await set(id, recap, recapDB) }
-export async function recapPosterLoad(id: string): Promise<Blob | null> { return (await get<Blob>(`${id}.png`, recapDB)) ?? null }
-export async function recapPosterSave(id: string, png: Blob) { await set(`${id}.png`, png, recapDB) }
-export async function recapPosterDelete(id: string) { await del(`${id}.png`, recapDB) }
+// 复盘图的键名带版本号：之前在 Safari 上存下的旧图可能没画上图标（v1 = `${id}.png`），换个键名让它们重画一次
+const posterKey = (id: string) => `${id}.v2.png`
+export async function recapPosterLoad(id: string): Promise<Blob | null> { return (await get<Blob>(posterKey(id), recapDB)) ?? null }
+export async function recapPosterSave(id: string, png: Blob) { await set(posterKey(id), png, recapDB); await del(`${id}.png`, recapDB) }
+export async function recapPosterDelete(id: string) { await del(posterKey(id), recapDB); await del(`${id}.png`, recapDB) }

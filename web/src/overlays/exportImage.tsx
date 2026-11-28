@@ -1,6 +1,6 @@
 // 把一块界面画成长图并保存，对应 iPad 版的 ImageRenderer + UIImageWriteToSavedPhotosAlbum。
 // 网页没有相册：触屏设备上能分享文件就弹分享（可以存进相册），否则直接下载。
-import { toPng } from 'html-to-image'
+import { snapshotPng } from '../ui/snapshot'
 import { flushSync } from 'react-dom'
 import { createRoot } from 'react-dom/client'
 import { showAlert } from '../ui/Alert'
@@ -33,10 +33,10 @@ export async function renderToPng(element: React.ReactNode, width: number): Prom
     const bg = getComputedStyle(document.body).backgroundColor
     const base = { width: w, height: h, pixelRatio, backgroundColor: bg, imagePlaceholder: BLANK, skipFonts: true }
     try {
-      return await toPng(node, base)
+      return await snapshotPng(node, base)
     } catch {
       // 某张图画不进去时，去掉所有图片再画一次，至少把字存下来
-      return await toPng(node, { ...base, filter: (n) => !(n instanceof HTMLImageElement) })
+      return await snapshotPng(node, { ...base, filter: (n) => !(n instanceof HTMLImageElement) })
     }
   } finally {
     root.unmount()

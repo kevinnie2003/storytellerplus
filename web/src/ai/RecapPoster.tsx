@@ -3,7 +3,7 @@
 import { flushSync } from 'react-dom'
 import { iconDataURL } from '../ui/iconData'
 import { createRoot } from 'react-dom/client'
-import { toBlob } from 'html-to-image'
+import { snapshotBlob } from '../ui/snapshot'
 import type { GameSaveData } from '../game/types'
 import { rounded } from '../ui/kit'
 import { SFIcon } from '../ui/SFIcon'
@@ -338,7 +338,7 @@ export async function renderRecapPoster(game: GameSaveData, recap: RecapData): P
     if (!node) return null
     await Promise.all([...node.querySelectorAll('img')].map((img) => img.decode().catch(() => {})))
     if (document.fonts?.ready) await document.fonts.ready
-    return await toBlob(node, { pixelRatio: 2, width: 900, backgroundColor: '#dedacd', skipFonts: true, cacheBust: false })
+    return await snapshotBlob(node, { pixelRatio: 2, width: 900, backgroundColor: '#dedacd', skipFonts: true, cacheBust: false })
   } catch {
     return null
   } finally {
