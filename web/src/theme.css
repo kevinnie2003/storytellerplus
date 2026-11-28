@@ -1,0 +1,110 @@
+/* 和 iPad 版 Assets.xcassets / AppSettings 里的颜色一一对应 */
+:root {
+  --mainbg: #dedacd;
+  --paper: #f6f1e2;          /* Color.paper：浅色时是奶油色 */
+  --ink: #000000;            /* Color.ink：字和描边 */
+  --goodTextBg: #f6f1e2;     /* 卡片上的浅色，深浅模式都一样 */
+  --evilTextBg: #f6f1e2;
+  --townsfolk: #0e7fcf;
+  --outsider: #3988a0;
+  --minion: #8f1701;
+  --demon: #2b0303;
+  --traveler: #670eab;
+  --fabled: #ffa648;
+  --warningRed: #94100c;
+  --neutralTeam: rgb(77, 77, 82);
+  --minionInk: #8f1701;
+  --demonInk: #2b0303;
+  --dot: #000000;
+  --alertbg: rgba(248, 247, 244, 0.93);   /* 系统弹窗的毛玻璃 */
+  --sheetdim: rgba(0, 0, 0, 0.2);          /* 弹窗背后压暗：深色模式下 iOS 压得更暗（模拟器量的） */
+  --font-rounded: "CJK Quotes", ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+  --font-mono: "CJK Quotes", ui-monospace, "SF Mono", Menlo, "PingFang SC", monospace;
+  --font-rounded-display: "CJK Display", var(--font-rounded);
+  --font-mono-display: "CJK Display", var(--font-mono);
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --mainbg: #1d1b18;
+  --paper: rgb(43, 42, 40);
+  --ink: rgb(237, 232, 222);
+  --minion: #b02c0a;
+  --demon: #540a1a;
+  --minionInk: rgb(245, 128, 77);
+  --demonInk: rgb(230, 92, 122);
+  --dot: rgb(110, 104, 95);
+  --alertbg: rgba(44, 44, 46, 0.93);
+  --sheetdim: rgba(0, 0, 0, 0.48);
+  color-scheme: dark;
+}
+
+/*
+ * iPad 上中文里的弯引号“”‘’用的是苹方（全角宽），网页里会被前面的 SF 字体抢走变成窄的英文引号。
+ * 单独给这几个字符指到苹方
+ */
+@font-face { font-family: "CJK Quotes"; src: local("PingFangSC-Regular"), local("PingFang SC"); font-weight: 100 450; unicode-range: U+2018-2019, U+201C-201D; }
+@font-face { font-family: "CJK Quotes"; src: local("PingFangSC-Medium"); font-weight: 451 550; unicode-range: U+2018-2019, U+201C-201D; }
+@font-face { font-family: "CJK Quotes"; src: local("PingFangSC-Semibold"); font-weight: 551 1000; unicode-range: U+2018-2019, U+201C-201D; }
+
+/* 20 号以上：iOS 后备的苹方画小到约 92%（见 ui/kit.tsx 的说明）。只管中文和全角标点 */
+@font-face { font-family: "CJK Display"; src: local("PingFangSC-Regular"), local("PingFang SC"); font-weight: 100 450; size-adjust: 92%; unicode-range: U+2018-2019, U+201C-201D, U+2E80-2FDF, U+3000-303F, U+3400-4DBF, U+4E00-9FFF, U+F900-FAFF, U+FE30-FE4F, U+FF00-FFEF; }
+@font-face { font-family: "CJK Display"; src: local("PingFangSC-Medium"); font-weight: 451 550; size-adjust: 92%; unicode-range: U+2018-2019, U+201C-201D, U+2E80-2FDF, U+3000-303F, U+3400-4DBF, U+4E00-9FFF, U+F900-FAFF, U+FE30-FE4F, U+FF00-FFEF; }
+@font-face { font-family: "CJK Display"; src: local("PingFangSC-Semibold"); font-weight: 551 1000; size-adjust: 92%; unicode-range: U+2018-2019, U+201C-201D, U+2E80-2FDF, U+3000-303F, U+3400-4DBF, U+4E00-9FFF, U+F900-FAFF, U+FE30-FE4F, U+FF00-FFEF; }
+
+* { box-sizing: border-box; }
+
+
+html, body, #root {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  /* iPad Safari 会把整个页面当成可以挪动的窗口（滚动、弹性拉动、键盘弹出时整页偏移），把页面钉死在视口里 */
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  background: var(--mainbg);
+  color: var(--ink);
+  font-family: var(--font-rounded);
+  /* SwiftUI 的行高跟着 SF 字体走（约 1.2 倍），中文也一样；网页默认的 normal 用苹方的行高，要高出一截 */
+  line-height: 1.2;
+  /* iPad 上中文和英文、数字之间会自动空出一点（“或 +1 外来者”“12 人”），网页用 text-autospace 做同样的事 */
+  text-autospace: normal;
+  /* 网页默认的长按选字、双击放大会和魔典的手势冲突 */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+}
+
+input, textarea { -webkit-user-select: text; user-select: text; font-family: inherit; color: inherit; }
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+/* 开始页和配版的圆点底纹，对应 BackgroundShader.metal */
+.dot-bg {
+  background-color: var(--mainbg);
+  /* 着色器 time 固定为 0：只有一组点，间距 80，半径 1，点在每格正中 */
+  background-image: radial-gradient(circle, var(--dot) 1px, transparent 1.4px);
+  background-size: 80px 80px;
+}
+
+.scroll-hidden { scrollbar-width: none; }
+.scroll-hidden::-webkit-scrollbar { display: none; }
+
+@keyframes st-fade { from { opacity: 0 } to { opacity: 1 } }
+@keyframes st-rise { from { opacity: 0; transform: translateY(24px) } to { opacity: 1; transform: none } }
+@keyframes st-pop { from { opacity: 0; transform: scale(1.08) } to { opacity: 1; transform: none } }

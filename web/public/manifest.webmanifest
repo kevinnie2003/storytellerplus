@@ -1,0 +1,15 @@
+{
+  "name": "说书人普拉斯",
+  "short_name": "说书人普拉斯",
+  "description": "血染钟楼说书人工具",
+  "lang": "zh-CN",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#dedacd",
+  "theme_color": "#dedacd",
+  "icons": [
+    { "src": "icon.jpg", "sizes": "1024x1024", "type": "image/jpeg", "purpose": "any" }
+  ]
+}

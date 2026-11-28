@@ -1,0 +1,130 @@
+// 记事本，对应 SubViews/notepad/NotepadView.swift：左边是常用词，点一下加到中间的大字里，给玩家看
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { game, setGame, useGame } from '../game/store'
+import { settings, useSettings } from '../settings/store'
+import { mono, rounded } from '../ui/kit'
+import { HFlow } from '../setup/cards'
+import { OverlayLayer, edgeBorder, panelHeight, stroke } from './common'
+
+export function Notepad() {
+  const show = useGame((s) => s.showNotepad)
+  return show ? <NotepadView /> : null
+}
+
+function WordGroup({ words, onAdd }: { words: string[]; onAdd: (w: string) => void }) {
+  return (
+    // HFlow 只包住最宽的一行，在这一栏里居中（只有几个词时整块在中间）
+    <HFlow style={{ padding: '20px 10px' }}>
+      {words.map((w, i) => (
+        <button
+          key={i}
+          onClick={() => onAdd(w)}
+          style={{ ...mono(25, 600), color: 'var(--ink)', padding: '4px 8px', minHeight: 20, ...stroke(2, 10) }}
+        >{w}</button>
+      ))}
+    </HFlow>
+  )
+}
+
+const divider = <div style={{ height: 3, background: 'var(--ink)', flexShrink: 0 }} />
+
+function NotepadView() {
+  const players = useGame((s) => s.playersAssignedCharacters)
+  const playable = useGame((s) => s.playableCharacters)
+  const bluffs = useGame((s) => s.notPresentedGoodCharacters)
+  const predefinedTags = useGame((s) => s.predefinedTags)
+  const notepadTags = useSettings((s) => s.notepadTags)
+  const [showPredefinedTags, setShowPredefinedTags] = useState(true)
+  const [noteText, setNoteText] = useState('')
+  const area = useRef<HTMLTextAreaElement>(null)
+
+  // iPad 版的 predefinedTags 一开始就是设置里的常用词
+  useEffect(() => {
+    if (game().predefinedTags.length === 0 && notepadTags.length > 0) setGame({ predefinedTags: [...notepadTags] })
+  }, [notepadTags])
+
+  // TextField(axis: .vertical)：跟着字数长高
+  useLayoutEffect(() => {
+    const el = area.current
+    if (!el) return
+    el.style.height = '0px'
+    el.style.height = `${el.scrollHeight}px`
+  }, [noteText])
+
+  const withPlayerInfo = players.flatMap((p, i) => [`${i + 1}号`, p.name])
+  const assigned = new Set(players.map((p) => p.name))
+  const withCharacterInfo = playable.map((c) => c.name).filter((n) => !assigned.has(n))
+  const add = (w: string) => setNoteText((t) => `${t}${w} `)
+
+  const save = () => {
+    const tags = [...game().predefinedTags, noteText]
+    setGame({ predefinedTags: tags })
+    // 记事本里新加的常用词也记到设置里（StoryTellerView 的 onChange(of: predefinedTags)）
+    if (JSON.stringify(tags) !== JSON.stringify(settings().notepadTags)) settings().set('notepadTags', tags)
+  }
+
+  const bottomButton = (label: string, onClick: () => void, edges: ('leading' | 'trailing')[]) => (
+    <button
+      onClick={onClick}
+      style={{
+        ...rounded(20, 600), color: 'var(--ink)', padding: 16, flex: 1,
+        boxShadow: [edgeBorder(3, ['top']), edgeBorder(1.5, edges)].join(', '),
+      }}
+    >{label}</button>
+  )
+
+  return (
+    <OverlayLayer zIndex={13} background="var(--mainbg)" onDoubleTapBackground={() => setGame({ showNotepad: false })}>
+      <div
+        data-tour="notepad.panel"
+        style={{
+          position: 'relative', width: 800, height: `min(800px, ${panelHeight})`, background: 'var(--mainbg)',
+          display: 'flex', overflow: 'hidden', ...stroke(3, 20),
+        }}
+      >
+        <div style={{
+          width: showPredefinedTags ? 200 : 0, flexShrink: 0, overflow: 'hidden',
+          transition: 'width .5s ease-in-out',
+        }}>
+          <div style={{
+            width: 200, height: '100%', boxShadow: edgeBorder(3, ['trailing']),
+            transform: showPredefinedTags ? 'none' : 'translateX(-100%)', transition: 'transform .5s ease-in-out',
+          }}>
+            <div className="scroll-hidden" style={{ height: '100%', overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <WordGroup words={withPlayerInfo} onAdd={add} />
+              {divider}
+              <WordGroup words={bluffs.map((c) => c.name).filter((n) => n !== '')} onAdd={add} />
+              {divider}
+              <WordGroup words={withCharacterInfo} onAdd={add} />
+              {divider}
+              <WordGroup words={predefinedTags} onAdd={add} />
+            </div>
+          </div>
+        </div>
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '0 10px' }}>
+            <div style={{ flex: 1 }} />
+            <textarea
+              ref={area}
+              rows={1}
+              value={noteText}
+              placeholder="输入信息"
+              onChange={(e) => setNoteText(e.target.value)}
+              style={{
+                ...rounded(50, 700), textAlign: 'center', width: '100%', maxHeight: '100%', resize: 'none',
+                border: 'none', outline: 'none', background: 'transparent', padding: 0, overflowY: 'auto',
+                lineHeight: 1.2, flexShrink: 0,
+              }}
+            />
+            <div style={{ flex: 1 }} />
+          </div>
+          <div style={{ display: 'flex' }}>
+            {bottomButton(showPredefinedTags ? '收起' : '预设', () => setShowPredefinedTags((v) => !v), ['trailing'])}
+            {bottomButton('清空', () => setNoteText(''), ['leading', 'trailing'])}
+            {bottomButton('保存', save, ['leading'])}
+          </div>
+        </div>
+      </div>
+    </OverlayLayer>
+  )
+}

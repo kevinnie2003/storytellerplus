@@ -1,0 +1,9 @@
+/* 右栏面板用的动画 */
+@keyframes st-panel-in { from { transform: translateX(100%) } to { transform: none } }
+@keyframes st-panel-out { from { transform: none } to { transform: translateX(100%) } }
+
+/* 提名相关角色的号码外面一圈圈往外扩散的波纹（phaseAnimator：1 → 1.4 倍，0.75 → 0 透明） */
+@keyframes st-nominate-ring {
+  from { transform: scale(1); opacity: 0.75 }
+  to { transform: scale(1.4); opacity: 0 }
+}

@@ -1,0 +1,31 @@
+/* AI 面板用到的 iOS 系统色（.secondary、.red、.green、表单底色），深色模式跟着 data-theme 切换 */
+:root {
+  --ai-secondary: rgba(60, 60, 67, 0.6);
+  --ai-red: #ff3b30;
+  --ai-green: #34c759;
+  --ai-blue: #007aff;
+  --ai-spinner: #8e8e93;
+  --ai-form-bg: #f2f2f7;
+  --ai-form-row: #ffffff;
+  --ai-form-sep: rgba(60, 60, 67, 0.29);
+  --ai-placeholder: rgba(60, 60, 67, 0.3);
+  --ai-switch-off: rgba(120, 120, 128, 0.16);
+}
+:root[data-theme="dark"] {
+  --ai-secondary: rgba(235, 235, 245, 0.6);
+  --ai-red: #ff453a;
+  --ai-green: #30d158;
+  --ai-blue: #0a84ff;
+  --ai-spinner: #98989f;
+  --ai-form-bg: #1c1c1e;
+  --ai-form-row: #2c2c2e;
+  --ai-form-sep: rgba(84, 84, 88, 0.65);
+  --ai-placeholder: rgba(235, 235, 245, 0.3);
+  --ai-switch-off: rgba(120, 120, 128, 0.32);
+}
+@keyframes ai-spin { to { transform: rotate(360deg) } }
+.ai-spinner { animation: ai-spin 0.8s steps(8) infinite; flex-shrink: 0; display: block; }
+.ai-field::placeholder { color: var(--ai-placeholder); opacity: 1; }
+.ai-field { outline: none; resize: none; border: none; background: transparent; width: 100%; padding: 0; margin: 0; display: block; }
+.ai-select-text { -webkit-user-select: text; user-select: text; }
+.ai-btn:disabled { opacity: 0.45; cursor: default; }
