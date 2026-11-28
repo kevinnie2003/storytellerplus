@@ -17,6 +17,15 @@ function formatted(seconds: number): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
+/** 手机状态条用的短格式：不到一小时只显示分秒（23:05），超过一小时是 1:02:05 */
+function short(seconds: number): string {
+  const t = Math.max(0, Math.floor(seconds))
+  const h = Math.floor(t / 3600)
+  const m = String(Math.floor((t % 3600) / 60)).padStart(2, '0')
+  const s = String(t % 60).padStart(2, '0')
+  return h > 0 ? `${h}:${m}:${s}` : `${m}:${s}`
+}
+
 const title: React.CSSProperties = { ...rounded(20, 700), color: 'var(--ink)', lineHeight: 1.2 }
 const time: React.CSSProperties = { ...mono(18, 600), color: 'var(--ink)', lineHeight: 1.2 }
 const section: React.CSSProperties = {
@@ -179,16 +188,16 @@ export function TimerView({ compact = false }: { compact?: boolean } = {}) {
     const small: React.CSSProperties = { ...rounded(12, 700), opacity: 0.6, lineHeight: 1.1 }
     const t: React.CSSProperties = { ...mono(15, 700), lineHeight: 1.2 }
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         {night || gameState === 2 ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
             <span style={small}>本局</span>
-            <span style={t}>{formatted((now - st.current.gameStartTime) / 1000)}</span>
+            <span style={t}>{short((now - st.current.gameStartTime) / 1000)}</span>
           </div>
         ) : null}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
           <span style={small}>{night ? '夜晚' : gameState === 2 ? '白天' : '游戏'}</span>
-          <span style={t}>{gameState === 0 ? '00:00:00' : formatted((now - (night ? st.current.nightTimeStart : gameState === 2 ? st.current.dayTimeStart : st.current.gameStartTime)) / 1000)}</span>
+          <span style={t}>{gameState === 0 ? '00:00' : short((now - (night ? st.current.nightTimeStart : gameState === 2 ? st.current.dayTimeStart : st.current.gameStartTime)) / 1000)}</span>
         </div>
         <div
           {...press}
@@ -200,7 +209,7 @@ export function TimerView({ compact = false }: { compact?: boolean } = {}) {
           <span style={{
             ...t, color: timeUp ? '#fff' : 'var(--ink)', borderRadius: 4, padding: '0 2px',
             background: timeUp && flash ? 'var(--demon)' : 'transparent',
-          }}>{gameState === 0 ? '00:00:00' : formatted(timerDisplay)}</span>
+          }}>{gameState === 0 ? '00:00' : short(timerDisplay)}</span>
         </div>
       </div>
     )

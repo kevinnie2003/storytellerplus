@@ -232,8 +232,8 @@ function SeatedScreen() {
   // 还没回复的，最早的那条先处理
   const pending = useMemo(() => inbox.find((m) => !m.readAt && !m.cancelled && shownKind(m)), [inbox])
   const role = useMemo(() => [...inbox].reverse().find((m) => m.kind === 'role' && !m.cancelled)?.role, [inbox])
-  // 说书人发来新东西：关掉私信页和记录页，免得挡住
-  const pendingId = pending?.id
+  // 说书人发来新东西、游戏结束：关掉私信页、记录页这些，免得挡住
+  const pendingId = pending?.id ?? (ended ? 'ended' : '')
   useEffect(() => {
     if (!pendingId) return
     setShowWhisper(false)
@@ -449,6 +449,8 @@ function RoleHold({ role, label = '长按查看我的角色' }: { role: NonNulla
     setShow(false)
   }
   useEffect(() => () => window.clearTimeout(timer.current), [])
+  // 先把角色图标下载好，长按显示时不会空着
+  useEffect(() => { if (role.imageURL) new Image().src = role.imageURL }, [role.imageURL])
   return (
     <>
       <button

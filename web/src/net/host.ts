@@ -419,7 +419,18 @@ export function sendRoles(roles: { seat: number; role: RoleInfo; actual: string 
     for (const r of roles) next[r.seat] = r.actual
     writeDealt(code, next)
     set({ dealt: next })
-    for (const r of roles) logSent(r.seat, r.role.name === r.actual ? `角色：${r.role.name}` : `角色：${r.role.name}（真实是${r.actual}）`)
+    // 一次发给好几个人只记一条，免得整局记录里一长串
+    if (roles.length === 1) {
+      const r = roles[0]
+      logSent(r.seat, r.role.name === r.actual ? `角色：${r.role.name}` : `角色：${r.role.name}（真实是${r.actual}）`)
+    } else {
+      setGame((s) => ({
+        allLogs: [...s.allLogs, makeLog({
+          message: `把角色发到了 ${roles.length} 名玩家的手机${roles.filter((r) => r.role.name !== r.actual).map((r) => `，${r.seat + 1}号看到的是${r.role.name}（真实是${r.actual}）`).join('')}`, messager: 21, type: 3, characterName: '说书人',
+          playerCharacters: ['说书人'], playerTeams: [5],
+        })],
+      }))
+    }
   }
   return ok
 }
