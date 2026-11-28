@@ -74,6 +74,8 @@ interface RoomData {
   phase: string
   night: boolean
   banner?: string
+  alive?: boolean[]
+  deadVote?: boolean[]
   messages: RoomMessage[]
   whispers?: Whisper[]
   updatedAt: number
@@ -165,6 +167,8 @@ export class Room extends DurableObject<Env> {
       phase: data.phase,
       night: data.night,
       banner: data.banner ?? '',
+      alive: data.alive ?? [],
+      deadVote: data.deadVote ?? [],
       hostOnline,
       seats: data.seats.map((s, i) => ({ taken: s.token !== null, name: s.name, online: online.has(i) })),
     }
@@ -291,6 +295,7 @@ export class Room extends DurableObject<Env> {
 
       case 'ack':
       case 'respond':
+      case 'reply':
       case 'answer': {
         if (who.role !== 'player') return
         const m = data.messages.find((x) => x.id === msg.id && x.seat === who.seat)
@@ -300,6 +305,7 @@ export class Room extends DurableObject<Env> {
           m.picks = msg.picks.map((p) => Math.floor(p)).filter((p) => p >= 0 && p < data.seats.length).slice(0, MAX_SEATS)
         }
         if (msg.type === 'answer' && m.kind === 'vote' && m.answer === undefined) m.answer = !!msg.yes
+        if (msg.type === 'reply' && m.kind === 'ask') m.reply = String(msg.text ?? '').slice(0, 500)
         await this.save()
         this.pushInbox(data, who.seat)
         this.pushHost(data)
@@ -390,6 +396,16 @@ export class Room extends DurableObject<Env> {
         await this.save()
         for (const seat of seats) this.pushInbox(data, seat)
         this.pushHost(data)
+        return
+      }
+
+      case 'status': {
+        if (who.role !== 'host') return
+        const n = data.seats.length
+        data.alive = Array.from({ length: n }, (_, i) => msg.alive?.[i] !== false)
+        data.deadVote = Array.from({ length: n }, (_, i) => msg.deadVote?.[i] !== false)
+        await this.save()
+        this.broadcastRoom(data)
         return
       }
 

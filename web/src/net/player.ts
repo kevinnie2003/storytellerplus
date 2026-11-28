@@ -99,6 +99,11 @@ export function sendWhisper(kind: WhisperKind, text: string): boolean {
   return !!socket?.send({ type: 'whisper', id: uuid(), kind, text })
 }
 
+/** 回复说书人“请你发动能力”，空字符串就是这次不发动 */
+export function replyMessage(id: string, text: string) {
+  socket?.send({ type: 'reply', id, text })
+}
+
 export function respondMessage(id: string, picks: number[]) {
   socket?.send({ type: 'respond', id, picks })
 }

@@ -59,6 +59,21 @@ function logResponses(prev: RoomMessage[], next: RoomMessage[]) {
   const logs: GameLogEntry[] = []
   for (const m of next) {
     const old = before.get(m.id)
+    if (m.kind === 'ask' && m.reply !== undefined && old?.reply === undefined) {
+      const players = game().playersAssignedCharacters
+      const name = seatName(m.seat)
+      logs.push(makeLog({
+        message: `（手机）发动能力：${m.reply || '（没写）'}`,
+        messager: m.seat + 1, type: 3, characterName: name, playerCharacters: [name],
+        playerTeams: [team2Int(players[m.seat]?.team ?? '')],
+      }))
+      const reply = m.reply
+      showAlert({
+        title: `${m.seat + 1}号${name ? ` ${name}` : ''} 回复了`,
+        message: reply || '（他没写内容）',
+        buttons: [{ label: '知道了', role: 'cancel' }, { label: '回复', action: () => replyTo(m.seat) }],
+      })
+    }
     if (m.kind === 'choose' && m.picks && !old?.picks) {
       const players = game().playersAssignedCharacters
       const name = seatName(m.seat)
@@ -152,12 +167,14 @@ function watchGame() {
     const s = game()
     socket?.send({ type: 'seats', count: s.playersAssignedCharacters.length })
     socket?.send({ type: 'phase', phase: phaseLabel(s.gameState, s.allLogs), night: s.gameState === 1 || s.gameState === 3 })
+    // 谁死了、谁还有死人票是公开的，玩家的座位列表里要显示
+    socket?.send({ type: 'status', alive: s.playersIsAlive, deadVote: s.playersHasDeathVote })
   }
   let last = ''
   let lastPhase = ''
   unsubGame = useGame.subscribe((s) => {
     const phase = phaseLabel(s.gameState, s.allLogs)
-    const key = `${s.playersAssignedCharacters.length}|${phase}`
+    const key = `${s.playersAssignedCharacters.length}|${phase}|${s.playersIsAlive.join()}|${s.playersHasDeathVote.join()}`
     if (key !== last) { last = key; push() }
     // 换了白天黑夜，投票进度那一行清掉
     if (phase !== lastPhase) { if (lastPhase) socket?.send({ type: 'banner', text: '' }); lastPhase = phase }
@@ -274,6 +291,13 @@ export function sendText(seat: number, text: string): boolean {
 export function sendChoose(seat: number, count: number, prompt: string): boolean {
   const ok = sendStep({ id: uuid(), seat, kind: 'choose', text: prompt, count })
   if (ok) logSent(seat, `请选 ${count} 名玩家`)
+  return ok
+}
+
+/** 要他发动能力：玩家在手机上打字回复 */
+export function sendAsk(seat: number, prompt: string): boolean {
+  const ok = sendStep({ id: uuid(), seat, kind: 'ask', text: prompt })
+  if (ok) logSent(seat, `请发动能力：${prompt}`)
   return ok
 }
 

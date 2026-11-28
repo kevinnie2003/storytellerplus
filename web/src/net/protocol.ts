@@ -12,6 +12,8 @@ export type MessageKind =
   | 'idle'
   /** 白天投票：轮到你了，投还是不投 */
   | 'vote'
+  /** 说书人要你发动能力：打字告诉说书人你的选择 */
+  | 'ask'
 
 export interface RoleInfo {
   name: string
@@ -43,6 +45,8 @@ export interface RoomMessage {
   answer?: boolean
   /** 说书人收回了（比如跳过这一位），玩家那边不再显示 */
   cancelled?: boolean
+  /** 发动能力：玩家写的回复 */
+  reply?: string
 }
 
 /** 玩家主动发给说书人的：文字、申请发动能力、申请私聊 */
@@ -76,6 +80,9 @@ export interface RoomInfo {
   hostOnline: boolean
   /** 所有人都看得到的一行进度（比如投票到谁了），没有就是空 */
   banner: string
+  /** 谁活着、谁还有死人票（公开信息，说书人那边同步过来） */
+  alive?: boolean[]
+  deadVote?: boolean[]
 }
 
 // ——— 网页发给中转 ———
@@ -89,14 +96,16 @@ export type ClientMessage =
   | { type: 'respond'; id: string; picks: number[] }
   | { type: 'answer'; id: string; yes: boolean }
   | { type: 'whisper'; id: string; kind: WhisperKind; text: string }
+  | { type: 'reply'; id: string; text: string }
   | { type: 'leave' }
   // 说书人
   | { type: 'seats'; count: number }
   | { type: 'phase'; phase: string; night: boolean }
-  | { type: 'send'; messages: Omit<RoomMessage, 'sentAt' | 'readAt' | 'picks' | 'phase' | 'answer' | 'cancelled'>[] }
+  | { type: 'send'; messages: Omit<RoomMessage, 'sentAt' | 'readAt' | 'picks' | 'phase' | 'answer' | 'cancelled' | 'reply'>[] }
   | { type: 'cancel'; ids: string[] }
   | { type: 'banner'; text: string }
   | { type: 'whisperRead'; ids: string[] }
+  | { type: 'status'; alive: boolean[]; deadVote: boolean[] }
   | { type: 'kick'; seat: number }
   | { type: 'close' }
 

@@ -2,8 +2,8 @@
 import { useGame } from '../game/store'
 import type { OrderInfo } from '../game/types'
 import { rounded } from '../ui/kit'
-import { showAlert } from '../ui/Alert'
-import { lastMessageFor, replyTo, sendChoose, sendTexts, useHost } from '../net/host'
+import { alertInputValue, showAlert } from '../ui/Alert'
+import { lastMessageFor, replyTo, sendAsk, sendChoose, sendTexts, useHost } from '../net/host'
 
 const chip: React.CSSProperties = {
   ...rounded(14, 800), padding: '5px 11px', borderRadius: 999, border: '2px solid var(--ink)', color: 'var(--ink)', flexShrink: 0,
@@ -57,6 +57,7 @@ export function OrderActions({ info }: { info: OrderInfo }) {
   const status = !taken ? '没入座'
     : !last ? ''
     : last.kind === 'choose' ? (last.picks ? `选了 ${last.picks.map((p) => `${p + 1}号`).join('、') || '没有人'}` : '等他选')
+    : last.kind === 'ask' ? (last.reply !== undefined ? `回复：${last.reply || '（没写）'}` : '等他写')
     : last.readAt ? '已读' : '还没读'
 
   const openNotepad = () => replyTo(seat)
@@ -78,7 +79,21 @@ export function OrderActions({ info }: { info: OrderInfo }) {
     <div onPointerDown={stop} onPointerUp={stop} style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginTop: 5 }}>
       <button style={{ ...chip, opacity: taken ? 1 : 0.35 }} disabled={!taken} onClick={openNotepad}>发信息</button>
       <button style={{ ...chip, opacity: taken ? 1 : 0.35 }} disabled={!taken} onClick={choose}>让他选</button>
+      <button style={{ ...chip, opacity: taken ? 1 : 0.35 }} disabled={!taken} onClick={() => askAbility(seat, info.characterName)}>要他发动</button>
       {status ? <span style={{ ...rounded(13, 700), opacity: 0.7 }}>{status}</span> : null}
     </div>
   )
+}
+
+/** 要某个座位发动能力：写一句提示，玩家在手机上打字回复 */
+export function askAbility(seat: number, characterName: string) {
+  showAlert({
+    title: `要 ${seat + 1}号${characterName ? ` ${characterName}` : ''} 发动能力`,
+    message: '写给他的提示，他在手机上打字回复你',
+    input: { placeholder: '比如：请写下你猜的玩家和角色', value: characterName ? `${characterName}：请发动你的能力，写下你的选择` : '请发动你的能力，写下你的选择' },
+    buttons: [
+      { label: '取消', role: 'cancel' },
+      { label: '发送', action: () => { sendAsk(seat, alertInputValue().trim() || '请发动你的能力') } },
+    ],
+  })
 }

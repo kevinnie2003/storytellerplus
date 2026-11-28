@@ -10,6 +10,7 @@ import { mono, rounded, STChoice, STChoiceRow, STPageHeader, STRow, STSection } 
 import { CachedImage } from '../ui/CachedImage'
 import { closeRoom, kickSeat, markWhispersRead, openRoom, replyTo, roleInfo, sendRoles, setSyncAll, useHost, whisperLabel } from '../net/host'
 import { relayURL } from '../net/relay'
+import { askAbility } from './OrderActions'
 
 /** 玩家打开的网址 */
 export function playerURL(code?: string): string {
@@ -113,6 +114,12 @@ function RoomContent({ onClose }: { onClose: () => void }) {
                           {s.taken ? `${s.name || '已入座'}${s.online ? '' : '（掉线）'}` : '空座位'}
                         </span>
                       </span>
+                      {s.taken ? (
+                        <button
+                          onClick={() => askAbility(i, c?.name ?? '')}
+                          style={{ ...rounded(14, 800), padding: '6px 12px', borderRadius: 999, border: '2px solid var(--ink)', flexShrink: 0 }}
+                        >要他发动</button>
+                      ) : null}
                       {s.taken ? (
                         <button
                           onClick={() => showAlert({
