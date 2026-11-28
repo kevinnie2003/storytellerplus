@@ -56,6 +56,8 @@
 
 ## 网页版
 
+在线使用：https://kevinnie2003.github.io/storytellerplus/
+
 `web/` 里是网页版，大屏上和 iPad 版一致，不需要 Mac，用浏览器打开就能用。说明见 [web/README.md](web/README.md)。
 
 ## 自己安装

@@ -1,6 +1,12 @@
 # 说书人普拉斯 网页版
 
+在线使用：https://kevinnie2003.github.io/storytellerplus/
+
 iPad 版（`../说书人普拉斯/`）的网页移植，大屏（iPad 横屏、电脑）上的界面和功能和 iPad 版一致。不需要 Mac，用浏览器打开就能用，可以“添加到主屏幕”全屏使用，打开过一次之后断网也能用。
+
+## 发布
+
+main 分支上 `web/` 有改动时，GitHub Actions 会自动打包并发布到 GitHub Pages（`.github/workflows/deploy-web.yml`）。
 
 ## 开发
 
