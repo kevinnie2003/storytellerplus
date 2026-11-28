@@ -4,7 +4,7 @@
 import { DurableObject } from 'cloudflare:workers'
 import {
   CODE_CHARS, CODE_LENGTH, normalizeCode,
-  type ClientMessage, type MessageKind, type PushSub, type RoomInfo, type RoomMessage, type ScriptInfo, type ServerMessage, type Whisper,
+  type ClientMessage, type EndedInfo, type FinalInfo, type MessageKind, type PushSub, type RoomInfo, type RoomMessage, type ScriptCharacter, type ScriptInfo, type ServerMessage, type Whisper,
 } from '../../web/src/net/protocol'
 import { pushAllowed, sendPush } from './push'
 
@@ -23,7 +23,7 @@ const EXPIRE_MS = 24 * 60 * 60 * 1000
 const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 }
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', ...cors } })
@@ -57,6 +57,16 @@ export default {
       const code = normalizeCode(parts[1])
       if (code.length !== CODE_LENGTH) return json({ error: '房间号不对' }, 404)
       const stub = env.ROOM.get(env.ROOM.idFromName(code))
+      // 结束游戏后的复盘：说书人上传（带说书人口令），玩家读取
+      if (parts[2] === 'final') {
+        if (request.method === 'POST') {
+          const token = (request.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '')
+          const res = await stub.setFinal(token, await request.text())
+          return res === 'ok' ? json({ ok: true }) : json({ error: res }, res === '不是这个房间的说书人' ? 403 : 400)
+        }
+        const final = await stub.getFinal()
+        return final ? new Response(final, { headers: { 'Content-Type': 'application/json', ...cors } }) : json({ error: '还没有复盘' }, 404)
+      }
       if (parts[2] === 'ws') {
         if (request.headers.get('Upgrade') !== 'websocket') return new Response('需要 WebSocket', { status: 426 })
         return stub.fetch(request)
@@ -81,6 +91,7 @@ interface RoomData {
   phase: string
   night: boolean
   script?: ScriptInfo
+  ended?: EndedInfo
   alive?: boolean[]
   deadVote?: boolean[]
   messages: RoomMessage[]
@@ -132,6 +143,30 @@ export class Room extends DurableObject<Env> {
     return data ? this.roomInfo(data) : null
   }
 
+  /** 说书人结束游戏、或者 AI 复盘好了：存下复盘，告诉所有人。第一次结束时给每个人推送提醒 */
+  async setFinal(token: string, body: string): Promise<string> {
+    const data = await this.load()
+    if (!data) return '没有这个房间'
+    if (!token || token !== data.hostToken) return '不是这个房间的说书人'
+    if (body.length > 1_800_000) return '复盘太大了'
+    let final: FinalInfo
+    try { final = JSON.parse(body) as FinalInfo } catch { return '格式不对' }
+    if (final.winner !== 'good' && final.winner !== 'evil') return '没有胜利方'
+    const first = !data.ended
+    const results = Array.from({ length: data.seats.length }, (_, i) => !!final.results?.[i])
+    data.ended = { winner: final.winner, results, version: (data.ended?.version ?? 0) + 1 }
+    await this.ctx.storage.put('final', JSON.stringify({ ...final, results }))
+    await this.save()
+    this.broadcastRoom(data)
+    if (first) data.seats.forEach((_, seat) => this.notify(data, seat))
+    return 'ok'
+  }
+
+  async getFinal(): Promise<string | null> {
+    if (!(await this.load())) return null
+    return (await this.ctx.storage.get<string>('final')) ?? null
+  }
+
   async alarm() {
     const data = await this.load()
     if (data && Date.now() - data.updatedAt < EXPIRE_MS) {
@@ -178,6 +213,7 @@ export class Room extends DurableObject<Env> {
       night: data.night,
       alive: data.alive ?? [],
       deadVote: data.deadVote ?? [],
+      ended: data.ended ?? null,
       hostOnline,
       seats: data.seats.map((s, i) => ({ taken: s.token !== null, name: s.name, online: online.has(i) })),
     }
@@ -427,13 +463,12 @@ export class Room extends DurableObject<Env> {
       case 'script': {
         if (who.role !== 'host') return
         const s = msg.script
-        data.script = {
-          name: String(s?.name ?? '').slice(0, 60),
-          characters: (s?.characters ?? []).slice(0, 120).map((c) => ({
-            name: String(c.name ?? '').slice(0, 30), ability: String(c.ability ?? '').slice(0, 400),
-            imageURL: String(c.imageURL ?? '').slice(0, 300), team: String(c.team ?? '').slice(0, 20),
-          })),
-        }
+        const clean = (list: ScriptCharacter[] | undefined): ScriptCharacter[] => (Array.isArray(list) ? list : []).slice(0, 120).map((c) => ({
+          id: String(c.id ?? '').slice(0, 60), name: String(c.name ?? '').slice(0, 30), ability: String(c.ability ?? '').slice(0, 400),
+          imageURL: String(c.imageURL ?? '').slice(0, 300), team: String(c.team ?? '').slice(0, 20),
+          firstNightOrder: Number(c.firstNightOrder) || 0, otherNightOrder: Number(c.otherNightOrder) || 0,
+        }))
+        data.script = { name: String(s?.name ?? '').slice(0, 60), characters: clean(s?.characters), travelers: clean(s?.travelers), fabled: clean(s?.fabled) }
         await this.save()
         for (const ws of this.sockets()) {
           if (this.who(ws).role === 'player') this.send(ws, { type: 'script', script: data.script })

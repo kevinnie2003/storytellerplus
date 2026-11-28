@@ -16,14 +16,35 @@ const passes = (node: HTMLElement) => {
   return Math.min(2 + Math.ceil(images / 4), 6)
 }
 
+/**
+ * 本机字体的 @font-face（theme.css 里的 CJK Display、CJK Quotes，只用 local()）。
+ * 画图时不带上它们的话，20 号以上的中文会用回原大小的苹方，比屏幕上宽 8%，
+ * 而每个元素的宽度是照屏幕量好的，最后一个字就被挤到下一行
+ */
+function localFontCSS(): string {
+  const rules: string[] = []
+  for (const sheet of Array.from(document.styleSheets)) {
+    let list: CSSRuleList
+    try { list = sheet.cssRules } catch { continue }
+    for (const rule of Array.from(list)) {
+      if (rule instanceof CSSFontFaceRule && !/url\(/.test(rule.cssText)) rules.push(rule.cssText)
+    }
+  }
+  return rules.join('\n')
+}
+
+const withFonts = (options: Options): Options => (options.fontEmbedCSS == null ? { ...options, fontEmbedCSS: localFontCSS() } : options)
+
 export async function snapshotPng(node: HTMLElement, options: Options): Promise<string> {
+  const opts = withFonts(options)
   let result = ''
-  for (let i = 0; i < passes(node); i++) result = await toPng(node, options)
+  for (let i = 0; i < passes(node); i++) result = await toPng(node, opts)
   return result
 }
 
 export async function snapshotBlob(node: HTMLElement, options: Options): Promise<Blob | null> {
+  const opts = withFonts(options)
   let result: Blob | null = null
-  for (let i = 0; i < passes(node); i++) result = await toBlob(node, options)
+  for (let i = 0; i < passes(node); i++) result = await toBlob(node, opts)
   return result
 }

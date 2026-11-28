@@ -399,7 +399,7 @@ function applyPhone(steps: TourStep[]) {
       '左上角的 ✕ 回到开始页。点错了就点屏幕下方的“撤销”。教程到这里结束，祝你带局顺利。',
     ] },
   }
-  // 拼一句话：手机版的记事本词块在下面，有“展示”整屏给玩家看
+  // 拼一句话：手机版的记事本词块在下面，点“收起”只剩大字，直接给玩家看
   const notepadStep = steps.find((s) => s.title === '给玩家看信息：拼一句话')
   if (notepadStep) {
     const lines = Object.getOwnPropertyDescriptor(notepadStep, 'lines')?.get
@@ -410,7 +410,7 @@ function applyPhone(steps: TourStep[]) {
         return [
           '下面是词块：座位号、恶魔伪装、其他角色、常用词，点一下就加到上面的大字区。',
           ipad[1], ipad[2],
-          '拼好后点“展示”，整屏只显示这句话，再举给玩家看，他就看不到下面的词块。',
+          '拼好后点“收起”，词块收起来只剩大字，再举给玩家看，他就看不到下面的词块。',
           '用完点右上角的 ✕ 关掉，会自动进入下一步。',
         ].filter(Boolean)
       },

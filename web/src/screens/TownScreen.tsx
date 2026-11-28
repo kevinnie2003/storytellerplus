@@ -38,6 +38,8 @@ import { uuid } from '../game/uuid'
 import { useCompact } from '../ui/compact'
 import { MobileTown } from '../mobile/MobileTown'
 import { RoomPanel } from '../online/RoomPanel'
+import { ReviewView } from '../ai/ReviewView'
+import { sendFinal } from '../online/endGame'
 import { resumeHost, stopHost } from '../net/host'
 
 /**
@@ -304,7 +306,23 @@ export function TownScreen() {
       <SettingsView open={showSettings} onClose={() => setGame({ showSettings: false, predefinedTags: settings().notepadTags })} />
       {demo ? <DemoTour /> : null}
       <RoomPanel />
+      <EndReview />
       <ArchiveView open={showArchive} onClose={() => setGame({ showArchive: false })} currentGameID={gameID} onLoad={(id) => { void loadArchive(id) }} />
     </div>
+  )
+}
+
+/** 结束游戏后的复盘：刚结束时自动生成 AI 复盘，生成好了发到玩家手机上 */
+function EndReview() {
+  const open = useGame((s) => s.showEndReview)
+  const gameID = useGame((s) => s.gameID)
+  return (
+    <ReviewView
+      open={open}
+      gameID={gameID}
+      autoGenerate
+      onClose={() => setGame({ showEndReview: false })}
+      onRecap={(recap) => { void sendFinal(recap) }}
+    />
   )
 }

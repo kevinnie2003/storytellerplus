@@ -1,6 +1,6 @@
 // 复盘：按天和夜排列的时间线（只读），以及 AI 复盘长图。对应 iPad 版 Settings/ReviewView.swift
 import { useEffect, useRef, useState } from 'react'
-import type { GameLogEntry, GameSaveData } from '../game/types'
+import type { GameSaveData } from '../game/types'
 import { archiveLoad, recapLoad, recapPosterDelete, recapPosterLoad, recapPosterSave, recapSave } from '../game/persistence'
 import { teamColor } from '../game/teams'
 import { Sheet } from '../ui/Sheet'
@@ -13,83 +13,30 @@ import { contextFromSave } from './context'
 import { recapSystem, recapUser, withHouseRules } from './prompts'
 import { AIProgressLine, aiRequestJSON, downloadBlob } from './common'
 import { AISettingsView } from './AISettingsView'
+import { AISettings } from './providers'
 import { fetchIcons, iconIsCached, normalizeRecap, recapFrom, renderRecapPoster, type RecapData } from './RecapPoster'
+import { ReviewBuilder, ReviewTimeline } from './ReviewTimeline'
 
-/** 时间线里的一段：游戏开始前、第几夜、第几天 */
-interface ReviewSegment {
-  id: number
-  title: string
-  isNight: boolean
-  entries: GameLogEntry[]
+export { ReviewBuilder }
+
+interface ReviewProps {
+  onClose: () => void
+  gameID: string
+  /** 刚结束游戏：先看 AI 复盘，没生成过、AI 也设置好了就自动生成 */
+  autoGenerate?: boolean
+  /** AI 复盘有了（生成好了，或者以前就有）：说书人联机拿去发给玩家 */
+  onRecap?: (recap: RecapData) => void
 }
 
-export const ReviewBuilder = {
-  segments(logs: GameLogEntry[]): ReviewSegment[] {
-    let n = 0
-    const result: ReviewSegment[] = [{ id: n++, title: '开局', isNight: false, entries: [] }]
-    let day = 0
-    let night = 0
-    for (const entry of logs) {
-      switch (entry.type) {
-        case 8:
-          continue
-        case 9:
-          night = 1
-          result.push({ id: n++, title: '第 1 夜', isNight: true, entries: [] })
-          break
-        case 10:
-          day += 1
-          result.push({ id: n++, title: `第 ${day} 天`, isNight: false, entries: [] })
-          break
-        case 11:
-          night += 1
-          result.push({ id: n++, title: `第 ${night} 夜`, isNight: true, entries: [] })
-          break
-        default:
-          result[result.length - 1].entries.push(entry)
-      }
-    }
-    return result.filter((s) => s.entries.length > 0 || s.title !== '开局')
-  },
-
-  /** 一条记录的显示文字，去掉原记录里的分隔线 */
-  text(entry: GameLogEntry): string {
-    switch (entry.type) {
-      case 2: {
-        const who = entry.messager > 0 ? `${entry.messager} 号 ${entry.characterName}` : entry.characterName
-        const detail = entry.message.trim()
-        return detail === '' ? `${who} 被唤醒` : `${who}：${detail}`
-      }
-      case 3:
-        return entry.message
-      default:
-        return entry.logText.split('\n').filter((l) => !l.startsWith('====')).join(' ').replace(/^[ \t]+|[ \t]+$/g, '')
-    }
-  },
-
-  color(entry: GameLogEntry): string {
-    switch (entry.type) {
-      case 6: return 'var(--demonInk)'
-      case 12: return 'var(--townsfolk)'
-      case 4: case 5: return 'var(--ink)'
-      default: return 'color-mix(in srgb, var(--ink) 75%, transparent)'
-    }
-  },
-
-  isBold(entry: GameLogEntry): boolean {
-    return [4, 6, 12].includes(entry.type)
-  },
-}
-
-export function ReviewView({ open, onClose, gameID }: { open: boolean; onClose: () => void; gameID: string }) {
+export function ReviewView({ open, ...props }: ReviewProps & { open: boolean }) {
   return (
-    <Sheet open={open} onClose={onClose}>
-      {open ? <ReviewBody key={gameID} onClose={onClose} gameID={gameID} /> : null}
+    <Sheet open={open} onClose={props.onClose}>
+      {open ? <ReviewBody key={props.gameID} {...props} /> : null}
     </Sheet>
   )
 }
 
-function ReviewBody({ onClose, gameID }: { onClose: () => void; gameID: string }) {
+function ReviewBody({ onClose, gameID, autoGenerate = false, onRecap }: ReviewProps) {
   const [loaded, setLoaded] = useState(false)
   const [game, setGame] = useState<GameSaveData | null>(null)
   const [recap, setRecap] = useState<RecapData | null>(null)
@@ -103,7 +50,9 @@ function ReviewBody({ onClose, gameID }: { onClose: () => void; gameID: string }
   const [showSettings, setShowSettings] = useState(false)
   const compact = useCompact()
   /** 手机上时间线和 AI 复盘分两页 */
-  const [tab, setTab] = useState<'timeline' | 'recap'>('timeline')
+  const [tab, setTab] = useState<'timeline' | 'recap'>(autoGenerate ? 'recap' : 'timeline')
+  const onRecapRef = useRef(onRecap)
+  onRecapRef.current = onRecap
   /** 画图是异步的，只认最后一次 */
   const renderToken = useRef(0)
   const alive = useRef(true)
@@ -152,6 +101,11 @@ function ReviewBody({ onClose, gameID }: { onClose: () => void; gameID: string }
       setGame(g)
       setRecap(r)
       setLoaded(true)
+      if (autoGenerate && g) {
+        // 以前生成过就直接发给玩家；没有的话 AI 设置好了就自动生成
+        if (r) onRecapRef.current?.(r)
+        else if (AISettings.config.apiKey !== '' && AISettings.config.model !== '') void generate(g)
+      }
       const saved = r ? await recapPosterLoad(gameID).catch(() => null) : null
       if (cancelled) return
       if (r && saved) setPoster(saved)
@@ -161,9 +115,9 @@ function ReviewBody({ onClose, gameID }: { onClose: () => void; gameID: string }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameID])
 
-  const generate = async () => {
-    if (!game) return
-    const ctx = contextFromSave(game)
+  const generate = async (g: GameSaveData | null = game) => {
+    if (!g) return
+    const ctx = contextFromSave(g)
     setBusy(true)
     setErrorText('')
     setSavedMessage('')
@@ -171,11 +125,13 @@ function ReviewBody({ onClose, gameID }: { onClose: () => void; gameID: string }
     setProgress('正在思考…')
     try {
       const object = await aiRequestJSON(withHouseRules(recapSystem), recapUser(ctx), '正在写复盘…', setProgress)
+      // 生成时说书人关掉了复盘页也照样存下来、发给玩家
       const result = recapFrom(object)
       setRecap(result)
       await recapSave(gameID, result)
       await recapPosterDelete(gameID)
-      void renderPoster(game, result)
+      onRecapRef.current?.(result)
+      void renderPoster(g, result)
     } catch (e) {
       setErrorText(aiErrorText(e))
     }
@@ -251,64 +207,11 @@ function ReviewBody({ onClose, gameID }: { onClose: () => void; gameID: string }
             <STChoiceRow<'timeline' | 'recap'> options={[['timeline', '时间线'], ['recap', 'AI 复盘']]} value={tab} onChange={setTab} />
             <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column', gap: 12, paddingBottom: 16 }}>
               {tab === 'timeline' ? (
-                <>
-                  {/* 座位一行左右滑 */}
-                  <div className="scroll-hidden" style={{ overflowX: 'auto', background: 'var(--paper)', borderRadius: 14, border: '2.5px solid var(--ink)', flexShrink: 0 }}>
-                    <div style={{ display: 'flex', gap: 4, padding: 8, width: 'max-content' }}>
-                      {game.playersAssignedCharacters.map((c, i) => {
-                        const isAlive = i < game.playersIsAlive.length ? game.playersIsAlive[i] : true
-                        return (
-                          <div key={i} style={{ width: 52, position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                            <CachedImage url={c.imageURL} size={34} style={{ opacity: isAlive ? 1 : 0.4 }} />
-                            <div style={rounded(13, 900)}>{i + 1}</div>
-                            <div style={{
-                              ...rounded(13, 600), color: teamColor(c.team), maxWidth: '100%',
-                              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                            }}>{c.name}</div>
-                            {!isAlive ? (
-                              <div style={{ position: 'absolute', top: 0, right: 0, color: 'var(--demonInk)' }}>
-                                <SFIcon name="xmark" size={13} weight="black" />
-                              </div>
-                            ) : null}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                  <div style={{ background: 'var(--paper)', borderRadius: 16, border: '3px solid var(--ink)', flexShrink: 0 }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: 13, alignItems: 'flex-start' }}>
-                      {ReviewBuilder.segments(game.allLogs).map((segment) => (
-                        <div key={segment.id} style={{ display: 'flex', flexDirection: 'column', gap: 5, alignItems: 'flex-start', width: '100%' }}>
-                          <div style={{
-                            ...rounded(17, 900), display: 'flex', alignItems: 'center', gap: 6,
-                            color: segment.isNight ? 'var(--paper)' : 'var(--ink)', background: segment.isNight ? 'var(--ink)' : 'var(--paper)',
-                            padding: '4px 11px', borderRadius: 999, border: '2px solid var(--ink)',
-                          }}>
-                            <SFIcon name={segment.isNight ? 'moon.fill' : segment.title === '开局' ? 'flag.fill' : 'sun.max.fill'} size={17} weight="black" />
-                            <span>{segment.title}</span>
-                          </div>
-                          {segment.entries.length === 0 ? (
-                            <div style={{ ...rounded(14), color: dim(40), paddingLeft: 8 }}>没有记录</div>
-                          ) : null}
-                          {segment.entries.map((entry) => (
-                            <div
-                              key={entry.id}
-                              className="ai-select-text"
-                              style={{
-                                ...rounded(15, ReviewBuilder.isBold(entry) ? 700 : 400), color: ReviewBuilder.color(entry),
-                                paddingLeft: 8, width: '100%', whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-                              }}
-                            >{ReviewBuilder.text(entry)}</div>
-                          ))}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </>
+                <ReviewTimeline game={game} />
               ) : (
                 <>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <STChoice selected={recap === null} onClick={generate} disabled={busy} style={{ opacity: busy ? 0.4 : 1 }}>
+                    <STChoice selected={recap === null} onClick={() => { void generate() }} disabled={busy} style={{ opacity: busy ? 0.4 : 1 }}>
                       <span style={rounded(16, 700)}>{recap === null ? '生成复盘图' : '重新生成'}</span>
                     </STChoice>
                     {posterURL !== '' ? (
@@ -429,7 +332,7 @@ function ReviewBody({ onClose, gameID }: { onClose: () => void; gameID: string }
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={rounded(22, 900)}>AI 复盘</div>
               <div style={{ flex: 1 }} />
-              <STChoice selected={recap === null} onClick={generate} disabled={busy} style={{ opacity: busy ? 0.4 : 1 }}>
+              <STChoice selected={recap === null} onClick={() => { void generate() }} disabled={busy} style={{ opacity: busy ? 0.4 : 1 }}>
                 <span style={rounded(16, 700)}>{recap === null ? '生成复盘图' : '重新生成'}</span>
               </STChoice>
             </div>

@@ -62,6 +62,26 @@ export interface SeatInfo {
   online: boolean
 }
 
+export type Winner = 'good' | 'evil'
+
+/** 说书人结束了游戏：哪一方赢了、每个座位是赢是输。version 每次更新复盘就加一 */
+export interface EndedInfo {
+  winner: Winner
+  results: boolean[]
+  version: number
+}
+
+/**
+ * 结束游戏后给玩家看的复盘（GET /rooms/<房间号>/final）：整局存档和 AI 复盘。
+ * game 是 GameSaveData，recap 是 RecapData（还没生成是 null）；中转不看里面的内容
+ */
+export interface FinalInfo {
+  winner: Winner
+  results: boolean[]
+  game: unknown
+  recap: unknown
+}
+
 /** 房间的公开信息：没加入的人也能看到哪些座位空着 */
 export interface RoomInfo {
   code: string
@@ -73,12 +93,24 @@ export interface RoomInfo {
   /** 谁活着、谁还有死人票（公开信息，说书人那边同步过来） */
   alive?: boolean[]
   deadVote?: boolean[]
+  /** 游戏结束了（没结束是 null） */
+  ended?: EndedInfo | null
 }
 
-/** 这一局的剧本：玩家在手机上能看所有角色的能力 */
+/** 剧本里的一个角色：能力加上夜晚顺序（0 是不在夜里行动） */
+export interface ScriptCharacter extends RoleInfo {
+  id: string
+  firstNightOrder: number
+  otherNightOrder: number
+}
+
+/** 这一局的剧本：玩家在手机上看到和说书人一样的“全部角色能力” */
 export interface ScriptInfo {
   name: string
-  characters: RoleInfo[]
+  /** 剧本角色（说书人那边的 playableCharacters） */
+  characters: ScriptCharacter[]
+  travelers?: ScriptCharacter[]
+  fabled?: ScriptCharacter[]
 }
 
 /** 浏览器给的推送订阅（PushSubscription.toJSON()） */

@@ -1,12 +1,11 @@
-// 记事本，对应 SubViews/notepad/NotepadView.swift：左边是常用词，点一下加到中间的大字里，给玩家看
+// 记事本，对应 SubViews/notepad/NotepadView.swift：左边是常用词，点一下加到中间的大字里，给玩家看。
+// “收起”把常用词和“发到手机”那一栏都收起来，只剩大字，直接拿给玩家看
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { game, setGame, useGame } from '../game/store'
 import { settings, useSettings } from '../settings/store'
 import { mono, rounded } from '../ui/kit'
 import { HFlow } from '../setup/cards'
 import { useCompact } from '../ui/compact'
-import { SFIcon } from '../ui/SFIcon'
 import { MobilePage } from '../mobile/MobilePage'
 import { SendBar } from '../online/SendBar'
 import { OverlayLayer, edgeBorder, panelHeight, stroke } from './common'
@@ -31,6 +30,15 @@ function WordGroup({ words, onAdd }: { words: string[]; onAdd: (w: string) => vo
   )
 }
 
+/** 跟着“收起”一起收：高度从内容高度平滑变到 0（grid 的 0fr / 1fr） */
+function Collapse({ open, seconds, children }: { open: boolean; seconds: number; children: React.ReactNode }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateRows: open ? '1fr' : '0fr', transition: `grid-template-rows ${seconds}s ease-in-out`, flexShrink: 0 }}>
+      <div style={{ minHeight: 0, overflow: 'hidden' }}>{children}</div>
+    </div>
+  )
+}
+
 const divider = <div style={{ height: 3, background: 'var(--ink)', flexShrink: 0 }} />
 
 function NotepadView() {
@@ -43,7 +51,6 @@ function NotepadView() {
   const [noteText, setNoteText] = useState('')
   const area = useRef<HTMLTextAreaElement>(null)
   const compact = useCompact()
-  const [showing, setShowing] = useState(false)
 
   // iPad 版的 predefinedTags 一开始就是设置里的常用词
   useEffect(() => {
@@ -82,12 +89,11 @@ function NotepadView() {
 
   if (compact) {
     const groups = [withPlayerInfo, bluffs.map((c) => c.name).filter((n) => n !== ''), withCharacterInfo, predefinedTags]
-    const btn = (filled = false): React.CSSProperties => ({
+    const btn = (): React.CSSProperties => ({
       ...rounded(17, 700), flex: '1 1 0', minWidth: 0, height: 46, borderRadius: 14, display: 'flex', alignItems: 'center',
       justifyContent: 'center', gap: 5, whiteSpace: 'nowrap',
-      color: filled ? 'var(--mainbg)' : 'var(--ink)', background: filled ? 'var(--ink)' : 'transparent', ...(filled ? null : stroke(2.5, 14)),
+      color: 'var(--ink)', background: 'transparent', ...stroke(2.5, 14),
     })
-    const empty = noteText.trim() === ''
     return (
       <MobilePage title="记事本" zIndex={113} scroll={false} onClose={() => setGame({ showNotepad: false })}>
         <div data-tour="notepad.panel" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
@@ -130,18 +136,15 @@ function NotepadView() {
               ))}
             </div>
           </div>
-          <div style={{ boxShadow: edgeBorder(3, ['top']), flexShrink: 0 }}><SendBar text={noteText} compact /></div>
+          <Collapse open={showPredefinedTags} seconds={0.3}>
+            <div style={{ boxShadow: edgeBorder(3, ['top']) }}><SendBar text={noteText} compact /></div>
+          </Collapse>
           <div style={{ display: 'flex', gap: 8, padding: '10px 12px', flexShrink: 0 }}>
             <button style={btn()} onClick={() => setShowPredefinedTags((v) => !v)}>{showPredefinedTags ? '收起' : '预设'}</button>
             <button style={btn()} onClick={() => setNoteText('')}>清空</button>
             <button style={btn()} onClick={save}>保存</button>
-            <button style={{ ...btn(true), opacity: empty ? 0.35 : 1 }} disabled={empty} onClick={() => setShowing(true)}>
-              <SFIcon name="eye" size={19} weight="bold" />
-              <span>展示</span>
-            </button>
           </div>
         </div>
-        {showing ? <ShowToPlayer text={noteText} onClose={() => setShowing(false)} /> : null}
       </MobilePage>
     )
   }
@@ -191,7 +194,7 @@ function NotepadView() {
             />
             <div style={{ flex: 1 }} />
           </div>
-          <SendBar text={noteText} compact={false} />
+          <Collapse open={showPredefinedTags} seconds={0.5}><SendBar text={noteText} compact={false} /></Collapse>
           <div style={{ display: 'flex' }}>
             {bottomButton(showPredefinedTags ? '收起' : '预设', () => setShowPredefinedTags((v) => !v), ['trailing'])}
             {bottomButton('清空', () => setNoteText(''), ['leading', 'trailing'])}
@@ -203,42 +206,3 @@ function NotepadView() {
   )
 }
 
-/** 手机上给玩家看：整屏只有这句话，字尽量大，点一下回去 */
-function ShowToPlayer({ text, onClose }: { text: string; onClose: () => void }) {
-  const box = useRef<HTMLDivElement>(null)
-  const txt = useRef<HTMLDivElement>(null)
-  const [size, setSize] = useState(96)
-  useLayoutEffect(() => {
-    const fit = () => {
-      const b = box.current
-      const t = txt.current
-      if (!b || !t) return
-      // 从大往小试，放得下为止
-      let s = 140
-      t.style.fontSize = `${s}px`
-      while (s > 24 && t.scrollHeight > b.clientHeight) { s -= 4; t.style.fontSize = `${s}px` }
-      setSize(s)
-    }
-    fit()
-    window.addEventListener('resize', fit)
-    return () => window.removeEventListener('resize', fit)
-  }, [text])
-  return createPortal(
-    <div
-      onClick={onClose}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 120, background: 'var(--mainbg)', color: 'var(--ink)', display: 'flex', flexDirection: 'column',
-        padding: 'calc(20px + env(safe-area-inset-top)) 20px calc(14px + env(safe-area-inset-bottom))', animation: 'st-fade .2s ease-out',
-      }}
-    >
-      <div ref={box} style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
-        <div ref={txt} style={{
-          ...rounded(40, 900), fontSize: size, width: '100%', textAlign: 'center', lineHeight: 1.15,
-          whiteSpace: 'pre-wrap', overflowWrap: 'anywhere',
-        }}>{text.trim()}</div>
-      </div>
-      <div style={{ ...rounded(14, 700), opacity: 0.45, textAlign: 'center', flexShrink: 0, paddingTop: 10 }}>点一下返回</div>
-    </div>,
-    document.body,
-  )
-}

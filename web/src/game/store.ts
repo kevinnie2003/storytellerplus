@@ -34,6 +34,8 @@ export interface GameState {
   nominationPhase: number
   allLogs: GameLogEntry[]
   gameID: string
+  /** 结束游戏时选的胜利方：good / evil，没结束是空（结束后不能撤销） */
+  gameWinner: string
 
   // 弹出的面板
   selectNewCharacter: boolean
@@ -51,6 +53,8 @@ export interface GameState {
   showArchive: boolean
   showAIAdvisor: boolean
   showAIPostDraw: boolean
+  /** 结束游戏后的复盘页 */
+  showEndReview: boolean
   showExitConfirmation: boolean
   openAISetupOnAppear: boolean
   aiSetupNotes: string
@@ -85,6 +89,7 @@ export const initialGameState: Omit<GameState, 'set'> = {
   nominationPhase: 0,
   allLogs: [],
   gameID: '',
+  gameWinner: '',
   selectNewCharacter: false,
   currentSelectedPlayerID: 0,
   selectNewReminder: false,
@@ -100,6 +105,7 @@ export const initialGameState: Omit<GameState, 'set'> = {
   showArchive: false,
   showAIAdvisor: false,
   showAIPostDraw: false,
+  showEndReview: false,
   showExitConfirmation: false,
   openAISetupOnAppear: false,
   aiSetupNotes: '',

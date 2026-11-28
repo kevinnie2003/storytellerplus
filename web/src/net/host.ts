@@ -6,8 +6,8 @@ import { phaseLabel } from '../game/phase'
 import { team2Int } from '../game/loadScript'
 import type { Character, GameLogEntry } from '../game/types'
 import { uuid } from '../game/uuid'
-import { createRoom, RoomSocket, type SocketStatus } from './relay'
-import type { RoleInfo, RoomInfo, RoomMessage, ScriptInfo, ServerMessage, Whisper } from './protocol'
+import { createRoom, relayURL, RoomSocket, type SocketStatus } from './relay'
+import type { FinalInfo, RoleInfo, RoomInfo, RoomMessage, ScriptCharacter, ScriptInfo, ServerMessage, Whisper } from './protocol'
 import { showAlert } from '../ui/Alert'
 
 interface HostState {
@@ -71,7 +71,7 @@ function logResponses(prev: RoomMessage[], next: RoomMessage[]) {
       const players = game().playersAssignedCharacters
       const name = seatName(m.seat)
       logs.push(makeLog({
-        message: `（手机）发动能力：${m.reply || '（没写）'}`,
+        message: `发动能力：${m.reply || '（没写）'}`,
         messager: m.seat + 1, type: 3, characterName: name, playerCharacters: [name],
         playerTeams: [team2Int(players[m.seat]?.team ?? '')],
       }))
@@ -86,7 +86,7 @@ function logResponses(prev: RoomMessage[], next: RoomMessage[]) {
       const players = game().playersAssignedCharacters
       const name = seatName(m.seat)
       logs.push(makeLog({
-        message: `（手机）选了 ${m.picks.map((p) => `${p + 1}号`).join('、') || '没有人'}`,
+        message: `选了 ${m.picks.map((p) => `${p + 1}号`).join('、') || '没有人'}`,
         messager: m.seat + 1, type: 3, characterName: name, playerCharacters: [name],
         playerTeams: [team2Int(players[m.seat]?.team ?? '')],
       }))
@@ -124,7 +124,7 @@ function announceWhispers(next: Whisper[]) {
     allLogs: [...s.allLogs, ...fresh.map((w) => {
       const name = players[w.seat]?.name ?? ''
       return makeLog({
-        message: `（手机）${whisperLabel[w.kind]}${w.text ? `：${w.text}` : ''}`,
+        message: `${whisperLabel[w.kind]}${w.text ? `：${w.text}` : ''}`,
         messager: w.seat + 1, type: 3, characterName: name, playerCharacters: [name],
         playerTeams: [team2Int(players[w.seat]?.team ?? '')],
       })
@@ -173,8 +173,10 @@ const isNight = (gameState: number) => gameState === 1 || gameState === 3
 /** 这一局的剧本（玩家手机上看全部角色能力） */
 function scriptInfo(): ScriptInfo {
   const s = game()
-  const all = [...s.playableCharacters, ...s.travelers, ...s.selectedFabledCharacters].filter((c) => c.name)
-  return { name: s.playName, characters: [...new Map(all.map((c) => [c.name, roleInfo(c)])).values()] }
+  const list = (cs: Character[]): ScriptCharacter[] => cs.filter((c) => c.name).map((c) => ({
+    ...roleInfo(c), id: c.id, firstNightOrder: c.firstNightOrder, otherNightOrder: c.otherNightOrder,
+  }))
+  return { name: s.playName, characters: list(s.playableCharacters), travelers: list(s.travelers), fabled: list(s.fabled) }
 }
 
 /** 跟着小镇：座位数、第几天第几夜、剧本 */
@@ -202,7 +204,7 @@ function watchGame() {
     const phase = phaseLabel(s.gameState, s.allLogs)
     const key = `${s.playersAssignedCharacters.length}|${phase}|${s.playersIsAlive.join()}|${s.playersHasDeathVote.join()}`
     if (key !== last) { last = key; push() }
-    const chars = [s.playableCharacters, s.travelers, s.selectedFabledCharacters, s.playName]
+    const chars = [s.playableCharacters, s.travelers, s.fabled, s.playName]
     if (chars.some((c, i) => c !== lastChars[i])) { lastChars = chars; pushScript() }
   })
   return push
@@ -264,6 +266,22 @@ export function kickSeat(seat: number) {
   socket?.send({ type: 'kick', seat })
 }
 
+/** 结束游戏、AI 复盘好了：把结果和复盘交给中转，玩家手机上显示 */
+export async function uploadFinal(final: FinalInfo): Promise<boolean> {
+  const saved = readSaved()
+  if (!saved || saved.gameID !== game().gameID) return false
+  try {
+    const res = await fetch(`${relayURL()}/rooms/${saved.code}/final`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${saved.hostToken}`, 'Content-Type': 'text/plain' },
+      body: JSON.stringify(final),
+    })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
 export const hostOnline = () => useHost.getState().status === 'online'
 
 type Outgoing = Omit<RoomMessage, 'sentAt' | 'readAt' | 'picks' | 'phase'>
@@ -286,7 +304,7 @@ export function sendTexts(items: { seat: number; text: string }[]): boolean {
 function logSent(seat: number, text: string) {
   setGame((s) => ({
     allLogs: [...s.allLogs, makeLog({
-      message: `（发到 ${seat + 1}号 手机）${text}`, messager: 21, type: 3, characterName: '说书人',
+      message: `发给${seat + 1}号：${text}`, messager: 21, type: 3, characterName: '说书人',
       playerCharacters: ['说书人'], playerTeams: [5],
     })],
   }))

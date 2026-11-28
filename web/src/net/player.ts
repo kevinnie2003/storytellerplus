@@ -1,7 +1,7 @@
 // 玩家这边的联机：用房间号连上，选座位，收说书人的信息，回复已读和选择
 import { create } from 'zustand'
-import { RoomSocket, type SocketStatus } from './relay'
-import type { RoomInfo, RoomMessage, ScriptInfo, ServerMessage, Whisper, WhisperKind } from './protocol'
+import { relayURL, RoomSocket, type SocketStatus } from './relay'
+import type { FinalInfo, RoomInfo, RoomMessage, ScriptInfo, ServerMessage, Whisper, WhisperKind } from './protocol'
 import { uuid } from '../game/uuid'
 import { getSubscription } from './push'
 
@@ -17,6 +17,8 @@ interface PlayerState {
   sent: Whisper[]
   /** 这一局的剧本（看全部角色能力） */
   script: ScriptInfo | null
+  /** 游戏结束后的复盘（整局记录和 AI 复盘） */
+  final: FinalInfo | null
   error: string
 }
 
@@ -29,7 +31,7 @@ function writeSaved(v: Saved | null) {
   try { if (v) localStorage.setItem(SAVE_KEY, JSON.stringify(v)); else localStorage.removeItem(SAVE_KEY) } catch { /* 存不了就算了 */ }
 }
 
-export const usePlayer = create<PlayerState>(() => ({ code: '', status: 'off', room: null, seat: -1, name: '', inbox: [], sent: [], script: null, error: '' }))
+export const usePlayer = create<PlayerState>(() => ({ code: '', status: 'off', room: null, seat: -1, name: '', inbox: [], sent: [], script: null, final: null, error: '' }))
 const set = (patch: Partial<PlayerState>) => usePlayer.setState(patch)
 
 let socket: RoomSocket | null = null
@@ -38,10 +40,26 @@ let seatToken = ''
 /** 上次加入的房间（开始页上显示“回到房间”） */
 export const savedPlayerRoom = () => readSaved()?.code ?? ''
 
+/** 游戏结束了：取复盘。AI 复盘好了说书人会再传一次（version 变了），再取一次 */
+let finalVersion = 0
+async function loadFinal(code: string, version: number) {
+  if (version === finalVersion) return
+  finalVersion = version
+  try {
+    const res = await fetch(`${relayURL()}/rooms/${code}/final`)
+    if (!res.ok) return
+    const final = await res.json() as FinalInfo
+    if (usePlayer.getState().code === code) set({ final })
+  } catch {
+    finalVersion = 0
+  }
+}
+
 function onMessage(msg: ServerMessage) {
   switch (msg.type) {
     case 'room':
       set({ room: msg.room })
+      if (msg.room.ended) void loadFinal(msg.room.code, msg.room.ended.version)
       return
     case 'seated':
       seatToken = msg.seatToken
@@ -80,7 +98,8 @@ export function joinRoom(code: string) {
   socket?.stop()
   const saved = readSaved()
   seatToken = saved && saved.code === code ? saved.seatToken : ''
-  set({ code, room: null, seat: -1, inbox: [], sent: [], script: null, error: '' })
+  finalVersion = 0
+  set({ code, room: null, seat: -1, inbox: [], sent: [], script: null, final: null, error: '' })
   socket = new RoomSocket(
     code,
     () => (seatToken ? { type: 'hello', seatToken } : { type: 'hello' }),
@@ -98,11 +117,17 @@ export function ackMessage(id: string) {
   socket?.send({ type: 'ack', id })
 }
 
-/** 页面在前台就不用推送；切到别的 app 时告诉中转 */
+/**
+ * 玩家在看这个页面就不用推送；切到别的 app 时告诉中转。
+ * 电脑上切到别的程序时标签页还算“显示着”，所以还要看窗口有没有焦点
+ */
 function sendVisible() {
-  socket?.send({ type: 'visible', visible: document.visibilityState === 'visible' })
+  socket?.send({ type: 'visible', visible: document.visibilityState === 'visible' && document.hasFocus() })
 }
-document.addEventListener('visibilitychange', () => { if (usePlayer.getState().seat >= 0) sendVisible() })
+const onVisibility = () => { if (usePlayer.getState().seat >= 0) sendVisible() }
+document.addEventListener('visibilitychange', onVisibility)
+window.addEventListener('focus', onVisibility)
+window.addEventListener('blur', onVisibility)
 
 /** 开了通知的话，把推送订阅交给中转（每次入座都交一次，换座位也跟着走） */
 export async function syncPush(): Promise<boolean> {
@@ -136,5 +161,5 @@ export function leaveRoom(freeSeat = false) {
   window.setTimeout(() => { socket?.stop(); socket = null }, freeSeat ? 150 : 0)
   seatToken = ''
   writeSaved(null)
-  set({ code: '', status: 'off', room: null, seat: -1, inbox: [], sent: [], script: null })
+  set({ code: '', status: 'off', room: null, seat: -1, inbox: [], sent: [], script: null, final: null })
 }

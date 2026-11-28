@@ -181,7 +181,7 @@ export function STBigButton({ title, subtitle, systemImage, filled, onClick, sty
   )
 }
 
-export function STPageHeader({ title, onClose }: { title: string; onClose: () => void }) {
+export function STPageHeader({ title, onClose, closeLabel = '完成' }: { title: string; onClose: () => void; closeLabel?: string }) {
   const compact = useCompact()
   if (compact) {
     return (
@@ -190,7 +190,7 @@ export function STPageHeader({ title, onClose }: { title: string; onClose: () =>
         <button
           onClick={onClose}
           style={{ ...rounded(16, 900), color: 'var(--paper)', background: 'var(--ink)', padding: '0 18px', height: 38, borderRadius: 999, flexShrink: 0 }}
-        >完成</button>
+        >{closeLabel}</button>
       </div>
     )
   }
@@ -201,7 +201,7 @@ export function STPageHeader({ title, onClose }: { title: string; onClose: () =>
       <button
         onClick={onClose}
         style={{ ...rounded(19, 900), color: 'var(--paper)', background: 'var(--ink)', padding: '10px 22px', borderRadius: 999 }}
-      >完成</button>
+      >{closeLabel}</button>
     </div>
   )
 }

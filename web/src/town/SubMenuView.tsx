@@ -6,6 +6,7 @@ import { SFIcon } from '../ui/SFIcon'
 import { rounded } from '../ui/kit'
 import { useCompact } from '../ui/compact'
 import { changedRoleSeats, useHost } from '../net/host'
+import { confirmEndGame, winnerText } from '../online/endGame'
 
 function Row({ title, icon, onClick }: { title: string; icon: string; onClick: () => void }) {
   return (
@@ -43,6 +44,7 @@ export function SubMenuView() {
   const room = useHost((s) => s.room)
   const players = useGame((s) => s.playersAssignedCharacters)
   const changed = roomCode ? changedRoleSeats(dealt, players, room).length : 0
+  const winner = useGame((s) => s.gameWinner)
 
   return (
     <>
@@ -90,7 +92,26 @@ export function SubMenuView() {
               </div>
             </button>
           </>
-        ) : null}
+        ) : winner ? (
+          <>
+            <Divider />
+            <Row title={`已结束 · ${winnerText(winner)} · 看复盘`} icon="flag.fill" onClick={() => setGame({ showMenu: false, showEndReview: true })} />
+          </>
+        ) : (
+          <>
+            <Divider />
+            {/* 开始游戏以后，同一个位置换成“结束游戏” */}
+            <button data-tour="gear.end" onClick={confirmEndGame} style={{ padding: '6px 6px' }}>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', color: 'var(--warningRed)',
+                borderRadius: 10, outline: '2.5px solid var(--warningRed)', outlineOffset: -1.25,
+              }}>
+                <span style={{ width: 24, display: 'flex', justifyContent: 'center' }}><SFIcon name="flag.fill" size={20} weight="bold" /></span>
+                <span style={{ ...rounded(18, 900), lineHeight: 1.2 }}>结束游戏</span>
+              </div>
+            </button>
+          </>
+        )}
         <Divider />
         <Row
           title={hideTeamColors ? '显示阵营颜色' : '隐藏阵营颜色'}

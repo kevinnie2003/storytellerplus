@@ -1,13 +1,19 @@
 // 说书人联机（玩家端）：输入房间号、选座位，夜里看手机收说书人的信息、选人回传
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CODE_LENGTH, normalizeCode, type RoomMessage } from '../net/protocol'
+import { CODE_LENGTH, normalizeCode, type RoomMessage, type ScriptCharacter } from '../net/protocol'
 import { ackMessage, claimSeat, joinRoom, leaveRoom, replyMessage, respondMessage, savedPlayerRoom, sendWhisper, syncPush, usePlayer } from '../net/player'
 import { relayURL } from '../net/relay'
 import { askPermission, pushState, type PushState } from '../net/push'
 import { CachedImage } from '../ui/CachedImage'
 import { SFIcon } from '../ui/SFIcon'
-import { mono, rounded } from '../ui/kit'
+import { mono, rounded, STChoiceRow } from '../ui/kit'
+import { Confetti } from '../ui/Confetti'
+import { ReviewTimeline } from '../ai/ReviewTimeline'
+import { fetchIcons, iconIsCached, normalizeRecap, renderRecapPoster } from '../ai/RecapPoster'
+import type { GameSaveData } from '../game/types'
 import { AlertHost, showAlert } from '../ui/Alert'
+import { makeCharacter, type Team } from '../game/types'
+import { PhoneAllCharacterInfos, saveCharacterInfosImage, type LayoutData } from '../overlays/AllCharacterInfos'
 
 const teamColor: Record<string, string> = {
   townsfolk: 'var(--townsfolk)', outsider: 'var(--outsider)', minion: 'var(--minion)', demon: 'var(--demon)',
@@ -217,6 +223,7 @@ function SeatedScreen() {
   const [showPlayers, setShowPlayers] = useState(false)
   const [showScript, setShowScript] = useState(false)
   const unreadSent = usePlayer((s) => s.sent.filter((w) => !w.readAt).length)
+  const ended = !!room?.ended
 
   // 还没回复的，最早的那条先处理
   const pending = useMemo(() => inbox.find((m) => !m.readAt && !m.cancelled && shownKind(m)), [inbox])
@@ -270,13 +277,13 @@ function SeatedScreen() {
         </button>
       </div>
 
-      {!pending ? <PushPrompt /> : null}
+      {!pending && !ended ? <PushPrompt /> : null}
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-        {pending ? <PendingMessage key={pending.id} message={pending} /> : <Waiting night={!!room?.night} setup={!room?.phase || room.phase === '配版'} />}
+        {ended ? <EndView /> : pending ? <PendingMessage key={pending.id} message={pending} /> : <Waiting night={!!room?.night} setup={!room?.phase || room.phase === '配版'} />}
       </div>
 
-      {!pending && role ? <RoleHold role={role} /> : null}
-      {!pending ? (
+      {!pending && !ended && role ? <RoleHold role={role} /> : null}
+      {!pending && !ended ? (
         <button style={bigButton(false)} onClick={() => setShowWhisper(true)}>
           私信说书人{unreadSent ? ` · ${unreadSent} 条未读` : ''}
         </button>
@@ -561,7 +568,13 @@ function PlayersPage({ onClose }: { onClose: () => void }) {
 
 function History({ onClose }: { onClose: () => void }) {
   const inbox = usePlayer((s) => s.inbox)
-  const list = inbox.filter((m) => shownKind(m) && !m.cancelled).reverse()
+  // 从旧到新排，打开时停在最下面（最新的）
+  const list = inbox.filter((m) => shownKind(m) && !m.cancelled)
+  const scroller = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = scroller.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [list.length])
   return (
     <div style={{ ...page, zIndex: 40, gap: 12 }}>
       <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -570,7 +583,7 @@ function History({ onClose }: { onClose: () => void }) {
           <SFIcon name="xmark" size={22} weight="bold" />
         </button>
       </div>
-      <div className="scroll-hidden" style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div ref={scroller} className="scroll-hidden" style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
         {list.length === 0 ? <div style={{ ...rounded(16, 600), opacity: 0.6 }}>还没有收到信息</div> : null}
         {list.map((m) => (
           <div key={m.id} style={{ padding: '10px 14px', borderRadius: 14, border: '2.5px solid var(--ink)', display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -632,39 +645,114 @@ function PushPrompt() {
   )
 }
 
-const TEAM_ORDER = ['townsfolk', 'outsider', 'minion', 'demon', 'traveler', 'fabled']
-
-/** 这一局剧本里的全部角色和能力 */
+/** 这一局剧本的全部角色能力和夜晚顺序：和说书人手机上的“全部角色能力”是同一页 */
 function ScriptPage({ onClose }: { onClose: () => void }) {
   const script = usePlayer((s) => s.script)
-  const groups = TEAM_ORDER.map((team) => ({ team, list: (script?.characters ?? []).filter((c) => c.team === team) })).filter((g) => g.list.length)
+  const [saving, setSaving] = useState(false)
+  const data = useMemo<LayoutData>(() => {
+    const toChars = (list: ScriptCharacter[] | undefined) => (list ?? []).map((c) => makeCharacter({
+      id: c.id || c.name, name: c.name, ability: c.ability, imageURL: c.imageURL, team: c.team as Team,
+      firstNightOrder: c.firstNightOrder ?? 0, otherNightOrder: c.otherNightOrder ?? 0,
+    }))
+    return { playableCharacters: toChars(script?.characters), travelersInPlay: toChars(script?.travelers), fabledInPlay: toChars(script?.fabled) }
+  }, [script])
+  const save = async () => {
+    setSaving(true)
+    await saveCharacterInfosImage(data, script?.name ?? '')
+    setSaving(false)
+  }
+  return <PhoneAllCharacterInfos data={data} isSavingImage={saving} onSave={() => { void save() }} onClose={onClose} />
+}
+
+const winnerText = (w: string) => (w === 'evil' ? '邪恶阵营胜利' : '善良阵营胜利')
+
+/** 游戏结束：赢了放礼炮、显示胜利，输了显示失败；下面是复盘（时间线和 AI 复盘） */
+function EndView() {
+  const ended = usePlayer((s) => s.room?.ended)
+  const seat = usePlayer((s) => s.seat)
+  const final = usePlayer((s) => s.final)
+  const [replay, setReplay] = useState(0)
+  const game = (final?.game ?? null) as GameSaveData | null
+  const recap = useMemo(() => normalizeRecap(final?.recap ?? null), [final])
+  const [tab, setTab] = useState<'timeline' | 'recap'>('timeline')
+  const [poster, setPoster] = useState<Blob | null>(null)
+  const [posterURL, setPosterURL] = useState('')
+
+  // AI 复盘到了：画成长图（先用手上有的图标画，再补下载缺的图标重画），并切过去
+  useEffect(() => {
+    if (!game || !recap) return
+    let cancelled = false
+    setTab('recap')
+    ;(async () => {
+      const first = await renderRecapPoster(game, recap)
+      if (cancelled) return
+      setPoster(first)
+      const missing = [...new Set(game.playersAssignedCharacters.map((c) => c.imageURL).filter((u) => u && !iconIsCached(u)))]
+      if (!missing.length) return
+      await fetchIcons(missing, 8000)
+      const again = await renderRecapPoster(game, recap)
+      if (!cancelled && again) setPoster(again)
+    })()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [final])
+  useEffect(() => {
+    if (!poster) { setPosterURL(''); return }
+    const url = URL.createObjectURL(poster)
+    setPosterURL(url)
+    return () => URL.revokeObjectURL(url)
+  }, [poster])
+
+  if (!ended) return null
+  const won = seat >= 0 && seat < ended.results.length ? ended.results[seat] : null
+  const color = ended.winner === 'evil' ? 'var(--demon)' : 'var(--townsfolk)'
+
+  const savePoster = async () => {
+    if (!poster) return
+    const file = new File([poster], `${game?.playName || '复盘'}-复盘.png`, { type: 'image/png' })
+    if (navigator.canShare?.({ files: [file] })) {
+      try { await navigator.share({ files: [file] }) } catch { /* 取消了 */ }
+      return
+    }
+    const a = document.createElement('a')
+    a.href = posterURL
+    a.download = file.name
+    a.click()
+  }
+
   return (
-    <div style={{ ...page, zIndex: 40, gap: 12 }}>
-      <div style={{ display: 'flex', alignItems: 'center' }}>
-        <div style={{ ...rounded(22, 900), flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{script?.name || '全部角色'}</div>
-        <button aria-label="关闭" onClick={onClose} style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--ink)', color: 'var(--mainbg)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <SFIcon name="xmark" size={22} weight="bold" />
-        </button>
-      </div>
-      <div className="scroll-hidden" style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {groups.length === 0 ? <div style={{ ...rounded(16, 600), opacity: 0.6 }}>说书人还没选剧本</div> : null}
-        {groups.map(({ team, list }) => (
-          <div key={team} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ ...rounded(17, 900), color: teamColor[team] }}>{teamName[team]}</div>
-            {list.map((c) => (
-              <div key={c.name} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                <div style={{ width: 48, height: 48, borderRadius: '50%', flexShrink: 0, background: 'var(--paper)' }}>
-                  <CachedImage url={c.imageURL} size={48} />
-                </div>
-                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <div style={{ ...rounded(17, 900), color: teamColor[team] }}>{c.name}</div>
-                  <div style={{ ...rounded(15, 600), lineHeight: 1.4 }}>{c.ability}</div>
-                </div>
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {won ? <Confetti replay={replay} /> : null}
+      <button
+        onClick={() => { if (won) setReplay((r) => r + 1) }}
+        style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '18px 12px', borderRadius: 20, flexShrink: 0,
+          background: won ? color : 'transparent', color: won ? 'var(--goodTextBg)' : 'var(--ink)',
+          border: won ? 'none' : '3px solid var(--ink)', animation: 'st-rise .4s cubic-bezier(.2,.8,.2,1)',
+        }}
+      >
+        <span style={rounded(won === null ? 30 : 44, 900)}>{won === null ? winnerText(ended.winner) : won ? '胜利！' : '失败'}</span>
+        <span style={{ ...rounded(16, 800), opacity: 0.85 }}>{won === null ? '游戏结束' : `游戏结束 · ${winnerText(ended.winner)}`}</span>
+      </button>
+      {!game ? (
+        <div style={{ ...rounded(15, 600), opacity: 0.6, textAlign: 'center' }}>正在取复盘…</div>
+      ) : (
+        <>
+          <STChoiceRow<'timeline' | 'recap'> options={[['timeline', '时间线'], ['recap', 'AI 复盘']]} value={tab} onChange={setTab} />
+          <div className="scroll-hidden" style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, paddingBottom: 8 }}>
+            {tab === 'timeline' ? <ReviewTimeline game={game} /> : posterURL ? (
+              <>
+                <img src={posterURL} alt="复盘长图" style={{ width: '100%', height: 'auto', display: 'block', borderRadius: 12, border: '2px solid var(--ink)', flexShrink: 0 }} />
+                <button style={bigButton(false)} onClick={() => { void savePoster() }}>保存图片</button>
+              </>
+            ) : (
+              <div style={{ ...rounded(15, 600), opacity: 0.6, textAlign: 'center', marginTop: 20, lineHeight: 1.5 }}>
+                {recap ? '正在画复盘图…' : '说书人那边生成 AI 复盘后，会自动显示在这里'}
               </div>
-            ))}
+            )}
           </div>
-        ))}
-      </div>
+        </>
+      )}
     </div>
   )
 }

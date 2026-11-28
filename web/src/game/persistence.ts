@@ -36,6 +36,7 @@ export function makeSaveData(s: GameState = useGame.getState()): GameSaveData {
     selectedFabledCharacters: s.selectedFabledCharacters,
     globalStates: s.globalStates,
     gameID: s.gameID,
+    winner: s.gameWinner,
   }
 }
 
@@ -69,6 +70,7 @@ export function applySaveData(d: GameSaveData) {
     selectedFabledCharacters: d.selectedFabledCharacters,
     globalStates: d.globalStates,
     gameID: d.gameID || uuid(),
+    gameWinner: d.winner ?? '',
   })
 }
 

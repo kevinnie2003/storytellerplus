@@ -91,6 +91,8 @@ export interface GameSaveData {
   selectedFabledCharacters: Character[]
   globalStates: Reminder[]
   gameID?: string
+  /** 结束游戏时说书人选的胜利方：good / evil，没结束是空 */
+  winner?: string
 }
 
 export const defaultCharacter: Character = {

@@ -105,7 +105,7 @@ function NightOrderColumn({ top, bottom, orders, exportImages }: {
   )
 }
 
-interface LayoutData {
+export interface LayoutData {
   playableCharacters: Character[]
   travelersInPlay: Character[]
   fabledInPlay: Character[]
@@ -167,31 +167,14 @@ function AllCharacterInfosView() {
 
   const saveAsImage = async () => {
     setIsSavingImage(true)
-    try {
-      const s = game()
-      const exportData = { playableCharacters: s.playableCharacters, travelersInPlay: s.travelers, fabledInPlay: s.fabled }
-      const urls = [
-        ...s.playableCharacters.map((c) => c.imageURL),
-        ...s.travelers.map((c) => c.imageURL),
-        ...s.fabled.map((c) => c.imageURL),
-        minionInfo.imageURL, demonInfo.imageURL,
-      ]
-      const images = await preloadImages(urls)
-      const dataUrl = await renderToPng(
-        <div style={{ width: 960, padding: '30px 30px', background: 'var(--mainbg)' }}>
-          <LayoutContent data={exportData} exportImages={images} />
-        </div>,
-        960,
-      )
-      await saveImages([{ name: timestampName(s.playName ? `角色能力-${s.playName}` : '角色能力'), dataUrl }])
-    } catch (e) {
-      console.error('Failed to render all character infos image.', e)
-    } finally {
-      setIsSavingImage(false)
-    }
+    const s = game()
+    await saveCharacterInfosImage({ playableCharacters: s.playableCharacters, travelersInPlay: s.travelers, fabledInPlay: s.fabled }, s.playName)
+    setIsSavingImage(false)
   }
 
-  if (compact) return <PhoneAllCharacterInfos data={data} isSavingImage={isSavingImage} onSave={saveAsImage} />
+  if (compact) {
+    return <PhoneAllCharacterInfos data={data} isSavingImage={isSavingImage} onSave={saveAsImage} onClose={() => setGame({ showAllCharacterInfos: false })} />
+  }
 
   return (
     // iPad 上背景 ignoresSafeArea 把整个 ZStack 撑满屏幕：右上角的按钮离屏幕顶 20，ScrollView 也铺满整屏、内容从安全区下面开始
@@ -223,8 +206,36 @@ function AllCharacterInfosView() {
   )
 }
 
-// 手机版：一栏排下来。上面是首夜、其他夜晚的顺序（一排图标），下面每类角色一组
-function PhoneAllCharacterInfos({ data, isSavingImage, onSave }: { data: LayoutData; isSavingImage: boolean; onSave: () => void }) {
+/** 存成长图（iPad 那种两栏、左右是夜晚顺序的样子） */
+export async function saveCharacterInfosImage(data: LayoutData, playName: string) {
+  try {
+    const urls = [
+      ...data.playableCharacters.map((c) => c.imageURL),
+      ...data.travelersInPlay.map((c) => c.imageURL),
+      ...data.fabledInPlay.map((c) => c.imageURL),
+      minionInfo.imageURL, demonInfo.imageURL,
+    ]
+    const images = await preloadImages(urls)
+    const dataUrl = await renderToPng(
+      <div style={{ width: 960, padding: '30px 30px', background: 'var(--mainbg)' }}>
+        <LayoutContent data={data} exportImages={images} />
+      </div>,
+      960,
+    )
+    await saveImages([{ name: timestampName(playName ? `角色能力-${playName}` : '角色能力'), dataUrl }])
+  } catch (e) {
+    console.error('Failed to render all character infos image.', e)
+  }
+}
+
+// 手机版：一栏排下来。上面是首夜、其他夜晚的顺序（一排图标），下面每类角色一组。
+// 说书人联机的玩家页面也用这一页（玩家看到的和说书人一样）
+export function PhoneAllCharacterInfos({ data, isSavingImage, onSave, onClose }: {
+  data: LayoutData
+  isSavingImage: boolean
+  onSave: () => void
+  onClose: () => void
+}) {
   const { playableCharacters: playable, travelersInPlay, fabledInPlay } = data
   const travelerNames = travelersInPlay.map((c) => c.name)
   const { first, other } = nightOrders(playable)
@@ -249,7 +260,7 @@ function PhoneAllCharacterInfos({ data, isSavingImage, onSave }: { data: LayoutD
     <MobilePage
       title="全部角色能力"
       zIndex={115}
-      onClose={() => setGame({ showAllCharacterInfos: false })}
+      onClose={onClose}
       right={<HeaderButton icon="square.and.arrow.down" label={isSavingImage ? '存图中' : '存图'} onClick={onSave} disabled={isSavingImage} />}
       bodyStyle={{ padding: '12px 12px calc(24px + env(safe-area-inset-bottom))', gap: 14 }}
     >
