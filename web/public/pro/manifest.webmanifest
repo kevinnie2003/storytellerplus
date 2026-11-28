@@ -1,0 +1,15 @@
+{
+  "name": "说书人普肉",
+  "short_name": "说书人普肉",
+  "description": "血染钟楼线下联机：玩家用手机收说书人的夜晚信息",
+  "lang": "zh-CN",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#dedacd",
+  "theme_color": "#dedacd",
+  "icons": [
+    { "src": "../icon.jpg", "sizes": "1024x1024", "type": "image/jpeg", "purpose": "any" }
+  ]
+}

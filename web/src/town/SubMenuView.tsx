@@ -5,6 +5,7 @@ import { addPlayer, canRemoveLastPlayer, randomAssign, removeLastPlayer, startGa
 import { SFIcon } from '../ui/SFIcon'
 import { rounded } from '../ui/kit'
 import { useCompact } from '../ui/compact'
+import { useHost } from '../net/host'
 
 function Row({ title, icon, onClick }: { title: string; icon: string; onClick: () => void }) {
   return (
@@ -36,6 +37,7 @@ export function SubMenuView() {
   const hideTeamColors = useSettings((s) => s.hideTeamColors)
   const close = () => setGame({ showMenu: false })
   const compact = useCompact()
+  const roomCode = useHost((s) => s.code)
 
   return (
     <>
@@ -90,6 +92,7 @@ export function SubMenuView() {
           icon={hideTeamColors ? 'eye' : 'eye.slash'}
           onClick={() => settings().set('hideTeamColors', !hideTeamColors)}
         />
+        <Row title={roomCode ? `说书人普肉 · ${roomCode}` : '说书人普肉（联机）'} icon="person.2" onClick={() => { setGame({ showMenu: false }); useHost.setState({ showPanel: true }) }} />
         <Row title="存档" icon="tray.full" onClick={() => setGame({ showMenu: false, showArchive: true })} />
         <Row title="设置" icon="gearshape" onClick={() => setGame({ showMenu: false, showSettings: true })} />
       </div>

@@ -1,0 +1,416 @@
+// 说书人普肉（玩家端）：输入房间号、选座位，夜里看手机收说书人的信息、选人回传
+import { useEffect, useMemo, useState } from 'react'
+import { CODE_LENGTH, normalizeCode, type RoomMessage } from '../net/protocol'
+import { ackMessage, answerVote, claimSeat, joinRoom, leaveRoom, respondMessage, savedPlayerRoom, usePlayer } from '../net/player'
+import { relayURL } from '../net/relay'
+import { CachedImage } from '../ui/CachedImage'
+import { SFIcon } from '../ui/SFIcon'
+import { mono, rounded } from '../ui/kit'
+import { AlertHost, showAlert } from '../ui/Alert'
+
+const teamColor: Record<string, string> = {
+  townsfolk: 'var(--townsfolk)', outsider: 'var(--outsider)', minion: 'var(--minion)', demon: 'var(--demon)',
+  traveler: 'var(--traveler)', fabled: 'var(--fabled)',
+}
+const teamName: Record<string, string> = {
+  townsfolk: '镇民', outsider: '外来者', minion: '爪牙', demon: '恶魔', traveler: '旅行者', fabled: '传奇角色',
+}
+
+const page: React.CSSProperties = {
+  position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column', background: 'var(--mainbg)', color: 'var(--ink)',
+  paddingTop: 'max(14px, env(safe-area-inset-top))', paddingBottom: 'max(14px, env(safe-area-inset-bottom))',
+  paddingLeft: 16, paddingRight: 16,
+}
+const bigButton = (filled = true, disabled = false): React.CSSProperties => ({
+  ...rounded(19, 900), width: '100%', padding: '15px 0', borderRadius: 16, textAlign: 'center',
+  background: filled ? 'var(--ink)' : 'transparent', color: filled ? 'var(--mainbg)' : 'var(--ink)',
+  border: '3px solid var(--ink)', opacity: disabled ? 0.35 : 1, flexShrink: 0,
+})
+const field: React.CSSProperties = {
+  ...rounded(17, 700), width: '100%', padding: '12px 14px', borderRadius: 14, border: '3px solid var(--ink)',
+  background: 'var(--paper)', color: 'var(--ink)', outline: 'none',
+}
+
+/** 屏幕保持常亮：入座以后一直开着，切回来时再要一次 */
+function useWakeLock(on: boolean) {
+  useEffect(() => {
+    if (!on || !('wakeLock' in navigator)) return
+    let lock: WakeLockSentinel | null = null
+    let alive = true
+    const request = async () => {
+      if (document.visibilityState !== 'visible') return
+      try { lock = await navigator.wakeLock.request('screen') } catch { /* 不支持或者没允许 */ }
+      if (!alive) lock?.release().catch(() => {})
+    }
+    void request()
+    document.addEventListener('visibilitychange', request)
+    return () => {
+      alive = false
+      document.removeEventListener('visibilitychange', request)
+      lock?.release().catch(() => {})
+    }
+  }, [on])
+}
+
+/** 夜里变深色，和魔典一样 */
+function useNightTheme(night: boolean) {
+  useEffect(() => {
+    document.documentElement.dataset.theme = night ? 'dark' : 'light'
+  }, [night])
+}
+
+export function PlayerApp() {
+  const code = usePlayer((s) => s.code)
+  const seat = usePlayer((s) => s.seat)
+  const night = usePlayer((s) => !!s.room?.night && s.seat >= 0)
+  useNightTheme(night)
+  useWakeLock(seat >= 0)
+
+  // 打开时：网址里带了房间号就进那个房间，否则回到上次的房间
+  useEffect(() => {
+    const fromURL = normalizeCode(new URLSearchParams(location.search).get('room') ?? '')
+    const target = fromURL.length === CODE_LENGTH ? fromURL : savedPlayerRoom()
+    if (target) joinRoom(target)
+  }, [])
+
+  return (
+    <>
+      {!code ? <JoinScreen /> : seat < 0 ? <SeatScreen /> : <SeatedScreen />}
+      <AlertHost />
+    </>
+  )
+}
+
+// ——— 输入房间号 ———
+function JoinScreen() {
+  const error = usePlayer((s) => s.error)
+  const [text, setText] = useState('')
+  const value = normalizeCode(text)
+  const ready = value.length === CODE_LENGTH
+  const noRelay = !relayURL()
+  return (
+    <div className="dot-bg" style={{ ...page, justifyContent: 'center', gap: 22 }}>
+      <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={rounded(36, 900)}>说书人普肉</div>
+        <div style={{ ...rounded(15, 600), opacity: 0.65 }}>血染钟楼线下联机：夜里用手机收说书人的信息</div>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 420, alignSelf: 'center' }}>
+        <div style={rounded(17, 800)}>房间号（问说书人要）</div>
+        <input
+          value={value}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && ready) joinRoom(value) }}
+          placeholder="K7Q2"
+          autoCapitalize="characters"
+          autoCorrect="off"
+          autoComplete="off"
+          spellCheck={false}
+          inputMode="text"
+          style={{ ...field, ...mono(30, 900), textAlign: 'center', letterSpacing: 10, padding: '12px 0' }}
+        />
+        {error ? <div style={{ ...rounded(15, 700), color: 'var(--warningRed)' }}>{error}</div> : null}
+        {noRelay ? <div style={{ ...rounded(15, 700), color: 'var(--warningRed)' }}>联机服务还没有设置好，暂时用不了</div> : null}
+        <button style={bigButton(true, !ready)} disabled={!ready} onClick={() => joinRoom(value)}>进入房间</button>
+      </div>
+    </div>
+  )
+}
+
+function StatusDot() {
+  const status = usePlayer((s) => s.status)
+  const hostOnline = usePlayer((s) => s.room?.hostOnline ?? false)
+  const ok = status === 'online'
+  const label = !ok ? (status === 'connecting' ? '连接中' : '断线重连中') : hostOnline ? '已连接' : '说书人不在线'
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, ...rounded(13, 700), opacity: 0.8 }}>
+      <span style={{ width: 9, height: 9, borderRadius: '50%', background: ok && hostOnline ? '#34c759' : ok ? '#ff9f0a' : '#ff3b30' }} />
+      {label}
+    </span>
+  )
+}
+
+// ——— 选座位 ———
+function SeatScreen() {
+  const code = usePlayer((s) => s.code)
+  const room = usePlayer((s) => s.room)
+  const error = usePlayer((s) => s.error)
+  const [name, setName] = useState(() => { try { return localStorage.getItem('RoomPlayerName') ?? '' } catch { return '' } })
+  const pick = (i: number) => {
+    try { localStorage.setItem('RoomPlayerName', name) } catch { /* 存不了就算了 */ }
+    claimSeat(i, name.trim())
+  }
+  return (
+    <div className="dot-bg" style={{ ...page, gap: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ flex: 1 }}>
+          <div style={rounded(22, 900)}>房间 {code}</div>
+          <StatusDot />
+        </div>
+        <button onClick={() => leaveRoom()} style={{ ...rounded(15, 800), padding: '8px 14px', borderRadius: 999, border: '2.5px solid var(--ink)' }}>换房间</button>
+      </div>
+      {!room ? (
+        <div style={{ ...rounded(16, 600), opacity: 0.7, textAlign: 'center', marginTop: 40 }}>正在进入房间…</div>
+      ) : (
+        <div className="scroll-hidden" style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={rounded(17, 800)}>你的名字（可以不填）</div>
+            <input value={name} onChange={(e) => setName(e.target.value.slice(0, 20))} placeholder="方便说书人认出你" style={field} />
+          </div>
+          <div style={rounded(17, 800)}>点你坐的座位号</div>
+          {room.seats.length === 0 ? (
+            <div style={{ ...rounded(15, 600), opacity: 0.7 }}>说书人还没定人数，请稍等</div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(72px, 1fr))', gap: 10 }}>
+              {room.seats.map((s, i) => (
+                <button
+                  key={i}
+                  disabled={s.taken}
+                  onClick={() => pick(i)}
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
+                    height: 72, borderRadius: 16, border: '3px solid var(--ink)', color: 'var(--ink)',
+                    background: s.taken ? 'transparent' : 'var(--paper)', opacity: s.taken ? 0.4 : 1,
+                  }}
+                >
+                  <span style={rounded(24, 900)}>{i + 1}</span>
+                  <span style={{ ...rounded(12, 700), maxWidth: '90%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {s.taken ? (s.name || '有人') : '空'}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+          {error ? <div style={{ ...rounded(15, 700), color: 'var(--warningRed)' }}>{error}</div> : null}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ——— 入座以后 ———
+function SeatedScreen() {
+  const code = usePlayer((s) => s.code)
+  const seat = usePlayer((s) => s.seat)
+  const name = usePlayer((s) => s.name)
+  const room = usePlayer((s) => s.room)
+  const inbox = usePlayer((s) => s.inbox)
+  const [showHistory, setShowHistory] = useState(false)
+
+  // 还没回复的，最早的那条先处理
+  // 投票要马上回，排在最前面
+  const pending = useMemo(() => inbox.find((m) => !m.readAt && m.kind === 'vote') ?? inbox.find((m) => !m.readAt), [inbox])
+  const role = useMemo(() => [...inbox].reverse().find((m) => m.kind === 'role')?.role, [inbox])
+
+  return (
+    <div style={{ ...page, gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+        <div style={{
+          width: 48, height: 48, borderRadius: '50%', background: 'var(--ink)', color: 'var(--mainbg)', flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', ...rounded(24, 900),
+        }}>{seat + 1}</div>
+        <div style={{ flex: 1, minWidth: 0, lineHeight: 1.2 }}>
+          <div style={{ ...rounded(18, 900), whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {seat + 1}号{name ? ` · ${name}` : ''}{room?.phase ? ` · ${room.phase}` : ''}
+          </div>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <span style={{ ...rounded(13, 700), opacity: 0.6 }}>房间 {code}</span>
+            <StatusDot />
+          </div>
+        </div>
+        <button
+          aria-label="记录"
+          onClick={() => setShowHistory(true)}
+          style={{ width: 44, height: 44, borderRadius: '50%', border: '2.5px solid var(--ink)', color: 'var(--ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+        >
+          <SFIcon name="list.bullet.clipboard" size={22} />
+        </button>
+      </div>
+
+      {room?.banner ? (
+        <div style={{ ...rounded(15, 800), lineHeight: 1.35, padding: '8px 12px', borderRadius: 12, background: 'var(--ink)', color: 'var(--mainbg)', flexShrink: 0 }}>
+          {room.banner}
+        </div>
+      ) : null}
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        {pending ? <PendingMessage key={pending.id} message={pending} /> : <Waiting night={!!room?.night} setup={!room?.phase || room.phase === '配版'} />}
+      </div>
+
+      {!pending && role ? <RoleHold role={role} /> : null}
+      {showHistory ? <History onClose={() => setShowHistory(false)} /> : null}
+    </div>
+  )
+}
+
+function Waiting({ night, setup }: { night: boolean; setup: boolean }) {
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, textAlign: 'center' }}>
+      <SFIcon name={night ? 'moon' : setup ? 'checkmark.circle.fill' : 'sun.min'} size={56} />
+      <div style={rounded(24, 900)}>{night ? '请看着手机' : setup ? '已入座' : '白天'}</div>
+      <div style={{ ...rounded(16, 600), opacity: 0.6, lineHeight: 1.4 }}>
+        {night ? '等待说书人。有你的信息会直接显示在这里'
+          : setup ? '说书人正在准备，游戏开始后这里会显示你的角色和夜里的信息。请保持这个页面开着'
+          : '天亮了，可以放下手机讨论。入夜后说书人会通过这里发信息'}
+      </div>
+    </div>
+  )
+}
+
+/** 一条要处理的：信息、选人、角色、全员同步的确认 */
+function PendingMessage({ message: m }: { message: RoomMessage }) {
+  const seats = usePlayer((s) => s.room?.seats.length ?? 0)
+  const mySeat = usePlayer((s) => s.seat)
+  const [picks, setPicks] = useState<number[]>([])
+  const count = Math.max(1, m.count ?? 1)
+
+  if (m.kind === 'choose') {
+    const toggle = (i: number) => setPicks((p) => (p.includes(i) ? p.filter((x) => x !== i) : p.length >= count ? [...p.slice(1), i] : [...p, i]))
+    return (
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ ...rounded(26, 900), textAlign: 'center', marginTop: 8 }}>请选 {count} 名玩家</div>
+        {m.text ? <div style={{ ...rounded(16, 600), opacity: 0.75, textAlign: 'center', lineHeight: 1.4 }}>{m.text}</div> : null}
+        <div className="scroll-hidden" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(64px, 1fr))', gap: 10 }}>
+            {Array.from({ length: seats }, (_, i) => {
+              const on = picks.includes(i)
+              return (
+                <button
+                  key={i}
+                  onClick={() => toggle(i)}
+                  style={{
+                    height: 64, borderRadius: '50%', aspectRatio: '1', justifySelf: 'center', ...rounded(24, 900),
+                    border: '3px solid var(--ink)', background: on ? 'var(--ink)' : 'transparent', color: on ? 'var(--mainbg)' : 'var(--ink)',
+                    outline: i === mySeat ? '2px dashed var(--ink)' : 'none', outlineOffset: 3,
+                  }}
+                >{i + 1}</button>
+              )
+            })}
+          </div>
+        </div>
+        <button
+          style={bigButton(true, picks.length === 0)}
+          disabled={picks.length === 0}
+          onClick={() => respondMessage(m.id, [...picks].sort((a, b) => a - b))}
+        >
+          {picks.length ? `确认 ${[...picks].sort((a, b) => a - b).map((p) => `${p + 1}号`).join(' ')}` : '先点座位号'}
+        </button>
+      </div>
+    )
+  }
+
+  if (m.kind === 'role' && m.role) {
+    return (
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16, justifyContent: 'center' }}>
+        <div style={{ ...rounded(18, 800), textAlign: 'center', opacity: 0.7 }}>你的角色（别让旁边的人看到）</div>
+        <RoleCard role={m.role} />
+        <button style={bigButton()} onClick={() => ackMessage(m.id)}>记住了</button>
+      </div>
+    )
+  }
+
+  if (m.kind === 'vote') {
+    return (
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16, justifyContent: 'center', textAlign: 'center' }}>
+        <div style={{ ...rounded(16, 800), opacity: 0.6 }}>轮到你投票了</div>
+        <div style={{ ...rounded(34, 900), lineHeight: 1.25 }}>{m.text}</div>
+        {m.note ? (
+          <div style={{ ...rounded(16, 800), lineHeight: 1.4, color: 'var(--warningRed)', padding: '10px 12px', borderRadius: 14, border: '2.5px solid var(--warningRed)' }}>{m.note}</div>
+        ) : null}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 16 }}>
+          <button style={bigButton()} onClick={() => answerVote(m.id, true)}>举手投票</button>
+          <button style={bigButton(false)} onClick={() => answerVote(m.id, false)}>不投</button>
+        </div>
+      </div>
+    )
+  }
+
+  if (m.kind === 'idle') {
+    return (
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16, justifyContent: 'center', textAlign: 'center' }}>
+        <div style={rounded(24, 900)}>这一步没有你的信息</div>
+        <div style={{ ...rounded(16, 600), opacity: 0.6, lineHeight: 1.4 }}>大家同时点确认，别人就看不出谁被唤醒了</div>
+        <button style={{ ...bigButton(), marginTop: 20 }} onClick={() => ackMessage(m.id)}>确认</button>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ ...rounded(16, 800), textAlign: 'center', opacity: 0.6, marginTop: 6 }}>说书人给你的信息</div>
+      <div className="scroll-hidden" style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ ...rounded(m.text.length > 40 ? 26 : m.text.length > 16 ? 34 : 46, 900), textAlign: 'center', lineHeight: 1.3, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+          {m.text}
+        </div>
+      </div>
+      <button style={bigButton()} onClick={() => ackMessage(m.id)}>知道了</button>
+    </div>
+  )
+}
+
+function RoleCard({ role }: { role: NonNullable<RoomMessage['role']> }) {
+  const color = teamColor[role.team] ?? 'var(--neutralTeam)'
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: '20px 16px', borderRadius: 22, background: color, color: 'var(--goodTextBg)' }}>
+      <div style={{ width: 96, height: 96, borderRadius: '50%', background: 'var(--goodTextBg)' }}>
+        <CachedImage url={role.imageURL} size={96} />
+      </div>
+      <div style={rounded(30, 900)}>{role.name}</div>
+      <div style={{ ...rounded(14, 800), opacity: 0.8 }}>{teamName[role.team] ?? ''}</div>
+      <div style={{ ...rounded(16, 600), lineHeight: 1.4, textAlign: 'center' }}>{role.ability}</div>
+    </div>
+  )
+}
+
+/** 按住才显示自己的角色，松手就藏起来 */
+function RoleHold({ role }: { role: NonNullable<RoomMessage['role']> }) {
+  const [show, setShow] = useState(false)
+  return (
+    <>
+      <button
+        onPointerDown={() => setShow(true)}
+        onPointerUp={() => setShow(false)}
+        onPointerLeave={() => setShow(false)}
+        onPointerCancel={() => setShow(false)}
+        onContextMenu={(e) => e.preventDefault()}
+        style={{ ...bigButton(false), userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}
+      >按住查看我的角色</button>
+      {show ? (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'var(--mainbg)', display: 'flex', alignItems: 'center', padding: 20, pointerEvents: 'none' }}>
+          <div style={{ width: '100%' }}><RoleCard role={role} /></div>
+        </div>
+      ) : null}
+    </>
+  )
+}
+
+function History({ onClose }: { onClose: () => void }) {
+  const inbox = usePlayer((s) => s.inbox)
+  const list = inbox.filter((m) => m.kind !== 'idle' && !m.cancelled).reverse()
+  return (
+    <div style={{ ...page, zIndex: 40, gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        <div style={{ ...rounded(22, 900), flex: 1 }}>收到的信息</div>
+        <button aria-label="关闭" onClick={onClose} style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--ink)', color: 'var(--mainbg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <SFIcon name="xmark" size={22} weight="bold" />
+        </button>
+      </div>
+      <div className="scroll-hidden" style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {list.length === 0 ? <div style={{ ...rounded(16, 600), opacity: 0.6 }}>还没有收到信息</div> : null}
+        {list.map((m) => (
+          <div key={m.id} style={{ padding: '10px 14px', borderRadius: 14, border: '2.5px solid var(--ink)', display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <div style={{ ...rounded(13, 700), opacity: 0.6 }}>{m.phase || ' '}</div>
+            <div style={{ ...rounded(18, 800), lineHeight: 1.35, whiteSpace: 'pre-wrap' }}>
+              {m.kind === 'text' ? m.text
+                : m.kind === 'choose' ? `选 ${m.count ?? 1} 人${m.text ? `：${m.text}` : ''}${m.picks ? ` → ${m.picks.map((p) => `${p + 1}号`).join('、')}` : '（还没选）'}`
+                : m.kind === 'role' ? `你的角色：${m.role?.name ?? ''}`
+                : m.kind === 'vote' ? `${m.text.replace(/吗？$/, '')}：${m.answer ? '投了' : '没投'}` : ''}
+            </div>
+          </div>
+        ))}
+        <button onClick={() => showAlert({
+          title: '离开座位？', message: '离开后别人可以坐这个位置，你要重新选座位。',
+          buttons: [{ label: '取消', role: 'cancel' }, { label: '离开', role: 'destructive', action: () => { leaveRoom(true); onClose() } }],
+        })} style={{ ...bigButton(false), marginTop: 20 }}>离开座位</button>
+      </div>
+    </div>
+  )
+}

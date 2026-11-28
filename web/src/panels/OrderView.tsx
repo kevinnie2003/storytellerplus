@@ -10,6 +10,7 @@ import { usePress } from '../ui/gestures'
 import { ScrollColumn, TabCell } from './common'
 import { edgeBorder } from './style'
 import { useCompact } from '../ui/compact'
+import { OrderActions } from '../online/OrderActions'
 
 const ease = 'opacity .3s ease-in-out, transform .3s ease-in-out'
 // 提示文字收 0.3 字距：iPad 上 15 号字的汉字约 14.7 宽（系统字体的 tracking），一行能多排一个字
@@ -37,6 +38,8 @@ function NightRow({ info, isAlive, opacity, scale }: { info: OrderInfo; isAlive:
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
           <div style={{ ...rounded(20, 700), whiteSpace: 'pre-wrap' }}>{`${idText}${isAlive ? '' : '  已死亡'}  ${info.characterName}`}</div>
           <div style={{ ...rounded(15, 600), letterSpacing: -0.3 }}>{info.reminder}</div>
+          {/* 说书人普肉：开着房间时，发信息、让他选 */}
+          <OrderActions info={info} />
         </div>
       </div>
     </div>

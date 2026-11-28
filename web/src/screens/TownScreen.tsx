@@ -37,6 +37,8 @@ import { AIPostDrawSheet } from '../ai/AIPostDrawSheet'
 import { uuid } from '../game/uuid'
 import { useCompact } from '../ui/compact'
 import { MobileTown } from '../mobile/MobileTown'
+import { RoomPanel } from '../online/RoomPanel'
+import { resumeHost, stopHost } from '../net/host'
 
 /**
  * iPad Pro 11 寸横屏（iPadOS 26）的状态栏和底部横条留出的位置，界面和 iPad 上一样不顶到上下边。
@@ -169,6 +171,8 @@ export function TownScreen() {
   // onAppear / onDisappear，以及各种时候存档
   useLayoutEffect(() => {
     initTown()
+    // 说书人普肉：这一局开过房间就连回去
+    resumeHost()
     const s0 = useGame.getState()
     settings().set('gameIsNight', s0.gameState === 1 || s0.gameState === 3)
     prefetchImages([...s0.characters.map((c) => c.imageURL), ...s0.selectedFabledCharacters.map((c) => c.imageURL)])
@@ -208,6 +212,7 @@ export function TownScreen() {
       settings().set('gameIsNight', false)
       saveGame()
       clearUndo()
+      stopHost()
       // iPad 版的 AI 对话是 StoryTellerView 的 @State，离开小镇就没了
       resetAIChat()
     }
@@ -298,6 +303,7 @@ export function TownScreen() {
       <AIPostDrawSheet open={showAIPostDraw} onClose={() => setGame({ showAIPostDraw: false })} />
       <SettingsView open={showSettings} onClose={() => setGame({ showSettings: false, predefinedTags: settings().notepadTags })} />
       {demo ? <DemoTour /> : null}
+      <RoomPanel />
       <ArchiveView open={showArchive} onClose={() => setGame({ showArchive: false })} currentGameID={gameID} onLoad={(id) => { void loadArchive(id) }} />
     </div>
   )

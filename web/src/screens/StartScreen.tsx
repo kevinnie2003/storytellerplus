@@ -117,6 +117,11 @@ export function StartScreen() {
           <FilledQuestionCircle size={20} />
           <span>新手教程</span>
         </button>
+        {/* 玩家走错了地方：带他去说书人普肉 */}
+        <a
+          href={`${import.meta.env.BASE_URL}pro/`}
+          style={{ ...rounded(15, 700), pointerEvents: 'auto', color: 'var(--ink)', opacity: 0.75, textDecoration: 'underline', textUnderlineOffset: 3 }}
+        >我是玩家：打开说书人普肉，输入房间号</a>
         <div style={compact
           // 手机上一行放不下，字小一点、居中换行
           ? { fontFamily: 'system-ui, -apple-system, "PingFang SC", sans-serif', fontSize: 13, lineHeight: '18px', textAlign: 'center', padding: '0 24px', opacity: 0.8 }

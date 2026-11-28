@@ -14,16 +14,11 @@ import { VotingView } from '../panels/VotingView'
 import { ExtraSetup } from '../panels/ExtraSetup'
 import { InfoPage } from './InfoPage'
 import { setMobileUI, useMobileUI } from './uiStore'
+import { phaseLabel } from '../game/phase'
 
-/** 第几天、第几夜：数记录里的“白天”“夜晚” */
+/** 第几天、第几夜 */
 function usePhaseLabel() {
-  const gameState = useGame((s) => s.gameState)
-  const days = useGame((s) => s.allLogs.filter((l) => l.type === 10).length)
-  const nights = useGame((s) => s.allLogs.filter((l) => l.type === 11).length)
-  if (gameState === 0) return '配版'
-  if (gameState === 1) return '第一夜'
-  if (gameState === 2) return `第${Math.max(1, days)}天`
-  return `第${nights + 1}夜`
+  return useGame((s) => phaseLabel(s.gameState, s.allLogs))
 }
 
 function IconButton({ icon, onClick, color, label, tour, filled }: {

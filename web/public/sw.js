@@ -81,6 +81,8 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (DEV || !isShellPath(url)) return
+  // 玩家用的“说书人普肉”（pro/）要联网才能用，不走缓存，也不能把它的页面存成魔典的首页
+  if (url.href.startsWith(SCOPE + 'pro/') || url.href === SCOPE + 'pro') return
   if (req.mode === 'navigate') {
     event.respondWith(pageNetworkFirst(req))
   } else {

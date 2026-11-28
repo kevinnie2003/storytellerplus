@@ -8,6 +8,7 @@ import { HFlow } from '../setup/cards'
 import { useCompact } from '../ui/compact'
 import { SFIcon } from '../ui/SFIcon'
 import { MobilePage } from '../mobile/MobilePage'
+import { SendBar } from '../online/SendBar'
 import { OverlayLayer, edgeBorder, panelHeight, stroke } from './common'
 
 export function Notepad() {
@@ -129,7 +130,8 @@ function NotepadView() {
               ))}
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 8, padding: '10px 12px', boxShadow: edgeBorder(3, ['top']), flexShrink: 0 }}>
+          <div style={{ boxShadow: edgeBorder(3, ['top']), flexShrink: 0 }}><SendBar text={noteText} compact /></div>
+          <div style={{ display: 'flex', gap: 8, padding: '10px 12px', flexShrink: 0 }}>
             <button style={btn()} onClick={() => setShowPredefinedTags((v) => !v)}>{showPredefinedTags ? '收起' : '预设'}</button>
             <button style={btn()} onClick={() => setNoteText('')}>清空</button>
             <button style={btn()} onClick={save}>保存</button>
@@ -189,6 +191,7 @@ function NotepadView() {
             />
             <div style={{ flex: 1 }} />
           </div>
+          <SendBar text={noteText} compact={false} />
           <div style={{ display: 'flex' }}>
             {bottomButton(showPredefinedTags ? '收起' : '预设', () => setShowPredefinedTags((v) => !v), ['trailing'])}
             {bottomButton('清空', () => setNoteText(''), ['leading', 'trailing'])}

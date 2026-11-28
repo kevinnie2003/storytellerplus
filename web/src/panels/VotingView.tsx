@@ -10,6 +10,8 @@ import { mono } from '../ui/kit'
 import { needsCareForBeingNominated, needsCareForNomination } from './care'
 import { LabeledDivider, ScrollColumn, TabCell } from './common'
 import { circleStroke, edgeBorder } from './style'
+import { usePhoneVote } from '../online/phoneVote'
+import { useHost } from '../net/host'
 
 /** 说书人在提名里用 21，特殊票：21 说书人，22–24 正票，25–27 负票 */
 const STORYTELLER = 21
@@ -152,6 +154,13 @@ export function VotingView() {
 
   // ——— 投票 ———
   const isTravelerNominee = nominatedIndex >= 0 && nominatedIndex < playerCount && teamOf(nominatedIndex) === 'traveler'
+  // 说书人普肉：开着房间时，按座位顺序问每个玩家投不投
+  const roomOnline = useHost((s) => s.status === 'online')
+  const phone = usePhoneVote({
+    active: roomOnline && votingPhase === 1 && nominatedIndex >= 0 && nominatedIndex < playerCount,
+    nominator: nominatorIndex, nominee: nominatedIndex, isTraveler: isTravelerNominee, votes: nominationVotes,
+    addVote: (seat) => setNominationVotes((v) => (v.includes(seat) ? v : [...v, seat])),
+  })
   const voteSeat = (index: number, dimUnselected: boolean) => {
     const team = teamOf(index)
     const selected = nominationVotes.includes(index)
@@ -252,6 +261,22 @@ export function VotingView() {
             // 投票从被提名者顺时针的下一位开始；后半句是实时票数，点一个投票的人就变
             <div style={{ ...mono(20, 600), color: 'color-mix(in srgb, var(--ink) 70%, transparent)', textAlign: 'center' }}>
               {`从${(nominatedIndex + 1) % playerCount + 1}号开始投票，当前${liveCount}票`}
+            </div>
+          ) : null}
+          {phone.running || phone.manual.length ? (
+            <div style={{
+              width: '100%', margin: '4px 5px 0', padding: '8px 10px', borderRadius: 10, boxShadow: circleStroke(2),
+              display: 'flex', flexDirection: 'column', gap: 6, ...mono(15, 600),
+            }}>
+              {phone.running ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ flex: 1 }}>{phone.done ? '手机投票结束' : `手机投票：等 ${phone.asking + 1}号 选`}</span>
+                  {!phone.done ? (
+                    <button onClick={phone.skip} style={{ ...mono(14, 700), padding: '4px 10px', borderRadius: 999, boxShadow: circleStroke(2) }}>跳过</button>
+                  ) : null}
+                </div>
+              ) : null}
+              {phone.manual.length ? <div style={{ opacity: 0.75 }}>{`没用手机，请手动记：${phone.manual.map((i) => `${i + 1}号`).join(' ')}`}</div> : null}
             </div>
           ) : null}
           {isTravelerNominee ? (
